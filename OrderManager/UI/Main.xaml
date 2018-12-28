@@ -1,0 +1,457 @@
+﻿<Window x:Class="AmiBroker.Controllers.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
+        xmlns:local="clr-namespace:AmiBroker.Controllers"
+        xmlns:GridLines="clr-namespace:UI.IBController"
+        Topmost="{Binding AlwaysOnTop}"
+        mc:Ignorable="d"
+        Closing="Window_Closing"        
+        Title="Order Manager" Height="450" Width="800">
+    <Window.Resources>
+        
+        <fa:IconToImageConverter x:Key="IconToImage"/>
+        <local:Ticker x:Key="ticker" />
+        <local:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+        <local:StatusToIconConverter x:Key="StatusToIconConverter" />
+        <local:StatusToIconColorConverter x:Key="StatusToIconColorConverter" />
+        <local:StatusToIconTextConverter x:Key="StatusToIconTextConverter" />
+        <local:StatusToIconImageConverter x:Key="StatusToIconImageConverter" />
+        <local:StatusToEnableConverter x:Key="StatusToEnableConverter" />
+        <local:NumToPercentageConverter x:Key="NumToPercentageConverter" />
+        <local:TimeToTextConverter x:Key="TimeToTextConverter" />
+        <local:BoolToColorConverter x:Key="BoolToColorConverter" />
+        <local:BoolToIconConverter x:Key="BoolToIconConverter" />
+        <local:StatusToReverseVisbilityConverter x:Key="StatusToReverseVisbilityConverter" />
+        <local:StatusToVisbilityConverter x:Key="StatusToVisbilityConverter" />
+        <local:ControllerToTooltipConverter x:Key="ControllerToTooltipConverter" />
+
+        <BitmapImage x:Key="ib" UriSource="/OrderManager;component/Images/ib1.png" />
+        <BitmapImage x:Key="ft" UriSource="/OrderManager;component/Images/ft1.png" />
+        
+        <!--region Disabled style for icon-->
+        <Style x:Key="ImageEnabled" TargetType="local:IconBlock">
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.25"></Setter>
+                    <Setter Property="Foreground" Value="LightGray"></Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!--region Flashing header for TabItem-->
+        <Style x:Key="FlashingHeader" TargetType="TabItem">
+            <Setter Property="TabItem.HeaderTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <!--Make The Header -->
+                        <TextBlock x:Name="header" Foreground ="Blue" Text="{Binding}"/>
+                        <!--Make The Background Flash-->
+                        <DataTemplate.Triggers>
+                            <Trigger Property="Visibility" Value="Visible">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard Storyboard.TargetName="header" AutoReverse="True" RepeatBehavior="Forever" Storyboard.TargetProperty="Foreground.Color">
+                                            <ColorAnimation To="Transparent" AutoReverse="True" Duration="0:0:0.5" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!--end of region Flashing header for TabItem-->
+        
+        <!--region GridLine for ListView-->
+        <Style x:Key="GridLineStyle" TargetType="{x:Type ListViewItem}">
+            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Padding" Value="0,2"/>
+            <Setter Property="BorderBrush" Value="LightGray"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListViewItem}">
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" 
+                                        BorderThickness="{TemplateBinding BorderThickness}" 
+                                        Background="{TemplateBinding Background}">
+                            <GridLines:GridViewRowPresenterWithGridLines 
+                                        Columns="{TemplateBinding GridView.ColumnCollection}"
+                                        Margin="{TemplateBinding Padding}" />
+                            <!-- Try setting the SeparatorStyle property of presenter
+                                        SeparatorStyle="{StaticResource SeparatorStyle}" 
+                                    -->
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!--end of region GridLine for ListView-->
+        
+        <!--region template for IB tabitem-->
+        <DataTemplate x:Key="TabItem_IBHeader" DataType="{x:Type local:IBController}">
+            <StackPanel Orientation="Horizontal">
+                <Image Source="{StaticResource ib}" Margin="2" Width="16" />
+                <TextBlock Text="{Binding DisplayName}"/>
+            </StackPanel>            
+        </DataTemplate>
+        <DataTemplate x:Key="Tab_IBContent" DataType="{x:Type local:IBController}">
+            <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <TextBlock Text="Disconnected" 
+                       FontSize="24" 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Red"
+                       Visibility="{Binding ConnectionStatus, Converter={StaticResource StatusToReverseVisbilityConverter}}"/>
+                <Grid Visibility="{Binding ConnectionStatus, Converter={StaticResource StatusToVisbilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" >
+                        <TextBlock Text="Account:" Margin="3" />
+                        <ComboBox Name="cbAccName" MinWidth="100"
+                              ItemsSource="{Binding Accounts}" 
+                              SelectedItem="{Binding SelectedAccount}"
+                              DisplayMemberPath="Name"
+                              Margin="3" Grid.Column="1" Grid.Row="0" />
+                    </StackPanel>                    
+                    <ListView ItemsSource="{Binding Path=SelectedAccount.Properties}" 
+                              Margin="3,0,3,3"  Grid.ColumnSpan="1" Grid.Row="1"
+                              ItemContainerStyle="{StaticResource GridLineStyle}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Tag" Width="200" DisplayMemberBinding="{Binding Tag}" />
+                                <GridViewColumn Header="Value" Width="100" DisplayMemberBinding="{Binding Value}" />
+                                <GridViewColumn Header="Currency" Width="50" DisplayMemberBinding="{Binding Currency}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </DockPanel>
+        </DataTemplate>        
+        <!--end of region template for IB tabitem-->
+
+        <!--region template for FT tabitem-->
+        <DataTemplate x:Key="TabItem_FTHeader" DataType="{x:Type local:FTController}">
+            <StackPanel Orientation="Horizontal">
+                <Image Source="{StaticResource ft}" Margin="2" Width="16" />
+                <TextBlock Text="{Binding DisplayName}"/>
+            </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="Tab_FTContent" DataType="{x:Type local:FTController}">
+            <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <TextBlock Text="Disconnected" 
+                       FontSize="24" 
+                       HorizontalAlignment="Center" 
+                       VerticalAlignment="Center" 
+                       Foreground="Red"
+                       Visibility="{Binding ConnectionStatus, Converter={StaticResource StatusToReverseVisbilityConverter}}"/>
+                <Grid Visibility="{Binding ConnectionStatus, Converter={StaticResource StatusToVisbilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Grid.Row="0" Orientation="Horizontal" >
+                        <TextBlock Text="Account:" Margin="3"  />
+                        <TextBlock Text="{Binding Path=SelectedAccount.Name}" Margin="3" Background="LightYellow" Padding="2" />
+                    </StackPanel>
+                    <ListView ItemsSource="{Binding Path=SelectedAccount.Properties}"
+                    Margin="3,0,3,3"  Grid.ColumnSpan="2" Grid.Row="1"
+                              ItemContainerStyle="{StaticResource GridLineStyle}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Tag" Width="200" DisplayMemberBinding="{Binding Tag}" />
+                                <GridViewColumn Header="Value" Width="100" DisplayMemberBinding="{Binding Value}" />
+                                <GridViewColumn Header="Currency" Width="50" DisplayMemberBinding="{Binding Currency}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </Grid>
+            </DockPanel>
+        </DataTemplate>
+        <!--end of region template for IB tabitem-->
+        
+        <Style x:Key="TabItemStyle" TargetType="TabItem">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Path=Type}" Value="{x:Type local:IBController}">
+                    <Setter Property="HeaderTemplate" Value="{StaticResource TabItem_IBHeader}" />
+                    <Setter Property="ContentTemplate" Value="{StaticResource Tab_IBContent}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Path=Type}" Value="{x:Type local:FTController}">
+                    <Setter Property="HeaderTemplate" Value="{StaticResource TabItem_FTHeader}" />
+                    <Setter Property="ContentTemplate" Value="{StaticResource Tab_FTContent}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!--end of region template for IB tabitem-->
+
+        <CollectionViewSource x:Key="PendingOrders" 
+                                                  Source="{Binding Orders}"
+                                                  Filter="PendingOrders_Filter"/>
+        <CollectionViewSource x:Key="Execution" 
+                                                  Source="{Binding Orders}"
+                                                  Filter="Execution_Filter"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform 
+	            CenterX="0" CenterY="0"
+	            ScaleX="{Binding Path=ScalingFactor, Mode=TwoWay, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type local:MainWindow}}}"
+	            ScaleY="{Binding Path=ScalingFactor, Mode=TwoWay, RelativeSource={RelativeSource Mode=FindAncestor,AncestorType={x:Type local:MainWindow}}}"
+	        	/>
+        </Grid.LayoutTransform>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <ToolBarTray Background="LightGray" VerticalAlignment="Top" Grid.Row="0">
+            <ToolBar Name="MyToolbar" Height="30">
+                <Button Background="Transparent" ToolTip="Connect all connections" Click="ConnectBtn_Click">
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="PowerPlug" Foreground="Green"
+                            Margin="0, 0, 2, 0"/>
+                        <TextBlock Text="Connect All" />
+                    </StackPanel>
+                </Button>
+                <Button Background="Transparent" ToolTip="Disconnect all connections" Click="DisconnectBtn_Click">
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="PowerPlugOff" Foreground="Red"
+                            Margin="0, 0, 2, 0"/>
+                        <TextBlock Text="Disconnect All" />
+                    </StackPanel>
+                </Button>
+                <Separator />
+                <Button Background="Transparent" ToolTip="Close all open positions" >
+                    <!--IsEnabled="{Binding Path=ConnectionStatus, Converter={StaticResource StatusToEnableConverter} }"-->
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="CloseOctagon"
+                            Foreground="Red"    
+                            Style="{StaticResource ImageEnabled}"
+                            Margin="0, 0, 2, 0"/>
+                        <TextBlock Text="Close All" />
+                    </StackPanel>
+                </Button>
+                <Separator />
+                <ToggleButton Background="{Binding AlwaysOnTop, Converter={StaticResource BoolToColorConverter}}" 
+                              ToolTip="Always On Top" 
+                              IsChecked="{Binding AlwaysOnTop}">
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="{Binding AlwaysOnTop, Converter={StaticResource BoolToIconConverter}}"
+                            Margin="0, 0, 2, 0"/>
+                        <TextBlock Text="Always On Top" />
+                    </StackPanel>
+                </ToggleButton>
+                <Separator />
+                <Button Background="Transparent" ToolTip="Configuration" Click="ConfigBtn_Click">
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="SettingsOutline"
+                            Margin="0, 0, 2, 0"/>                        
+                        <TextBlock Text="Config" />
+                    </StackPanel>
+                </Button>
+                <Button Background="Transparent" ToolTip="Export to CSV file" Click="ExportBtn_Click">
+                <StackPanel Orientation="Horizontal" >
+                    <local:IconBlock FontSize="17"
+                            Icon="FileExport"
+                            Margin="0, 0, 2, 0"/>
+                    <TextBlock Text="Export" />
+                </StackPanel>
+                </Button>
+            </ToolBar>
+        </ToolBarTray>
+        
+        <DockPanel Grid.Row="1" VerticalAlignment="Stretch" HorizontalAlignment="Stretch">            
+            <TabControl SelectionChanged="TabControl_SelectionChanged" >
+                <TabItem Header="Pending Orders" >
+                    <ListView ItemsSource="{Binding Source={StaticResource PendingOrders}}" ItemContainerStyle="{StaticResource GridLineStyle}" >                        
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding OrderId}" />
+                                <GridViewColumn Header="Action" Width="50" DisplayMemberBinding="{Binding Action}" />
+                                <GridViewColumn Header="Type" Width="50" DisplayMemberBinding="{Binding Type}" />
+                                <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Status}" />
+                                <GridViewColumn Header="Symbol" Width="50" DisplayMemberBinding="{Binding Symbol}" />
+                                <GridViewColumn Header="Quantity" Width="50" DisplayMemberBinding="{Binding Quantity}" />
+                                <GridViewColumn Header="Limit Price" Width="60" DisplayMemberBinding="{Binding LmtPrice}" />
+                                <GridViewColumn Header="Stop Price" Width="60" DisplayMemberBinding="{Binding StopPrice}" />
+                                <GridViewColumn Header="TimeInForce" Width="70" DisplayMemberBinding="{Binding Tif}" />
+                                <GridViewColumn Header="Good After Time" Width="93" DisplayMemberBinding="{Binding GAT}" />
+                                <GridViewColumn Header="Good Till Date" Width="80" DisplayMemberBinding="{Binding GTD}" />
+                                <GridViewColumn Header="Destination" Width="80" DisplayMemberBinding="{Binding Exchange}" />
+                                <GridViewColumn Header="Parent ID" Width="60" DisplayMemberBinding="{Binding ParentId}" />
+                                <GridViewColumn Header="OCAGroup" Width="65" DisplayMemberBinding="{Binding OcaGroup}" />
+                                <GridViewColumn Header="OCAType" Width="60" DisplayMemberBinding="{Binding OcaType}" />
+                                <GridViewColumn Header="Account" Width="80" DisplayMemberBinding="{Binding Account}" />
+                                <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                                <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                                <GridViewColumn Header="Strategy" Width="200" DisplayMemberBinding="{Binding Strategy}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+                <TabItem Header="Executions" >
+                    <ListView ItemsSource="{Binding Source={StaticResource Execution}}" ItemContainerStyle="{StaticResource GridLineStyle}" >                        
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding OrderId}" />
+                                <GridViewColumn Header="Action" Width="50" DisplayMemberBinding="{Binding Action}" />
+                                <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Status}" />
+                                <GridViewColumn Header="Type" Width="50" DisplayMemberBinding="{Binding Type}" />
+                                <GridViewColumn Header="Symbol" Width="50" DisplayMemberBinding="{Binding Symbol}" />
+                                <GridViewColumn Header="Destination" Width="80" DisplayMemberBinding="{Binding Exchange}" />
+                                <GridViewColumn Header="Filled" Width="50" DisplayMemberBinding="{Binding Filled}" />
+                                <GridViewColumn Header="Remaining" Width="60" DisplayMemberBinding="{Binding Remaining}" />
+                                <GridViewColumn Header="Avg. Price" Width="60" DisplayMemberBinding="{Binding AvgPrice}" />
+                                <GridViewColumn Header="Currency" Width="60" DisplayMemberBinding="{Binding Currency}" />
+                                <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                                <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                                <GridViewColumn Header="Strategy" Width="200" DisplayMemberBinding="{Binding Strategy}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+                <TabItem Header="Portfolio" >
+                    <ListView ItemsSource="{Binding Portfolio}" ItemContainerStyle="{StaticResource GridLineStyle}" >
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Symbol" Width="60" DisplayMemberBinding="{Binding Symbol}" />
+                                <GridViewColumn Header="Type" Width="50" DisplayMemberBinding="{Binding Type}" />
+                                <GridViewColumn Header="Currency" Width="60" DisplayMemberBinding="{Binding Currency}" />
+                                <GridViewColumn Header="Position" Width="60" DisplayMemberBinding="{Binding Position}" />
+                                <GridViewColumn Header="Mkt. Price" Width="60" DisplayMemberBinding="{Binding MktPrice}" />
+                                <GridViewColumn Header="Mkt. Value" Width="60" DisplayMemberBinding="{Binding MktValue}" />
+                                <GridViewColumn Header="Avg. Cost" Width="60" DisplayMemberBinding="{Binding AvgCost}" />
+                                <GridViewColumn Header="Unrealized PNL" Width="90" DisplayMemberBinding="{Binding UnrealizedPNL}" />
+                                <GridViewColumn Header="Realized PNL" Width="80" DisplayMemberBinding="{Binding RealizedPNL}" />
+                                <GridViewColumn Header="Account" Width="80" DisplayMemberBinding="{Binding Account}" />
+                                <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+                
+                <TabItem Header="Account" >
+                    <TabItem.Resources>
+                        <CollectionViewSource x:Key="ExistingTabs" Source="{Binding Controllers}"/>
+                        <CompositeCollection x:Key="compControllers">
+                            <CollectionContainer Collection="{Binding Source={StaticResource ExistingTabs}}" />
+                        </CompositeCollection>
+                    </TabItem.Resources>
+                    <TabControl ItemsSource="{StaticResource compControllers}" ItemContainerStyle="{StaticResource TabItemStyle}">
+                    </TabControl>
+                </TabItem>
+                
+                <TabItem Header="Messages" Name="MsgTab" >
+                    <ListView ItemsSource="{Binding MessageList}" ItemContainerStyle="{StaticResource GridLineStyle}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                                <GridViewColumn Header="Code" Width="50" DisplayMemberBinding="{Binding Code}" />
+                                <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                                <GridViewColumn Header="Message" Width="600" DisplayMemberBinding="{Binding Text}" >
+                                    <GridViewColumn.HeaderContainerStyle>
+                                        <Style TargetType="{x:Type GridViewColumnHeader}">
+                                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                        </Style>
+                                    </GridViewColumn.HeaderContainerStyle>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+                <TabItem Header="Log" >
+                    <ListView ItemsSource="{Binding LogList}" ItemContainerStyle="{StaticResource GridLineStyle}">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Time" Width="60" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                                <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                                <GridViewColumn Header="Message" Width="800" DisplayMemberBinding="{Binding Text}" >
+                                    <GridViewColumn.HeaderContainerStyle>
+                                        <Style TargetType="{x:Type GridViewColumnHeader}">
+                                            <Setter Property="HorizontalContentAlignment" Value="Left" />
+                                        </Style>
+                                    </GridViewColumn.HeaderContainerStyle>
+                                </GridViewColumn>
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+
+        <StatusBar Name="statusBar1" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Grid.Row="2">
+            <StatusBarItem Content="{Binding StatusMsg}"/>
+            
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <Separator/>
+                    <StatusBarItem  Content="{Binding ScalingFactor, Converter={StaticResource NumToPercentageConverter}}" />
+                    <Separator/>
+                    <StatusBarItem >
+                            <ItemsControl ItemsSource="{Binding Controllers}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderThickness="1" BorderBrush="Blue" Margin="1" CornerRadius="2">
+                                            <TextBlock Background="{Binding Path=ConnectionStatus, Converter={StaticResource StatusToBrushConverter} }"
+                                               Text="{Binding DisplayName}" >
+                                                <TextBlock.ToolTip>
+                                                    <TextBlock Text="{Binding Converter={StaticResource ControllerToTooltipConverter}}" />
+                                                </TextBlock.ToolTip>
+                                                <TextBlock.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Name="mi_connect" Header="{Binding Path=ConnectionStatus, Converter={StaticResource StatusToIconTextConverter} }"
+                                                                  Click="Mi_Connect_Click">
+                                                            <MenuItem.Icon>
+                                                                <Image Source="{Binding Path=ConnectionStatus, Converter={StaticResource StatusToIconImageConverter}}"/>
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>                                                                  
+                                                    </ContextMenu>
+                                                </TextBlock.ContextMenu>
+                                            </TextBlock>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>                
+                    </StatusBarItem>
+                    <Separator/>
+                    <StatusBarItem Content="{Binding Source={StaticResource ticker},Path=Now,Mode=OneWay}"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+    
+        
+</Window>

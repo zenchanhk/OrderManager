@@ -1,0 +1,40 @@
+﻿<Window x:Class="AmiBroker.Controllers.AccountConfig"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Account Settings"
+        Loaded="Window_Loaded"
+        ResizeMode="NoResize"
+             Width="290"
+        Height="220"
+             >
+    <Grid Margin="5,5,5,5">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Name:" Grid.Row="0" Grid.Column="0" Margin="5" />
+        <TextBox Name="txtName" Grid.Row="0" Grid.Column="1" Margin="5" />
+        <Separator Grid.Row="1" Grid.ColumnSpan="2" />
+        <TextBlock Text="Host:" Grid.Row="2" Grid.Column="0" Margin="5" />
+        <TextBox Name="txtHost" Grid.Row="2" Grid.Column="1" Margin="5" />
+        <TextBlock Text="Port:" Grid.Row="3" Grid.Column="0" Margin="5" />
+        <TextBox Name="txtPort" Grid.Row="3" Grid.Column="1" Margin="5" />
+        <TextBlock Text="Client ID:" Grid.Row="4" Grid.Column="0" Margin="5" />
+        <TextBox Name="txtClientID" Grid.Row="4" Grid.Column="1" Margin="5" />
+        <TextBlock Text="Enabled:" Grid.Row="5" Grid.Column="0" Margin="5" />
+        <CheckBox Name="chkIsEnabled" Grid.Row="5" Grid.Column="1" Margin="5" />
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Orientation="Horizontal" Grid.Row="6" Grid.ColumnSpan="2">
+            <Button Content="OK" Width="70" Margin="5" Click="OKBtn_Click" IsDefault="True" />
+            <Button Content="Cancel" Width="70" Margin="5" Click="CancelBtn_Click" IsCancel="True" />
+        </StackPanel>
+    </Grid>
+</Window>

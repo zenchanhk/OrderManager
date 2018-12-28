@@ -1,0 +1,13 @@
+//////////////////////////////////////////////////////////////
+//
+// Please, read Samples.pdf on how to use this sample
+// (.NET for AmiBroker\Samples folder)
+//
+//////////////////////////////////////////////////////////////
+
+// getting the value calculated by the plug-in method
+MySlowMa = BasicSampleCS2();			// see BasicSampleCS2() method in "Basic Samples.cs" for source
+
+Plot(MySlowMa, "MySlowMa", colorBlue, styleLine);
+
+Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);

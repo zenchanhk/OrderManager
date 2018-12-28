@@ -1,0 +1,163 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{8E8978DA-DD28-4878-A561-0895F7E1B7D9}</ProjectGuid>
+    <OutputType>library</OutputType>
+    <RootNamespace>AmiBroker.Controllers</RootNamespace>
+    <AssemblyName>OrderManager</AssemblyName>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <WarningLevel>4</WarningLevel>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="AmiBroker.PlugInHost">
+      <HintPath>C:\Program Files\AmiBroker\.NET for AmiBroker\Assemblies\AmiBroker.PlugInHost.dll</HintPath>
+    </Reference>
+    <Reference Include="AmiBroker.Utils">
+      <HintPath>C:\Program Files\AmiBroker\.NET for AmiBroker\Assemblies\AmiBroker.Utils.dll</HintPath>
+    </Reference>
+    <Reference Include="FontAwesome.Sharp, Version=5.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\FontAwesome.Sharp.5.2.0\lib\net40\FontAwesome.Sharp.dll</HintPath>
+    </Reference>
+    <Reference Include="IB.CSharpApi, Version=9.73.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
+    </Reference>
+    <Reference Include="IB.CSharpApiClient, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\IB.CSharpApiClient.1.0.2\lib\net461\IB.CSharpApiClient.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Xaml">
+      <RequiredTargetFramework>4.0</RequiredTargetFramework>
+    </Reference>
+    <Reference Include="WindowsBase" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="PresentationFramework" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Helper\Helper.cs" />
+    <Compile Include="Helper\ImageHelper.cs" />
+    <Compile Include="OrderManager.cs" />
+    <Compile Include="Settings.cs" />
+    <Compile Include="UI\AccountConfig.xaml.cs">
+      <DependentUpon>AccountConfig.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\Converter.cs" />
+    <Compile Include="UI\DataContextSpy.cs" />
+    <Compile Include="UI\GridViewRowPresenterWithGridLines.cs" />
+    <Compile Include="UI\Main.xaml.cs">
+      <DependentUpon>Main.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="UI\MaterialIcons.cs" />
+    <Compile Include="UI\Setting.xaml.cs">
+      <DependentUpon>Setting.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="vendors\FT\FTController.cs" />
+    <Compile Include="vendors\IB\Events\EventArgs.cs" />
+    <Compile Include="vendors\IB\IBController.cs" />
+    <Compile Include="vendors\IController.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <None Include="app.config" />
+    <Resource Include="fonts\materialdesignicons-webfont.ttf" />
+    <None Include="packages.config" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="Scripts\Sample2 Indicator with return valueCS.afl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="UI\AccountConfig.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UI\Main.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="UI\Setting.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="images\order.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="images\setting.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="images\ft1.png" />
+    <Resource Include="images\ib1.png" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>**** Updating AmiBroker folders *****
+IF "%25DotNetForAB_Home%25" EQU "" IF "%25DotNetForABx64_Home%25" EQU "" (ECHO "ERROR: Cannot deploy project output to AmiBroker folders. Missing environment variables." &amp; ECHO . &amp; EXIT -1)
+
+IF "%25DotNetForAB_Home%25" NEQ "" IF "$(Platform)" NEQ "x64" (
+ECHO ***** Deploying project output to "%25DotNetForAB_Home%25".
+xcopy /Y /I /F "$(TargetDir)$(TargetName).*" "%25DotNetForAB_Home%25\.NET for AmiBroker\Assemblies"
+xcopy /Y /I /F /S "$(ProjectDir)\Scripts\*.afl" "%25DotNetForAB_Formulas%25\.NET for AmiBroker\IBController and RT Trading"
+)
+
+IF "%25DotNetForABx64_Home%25" NEQ "" IF "$(Platform)" NEQ "x86" (
+ECHO ***** Deploying project output to "%25DotNetForABx64_Home%25".
+xcopy /Y /I /F "$(TargetDir)$(TargetName).*" "%25DotNetForABx64_Home%25\.NET for AmiBroker\Assemblies"
+xcopy /Y /I /F /S "$(ProjectDir)\Scripts\*.afl" "%25DotNetForABx64_Formulas%25\.NET for AmiBroker\IBController and RT Trading"
+)
+</PostBuildEvent>
+  </PropertyGroup>
+</Project>
