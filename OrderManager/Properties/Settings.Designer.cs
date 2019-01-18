@@ -34,5 +34,53 @@ namespace AmiBroker.Controllers.Properties {
                 this["preference"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string Layout {
+            get {
+                return ((string)(this["Layout"]));
+            }
+            set {
+                this["Layout"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SymbolInActionTemplates {
+            get {
+                return ((string)(this["SymbolInActionTemplates"]));
+            }
+            set {
+                this["SymbolInActionTemplates"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ScriptTemplates {
+            get {
+                return ((string)(this["ScriptTemplates"]));
+            }
+            set {
+                this["ScriptTemplates"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string StrategyTemplates {
+            get {
+                return ((string)(this["StrategyTemplates"]));
+            }
+            set {
+                this["StrategyTemplates"] = value;
+            }
+        }
     }
 }

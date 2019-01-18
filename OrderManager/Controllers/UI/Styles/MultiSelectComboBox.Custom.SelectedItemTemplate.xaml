@@ -1,0 +1,35 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:AmiBroker.Controllers">
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Resource.xaml" />
+        <ResourceDictionary Source="MultiSelectComboBox.Custom.Tooltip.Resources.xaml"/>
+        <ResourceDictionary Source="MultiSelectComboBox.Custom.Image.Resources.xaml"/>
+    </ResourceDictionary.MergedDictionaries>
+
+    <DataTemplate x:Key="MultiSelectComboBox.SelectedItems.Account.ItemTemplate" >
+        <StackPanel Orientation="Horizontal" Margin="0,-4" >
+            <Image Style="{StaticResource MultiSelectComboBox.Custom.Image.Style}" Margin="2,0,2,-1"/>
+            <local:IconBlock Icon="Circle" Margin="0" 
+                             Foreground="{Binding Controller.ConnectionStatus, Converter={StaticResource StatusToBrushConverter}}" />
+            <TextBlock Style="{DynamicResource MultiSelectComboBox.DefaultTextBlock.Style}" Margin="2,0">
+                <Run Text="["/><Bold><Run Foreground="#FF4F68AA" Text="{Binding Controller.ConnParam.AccName, Mode=OneWay}"/></Bold><Run Text="]"/>
+                <Run Text="{Binding Name, Mode=OneWay}"/>
+            </TextBlock>
+        </StackPanel>
+    </DataTemplate>
+
+    <DataTemplate x:Key="MultiSelectComboBox.SelectedItems.Controller.ItemTemplate" >
+        <StackPanel Orientation="Horizontal" Margin="0,-4" >
+            <Image Style="{StaticResource MultiSelectComboBox.Custom.Image.Style}" Margin="2,0,2,-1"/>
+            <local:IconBlock Icon="Circle" Margin="0" Grid.Column="1"
+                             Foreground="{Binding ConnectionStatus, Converter={StaticResource StatusToBrushConverter}}" />
+            <TextBlock Style="{StaticResource MultiSelectComboBox.CustomToolTip.TextBlock.Style}" Margin="2,0">
+                <Run Text="["/><Bold><Run Foreground="#FF4F68AA" Text="{Binding Vendor, Mode=OneWay}"/></Bold><Run Text="]"/>
+                <Run Text="{Binding Name, Mode=OneWay}"/>
+            </TextBlock>
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>
