@@ -47,6 +47,9 @@
     <Reference Include="AmiBroker.Utils">
       <HintPath>C:\Program Files\AmiBroker\.NET for AmiBroker\Assemblies\AmiBroker.Utils.dll</HintPath>
     </Reference>
+    <Reference Include="Easy.MessageHub, Version=3.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Easy.MessageHub.3.4.0\lib\net35\Easy.MessageHub.dll</HintPath>
+    </Reference>
     <Reference Include="FontAwesome.Sharp, Version=5.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\FontAwesome.Sharp.5.2.0\lib\net40\FontAwesome.Sharp.dll</HintPath>
     </Reference>
@@ -94,6 +97,7 @@
     <Compile Include="Controllers\Helper\Helper.cs" />
     <Compile Include="Controllers\Helper\ImageHelper.cs" />
     <Compile Include="Controllers\Helper\JsonHelper.cs" />
+    <Compile Include="Controllers\Helper\NotifyPropertyChangedBase.cs" />
     <Compile Include="Controllers\Helper\SiteHelper.cs" />
     <Compile Include="Controllers\Helper\UITreeHelper.cs" />
     <Compile Include="Controllers\UI\Command.cs" />
@@ -135,6 +139,7 @@
     <Compile Include="Controllers\UI\Tabs\TabsViewModel.cs" />
     <Compile Include="Controllers\UI\Tabs\TabsViewModel1.cs" />
     <Compile Include="OrderManager.cs" />
+    <Compile Include="OrderManager\Contract\ContractBase.cs" />
     <Compile Include="OrderManager\OMAfl.cs" />
     <Compile Include="OrderManager\OMClasses.cs" />
     <Compile Include="OrderManager\OrderType\BaseOrderType.cs" />

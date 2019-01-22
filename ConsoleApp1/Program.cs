@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace ConsoleApp1
 {
@@ -58,11 +59,15 @@ namespace ConsoleApp1
     }
     class Program
     {
+       
         [STAThread]
         static void Main(string[] args)
         {
             OrderManager om = new OrderManager();
             Console.ReadLine();
+            
+            
+            //Console.ReadLine();
             /*
             Test test = new Test();
             test.Names.Add("chan");

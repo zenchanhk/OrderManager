@@ -185,6 +185,10 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    /// <summary>
+    /// This converter will be triggered whenever SelectedItem of combobox (selecting order types) being changed
+    /// once triggered, find the old item to remove and add the new item to list of corresponding list of order types
+    /// </summary>
     class RealOrderTypeConverter : IMultiValueConverter
     {
         public object Convert(object[] value, Type targetType, object parameter, CultureInfo culture)
@@ -215,6 +219,10 @@ namespace AmiBroker.Controllers
                     if (ot == null || (ot != null && ot.GetType() != value[0].GetType()))
                     {
                         BaseOrderType newItem = ((BaseOrderType)value[0]).Clone();
+                        if (si.GetType() == typeof(Script))
+                            newItem.TimeZone = ((Script)si).Symbol.TimeZone.Id;
+                        if (si.GetType() == typeof(Strategy))
+                            newItem.TimeZone = ((Strategy)si).Script.Symbol.TimeZone.Id;
                         orderTypes.Add(newItem);
                         return newItem;
                     }
@@ -435,7 +443,7 @@ namespace AmiBroker.Controllers
                 else 
                     return oit.FindResource("listDrawingImage");
             }
-            if (item.Type == typeof(ControlLib.TreeNode))
+            if (item.GetType() == typeof(ControlLib.TreeNode))
             {
                 if (item.Children.FirstOrDefault(x => x.Name == "Strategies") != null)
                     return oit.FindResource("scriptDrawingImage");
@@ -449,8 +457,10 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("OrderTypeDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "Controller") != null)
                     return oit.FindResource("accountDrawingImage");
-                if (item.Children.FirstOrDefault(x => x.Name == "ExactGAT") != null)
+                if (item.Children.FirstOrDefault(x => x.Name == "ExactTime") != null)
                     return oit.FindResource("timerDrawingImage");
+                if (item.Children.FirstOrDefault(x => x.Name == "UtcOffset") != null)
+                    return oit.FindResource("timezoneDrawingImage");
             }
             if (item.Type.Name.ToLower().Contains("dictionary"))
             {

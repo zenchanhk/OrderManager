@@ -6,8 +6,10 @@ using System.Drawing;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using IB.CSharpApiClient;
 using IB.CSharpApiClient.Events;
 using IBApi;
@@ -15,11 +17,14 @@ using Sdl.MultiSelectComboBox.API;
 
 namespace AmiBroker.Controllers
 {    
-    class IBController : ApiClient, IController, INotifyPropertyChanged
+    public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
-        public delegate void PositionUpatedHandler(object sender, OrderPositionEventArgs e);
-        public static event PositionUpatedHandler OnPositionUpated;
         public Type Type { get { return this.GetType(); } }
+        public EClientSocket Client { get => ClientSocket; }
+        public IApiEvent IBEventDispatcher { get => EventDispatcher; }
+        public static List<Contract> Contracts { get; } = new List<Contract>();
+
+        private int orderId = 0;
 
         private bool _pDummy;
         public bool Dummy
@@ -121,7 +126,7 @@ namespace AmiBroker.Controllers
         private MainViewModel mainVM;
         public IBController(MainViewModel vm)
         {
-            mainVM = vm;
+            mainVM = vm; //it's neccessary since constructor being called during MainViewModel constructing
             setHandler();
             Accounts = new ObservableCollection<AccountInfo>();
             Uri uri = new Uri("pack://application:,,,/OrderManager;component/Controllers/images/ib.png");
@@ -142,8 +147,65 @@ namespace AmiBroker.Controllers
             EventDispatcher.UpdatePortfolio += eh_UpdatePortfolio;
             EventDispatcher.AccountSummary += eh_AccountSummary;
             EventDispatcher.AccountValue += EventDispatcher_AccountValue;
+            EventDispatcher.ContractDetails += EventDispatcher_ContractDetails;
         }
-        
+
+        private void EventDispatcher_ContractDetails(object sender, ContractDetailsEventArgs e)
+        {
+            //e.ContractDetails.Summary.ConId
+            int i = 0;
+        }
+
+        public async Task<ContractDetailsEventArgs> test()
+        {
+            //EventDispatcher.ContractDetails += EventDispatcher_ContractDetails;
+            Contract contract = new Contract { LocalSymbol = "HSIF9", Exchange="HKFE", SecType="FUT" };
+            //ClientSocket.reqContractDetails(0, contract);
+            //return null;
+            try
+            {
+                var c = await reqContractDetailsAsync(contract);
+                //contract = new Contract { Symbol = "AAPL" };
+                //c = await reqContractDetailsAsync(contract);
+                contract = new Contract { Symbol = "AAPL34", SecType="STK" };
+                c = await reqContractDetailsAsync(contract);
+            }
+            catch (Exception ex)
+            {
+                int i = 0; ;
+            }
+            
+            return null;
+        }
+
+        public async Task<Contract> reqContractDetailsAsync(Contract contract)
+        {
+            Contract c = Contracts.FirstOrDefault(x => x.LocalSymbol == contract.LocalSymbol);
+            if (c != null) return c;
+            try
+            {
+                c = await IBTaskExt.FromEvent<EventArgs, Contract>(
+                handler =>
+                {
+                    EventDispatcher.ContractDetails += new EventHandler<ContractDetailsEventArgs>(handler);
+                    EventDispatcher.Error += new EventHandler<ErrorEventArgs>(handler);
+                },
+                (reqId) => ClientSocket.reqContractDetails(reqId, contract),
+                handler =>
+                {
+                    EventDispatcher.ContractDetails -= new EventHandler<ContractDetailsEventArgs>(handler);
+                    EventDispatcher.Error -= new EventHandler<ErrorEventArgs>(handler);
+                },
+                CancellationToken.None);
+                Contracts.Add(c);
+                return c;
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }            
+        }
+
         private void Request()
         { 
             ClientSocket.reqManagedAccts();            
@@ -155,19 +217,23 @@ namespace AmiBroker.Controllers
         }
 
         private void eh_Position(object sender, PositionEventArgs e)
-        {
-            if (OnPositionUpated == null) return;
-            OrderPositionEventArgs args = new OrderPositionEventArgs(e.Contract.ConId.ToString(), e.Account, (int)e.Position);
-            OnPositionUpated(null, args);
+        {            
             // get portfolio data
             if (last_req_account != e.Account)
                 ClientSocket.reqAccountUpdates(true, e.Account);
+        }
+        public int PlaceOrder(Order order, Contract contract)
+        {  
+            ClientSocket.placeOrder(orderId, contract, order);
+            //Contract contract = new Contract();
+            
+            return orderId++;
         }
         public async void Connect()
         {
             try
             {
-                await ConnectAsync(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);
+                await ConnectAsync(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);                
                 Request();
             }
             catch (Exception ex)
@@ -188,7 +254,7 @@ namespace AmiBroker.Controllers
         private void eh_AccountSummary(object sender, AccountSummaryEventArgs e)
         {
             AccountInfo acc = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == e.Account);
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 if (acc == null)
                 {
@@ -210,7 +276,7 @@ namespace AmiBroker.Controllers
         private void eh_ManagedAccounts(object sender, ManagedAccountsEventArgs e)
         {
             List<string> accounts = e.ManagedAccounts as List<string>;
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 foreach (var acc in accounts)
                 {
@@ -232,7 +298,7 @@ namespace AmiBroker.Controllers
         }
         private void eh_OpenOrder(object sender, OpenOrderEventArgs e)
         {
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 DisplayedOrder dOrder = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == e.OrderId);
                 if (dOrder == null)

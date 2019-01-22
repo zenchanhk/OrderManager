@@ -170,7 +170,19 @@
                                     <Bold><Run Text="{Binding Path=Name, Mode=OneWay}" /></Bold>
                         </TextBlock>
                     </StackPanel>
+                    
+                    <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
+                        <TextBlock Text="Selecting TimeZone" Margin="3" FontWeight="Bold"/>
+                    </StackPanel>
 
+                    <StackPanel Margin="5" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="TimeZone:" Margin="3,0" />
+                        <ComboBox ItemsSource="{Binding DataContext.TimeZones, ElementName=scriptTabView}"
+                                  SelectedItem="{Binding TimeZone}"
+                                  Width="350"
+                                  />
+                    </StackPanel>
+                    
                     <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
                         <TextBlock Text="Symbol Definition" Margin="3" FontWeight="Bold"/>
                     </StackPanel>
@@ -527,6 +539,7 @@
                                             </ComboBox>
                                         </DockPanel>
                                         <ContentControl Content="{Binding}" >
+                                            <!-- RealOrderTypeConverter will add SelectedItem to OrderTypes -->
                                             <ContentControl.DataContext>
                                                 <MultiBinding Converter="{StaticResource RealOrderTypeConverter}" ConverterParameter="Short">
                                                     <Binding Path="SelectedItem" ElementName="cmbShortOT"/>
@@ -769,9 +782,14 @@
                         <local:IconBlock Icon="Cancel" FontSize="19" Foreground="Red" Margin="0"
                                          Visibility="{Binding IsEnabled, Converter={StaticResource EnabledToVisConverter}}"/>
                         <TextBlock VerticalAlignment="Center" 
-                                   Grid.Column="1" 
-                                   Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}"
-                                   Text="{Binding Name, Mode=OneWay}" />
+                                   Grid.Column="1" IsHitTestVisible="False"
+                                   Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}">
+                            <Run Text="{Binding Name}" />
+                            <Run Text=" - "/>
+                            <Run Text="{Binding TimeFrame}"/>
+                            <Run Text="min"/>
+                        </TextBlock>
+                        <TextBlock Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
                     </Grid>
                 </HierarchicalDataTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Strategies}" DataType="{x:Type om:Script}">

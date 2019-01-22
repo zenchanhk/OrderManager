@@ -14,6 +14,17 @@ using System.Collections.Specialized;
 
 namespace AmiBroker.Controllers
 {
+    public class TimeZone
+    {
+        public string Id { get; set; }
+        public TimeSpan UtcOffset { get; set; }
+        public string Description { get; set; }
+        public override string ToString()
+        {
+            float offset = UtcOffset.Hours + UtcOffset.Minutes / 60;
+            return "UTC" + (offset != 0 ? offset.ToString("+00;-00") : "") + "/" + Description;
+        }
+    }
     public class FilteredAccount
     {
         public string Id { get; set; }  // usually should be symbol + script's name
@@ -49,6 +60,7 @@ namespace AmiBroker.Controllers
         public Image ImageRefresh { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Refresh, Util.Color.Green);
         //public Image ImageOrderCancel { get; private set; } = new Image() { Source = new BitmapImage(new Uri("pack://application:,,,/OrderManager;component/Controllers/images/order-cancel.png")) };        
         public Commands Commands { get; set; } = new Commands();
+        public List<TimeZone> TimeZones { get; private set; } = new List<TimeZone>();
         public List<BaseOrderType> AllIBOrderTypes { get; set; } = new List<BaseOrderType>();
         public List<BaseOrderType> AllFTOrderTypes { get; set; } = new List<BaseOrderType>();
         public Dictionary<string, List<BaseOrderType>> VendorOrderTypes1 { get; set; } = new Dictionary<string, List<BaseOrderType>>();
@@ -140,9 +152,13 @@ namespace AmiBroker.Controllers
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for Interative Broker", OrderTypes = AllIBOrderTypes });
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for FuTu NiuNiu", OrderTypes = AllFTOrderTypes });
 
+            TimeZones.Add(new TimeZone { Id = "CST", UtcOffset = new TimeSpan(8,0,0), Description = "China Standard Time" });
+            TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
+
             // testing
+            /*
             LogList.Add(new Log() { Source = "test1", Text = "text" });
-            SymbolInAction symbol = new SymbolInAction("HSI");            
+            SymbolInAction symbol = new SymbolInAction("HSI", 5);            
             SymbolInActions.Add(symbol);
             Script script = new Script("Basic", symbol);
             script.AllowMultiLong = true;
@@ -163,9 +179,20 @@ namespace AmiBroker.Controllers
             s3.MaxEntriesPerDay = 2;
             s3.MaxOpenPosition = 6;
             s3.ActionType = ActionType.Short;
-            script.Strategies.Add(s3);
+            script.Strategies.Add(s3);*/
         }
-        
+        public bool AddSymbol(string name, float timeframe, out SymbolInAction symbol)
+        {
+            symbol = SymbolInActions.FirstOrDefault(x => x.Name == name && x.TimeFrame == timeframe);
+            if (symbol == null || (symbol != null && symbol.IsDirty))
+            {
+                if (symbol != null) SymbolInActions.Remove(symbol);
+                symbol = new SymbolInAction(name, timeframe);
+                SymbolInActions.Add(symbol);
+                return true;
+            }
+            return false;
+        }
         private void Orders_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             PendingOrdersView.Refresh();

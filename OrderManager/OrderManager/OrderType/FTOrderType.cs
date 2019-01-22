@@ -22,12 +22,15 @@ namespace AmiBroker.OrderManager
         WAR = 11,
         BAG = 12
     }
+    /// <summary>
+    /// TODO: need to simulate GoodAfterTime and GoodTilDate property
+    /// </summary>
     public class FTOrderType : BaseOrderType
     {
         public string Name { get; set; }
         public static string Broker { get; set; } = "Futu NiuNiu Order";
         [JsonIgnore]
-        public static string DateTimeFormat { get; } = "yyyyMMdd HH:mm:ss";        
+        public new string DateTimeFormat { get; } = "yyyyMMdd HH:mm:ss";        
         [JsonIgnore]
         public string FTCode { get; protected set; }
         [JsonIgnore]

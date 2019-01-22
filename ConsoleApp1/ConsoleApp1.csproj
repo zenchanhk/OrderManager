@@ -37,6 +37,15 @@
     <StartupObject>ConsoleApp1.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Easy.MessageHub, Version=3.4.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Easy.MessageHub.3.4.0\lib\net35\Easy.MessageHub.dll</HintPath>
+    </Reference>
+    <Reference Include="IB.CSharpApi, Version=9.73.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
+    </Reference>
+    <Reference Include="IB.CSharpApiClient, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\IB.CSharpApiClient.1.0.2\lib\net461\IB.CSharpApiClient.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -52,6 +61,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\OrderManager\OrderManager.csproj">

@@ -158,6 +158,20 @@
     <BitmapImage x:Key="ib" UriSource="/OrderManager;component/Controllers/Images/ib.png" />
     <BitmapImage x:Key="ft" UriSource="/OrderManager;component/Controllers/Images/ft.png" />
 
+    <DrawingImage x:Key="timezoneDrawingImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V1024 H1024 V0 H0 Z">
+                <GeometryDrawing Brush="#FFFFECB3" Geometry="F1 M1024,1024z M0,0z M618.666667,192L362.666667,106.666667 106.666667,192 106.666667,874.666667 362.666667,789.333333 618.666667,874.666667 874.666667,789.333333 874.666667,106.666667z" />
+                <GeometryDrawing Brush="#FFFFD54F" Geometry="F1 M1024,1024z M0,0z M362.666667,106.666667L362.666667,789.333333 618.666667,874.666667 618.666667,192z" />
+                <GeometryDrawing Brush="#FF00ACC1" Geometry="F1 M1024,1024z M0,0z M917.333333,661.333333C917.333333,802.709333 802.709333,917.333333 661.333333,917.333333 519.957333,917.333333 405.333333,802.709333 405.333333,661.333333 405.333333,519.957333 519.957333,405.333333 661.333333,405.333333 802.709333,405.333333 917.333333,519.957333 917.333333,661.333333" />
+                <GeometryDrawing Brush="#FFEEEEEE" Geometry="F1 M1024,1024z M0,0z M853.333333,661.333333C853.333333,767.381333 767.381333,853.333333 661.333333,853.333333 555.285333,853.333333 469.333333,767.381333 469.333333,661.333333 469.333333,555.285333 555.285333,469.333333 661.333333,469.333333 767.381333,469.333333 853.333333,555.285333 853.333333,661.333333" />
+                <GeometryDrawing Brush="#FF000000" Geometry="F1 M1024,1024z M0,0z M640,512L682.666667,512 682.666667,661.333333 640,661.333333z" />
+                <GeometryDrawing Brush="#FF000000" Geometry="F1 M1024,1024z M0,0z M646.954667,675.712L675.712,646.954667 756.757333,728 728,756.757333z" />
+                <GeometryDrawing Brush="#FF000000" Geometry="F1 M1024,1024z M0,0z M693.333333,661.333333A32,32,0,1,1,629.312,661.312A32,32,0,0,1,693.333333,661.333333" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+    
     <DrawingImage x:Key="definitionDrawingImage">
         <DrawingImage.Drawing>
             <DrawingGroup ClipGeometry="M0,0 V1024 H1279 V0 H0 Z">

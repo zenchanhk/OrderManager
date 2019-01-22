@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 
-namespace AmiBroker.IBController
+namespace AmiBroker.Controllers
 {
     public class DataContextSpy : Freezable // Enable ElementName and DataContext bindings
     {

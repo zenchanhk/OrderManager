@@ -148,7 +148,7 @@
                     </StackPanel>
                 </Button>
                 <Button Background="Transparent" ToolTip="Close all open positions" 
-                        Command="{Binding Commands.RefreshStrategyParameters}" CommandParameter="{Binding}" >
+                        Command="{Binding Commands.Test}" CommandParameter="{Binding}" >
                     <local:IconBlock FontSize="17"
                             Icon="Refresh" Foreground="Green"
                             Margin="0, 0, 2, 0"/>

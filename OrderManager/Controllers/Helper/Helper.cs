@@ -10,13 +10,77 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interactivity;
+using IB.CSharpApiClient;
+using IB.CSharpApiClient.Events;
+using IBApi;
 
 namespace AmiBroker.Controllers
-{
+{    
+    
+    public static class IBTaskExt
+    {
+        private static int reqIdCount = 0;
+        public static async Task<T> FromEvent<TEventArgs, T>(
+            Action<EventHandler<TEventArgs>> registerEvent,
+            System.Action<int> action,
+            Action<EventHandler<TEventArgs>> unregisterEvent,
+            CancellationToken token)
+        {
+            int reqId = reqIdCount++;
+            if (reqIdCount >= int.MaxValue)
+                reqIdCount = 0;
+
+            var tcs = new TaskCompletionSource<T>();
+            EventHandler<TEventArgs> handler = (sender, args) =>
+            {
+                if (args.GetType() == typeof(IB.CSharpApiClient.Events.ErrorEventArgs))
+                {
+                    IB.CSharpApiClient.Events.ErrorEventArgs arg = args as IB.CSharpApiClient.Events.ErrorEventArgs;
+                    if (arg.RequestId == reqId)
+                    {
+                        Exception ex = new Exception(arg.Message);
+                        ex.Data.Add("RequestId", arg.RequestId);
+                        ex.Data.Add("ErrorCode", arg.ErrorCode);
+                        ex.Source = "IBTaskExt.FromEvent";
+                        tcs.TrySetException(ex);
+                    }                        
+                }
+                else if(args.GetType() == typeof(IB.CSharpApiClient.Events.ContractDetailsEventArgs))
+                {
+                    ContractDetailsEventArgs arg = args as ContractDetailsEventArgs;
+                    Contract contract = new Contract();
+                    contract.ConId = arg.ContractDetails.Summary.ConId;
+                    contract.LastTradeDateOrContractMonth = arg.ContractDetails.Summary.LastTradeDateOrContractMonth;
+                    contract.LocalSymbol = arg.ContractDetails.Summary.LocalSymbol;
+                    contract.SecType = arg.ContractDetails.Summary.SecType;
+                    contract.Symbol = arg.ContractDetails.Summary.Symbol;
+                    contract.Exchange = arg.ContractDetails.Summary.Exchange;
+                    contract.Currency = arg.ContractDetails.Summary.Currency;
+                    tcs.TrySetResult((T)(object)contract);
+                }
+                    
+            };
+            registerEvent(handler);
+
+            try
+            {
+                using (token.Register(() => tcs.SetCanceled()))
+                {
+                    action(reqId);
+                    return await tcs.Task;
+                }
+            }
+            finally
+            {
+                unregisterEvent(handler);
+            }
+        }
+    }
     public class BindingProxy : Freezable
     {
         protected override Freezable CreateInstanceCore()

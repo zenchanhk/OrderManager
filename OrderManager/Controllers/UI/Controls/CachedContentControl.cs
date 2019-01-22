@@ -45,11 +45,14 @@ namespace AmiBroker.Controllers
         private static void OnContentsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             CachedContentControl control = ((CachedContentControl)d);
+            //((dynamic)control.Content).DataContext = null;
             //  use you favorite factory
-            control.Content = ViewFactory.GetView(e.NewValue.GetType());
-            ((dynamic)control.Content).DataContext = control.DataContext;
+            FrameworkElement content = ViewFactory.GetView(e.NewValue.GetType());
+            content.DataContext = control.DataContext;
+            //((ContentControl)content).Content = control.DataContext;
             Binding binding = new Binding();
-            BindingOperations.SetBinding((ContentControl)control.Content, ContentProperty, binding);
+            BindingOperations.SetBinding(content, ContentProperty, binding);
+            control.Content = content;
         }
     }
 

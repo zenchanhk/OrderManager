@@ -3,12 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Text;
+using IBApi;
 using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace AmiBroker.OrderManager
 {
+    
     public enum IBTifType
     {
         DAY=0,
@@ -47,6 +49,7 @@ namespace AmiBroker.OrderManager
         }
         [JsonIgnore]
         public DateTime OrderTime { get; set; } = DateTime.Now;
+        public string TimeZone { get; set; }
 
         private DateTime _pExactTime = DateTime.Now;
         public DateTime ExactTime
@@ -127,12 +130,12 @@ namespace AmiBroker.OrderManager
 
         public override string ToString() 
 		{
+            string result = string.Empty;
 			switch(SelectedIndex)
 			{
 				case 1:
                     string dateFormat = string.Empty;
                     string timeFormat = string.Empty;
-                    string result = string.Empty;
                     Regex r1 = new Regex(@"(y*[-\/]*M*[-\/]*[Dd]*)(M*[-\/]*[Dd]*[-\/]*y*)([Dd]*[-\/]*M*[-\/]*y*)([Hh]*[:]*m*[:]*s*[ ]*t*)");
                     MatchCollection mc = r1.Matches(DateTimeFormat);
                     foreach (Match match in mc)
@@ -144,27 +147,29 @@ namespace AmiBroker.OrderManager
                     }
                     result = DateTimeFormat.Replace(dateFormat, ExactTime.AddDays(ExactTimeValidDays).ToString(dateFormat));
                     result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
-                    return result;
+                    result += TimeZone != null ? " " + TimeZone : "";
+                    break;
 				case 2:
-					return OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
-				case 3:
+					result =  OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
+                    result += TimeZone != null ? " " + TimeZone : "";
+                    break;
+                case 3:
                     int div = (int)Math.Ceiling((float)(OrderTime.Minute / (int)BarInterval));
                     // in case of the beginning of bar
                     if (OrderTime.Minute % (int)BarInterval == 0)
                         div++;
-                    return OrderTime.AddMinutes((int)BarInterval*div).ToString(DateTimeFormat);
-                    
-			}
-			return null;
+                    result = OrderTime.AddMinutes((int)BarInterval*div).ToString(DateTimeFormat);
+                    result += TimeZone != null ? " " + TimeZone : "";
+                    break;
+            }
+			return result;
 		}
 	}
     public class IBOrderType : BaseOrderType
     {
         public string Name { get; set; }
         public static string Broker { get; set; } = "Interactive Brokers Order";
-        public GoodTime GoodTilDate { get; set; } = new GoodTime() { DateTimeFormat = DateTimeFormat };
-        public GoodTime GoodAfterTime { get; set; } = new GoodTime() { DateTimeFormat = DateTimeFormat };  // yyyyMMdd HH:mm:ss
-        
+
         private bool _pTransmit = true;
         public bool Transmit
         {
@@ -178,12 +183,25 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
+
+        private IBTifType _pTif = IBTifType.DAY;
+        public IBTifType Tif
+        {
+            get { return _pTif; }
+            set
+            {
+                if (_pTif != value)
+                {
+                    _pTif = value;
+                    OnPropertyChanged("Tif");
+                }
+            }
+        }
+
         [JsonIgnore]
         public string OcaGroup { get; set; }
         [JsonIgnore]
-        public int OcaType { get; set; } = 1;
-        [JsonIgnore]
-        public static string DateTimeFormat { get; } = "yyyyMMdd HH:mm:ss";
+        public int OcaType { get; set; } = 1;        
         [JsonIgnore]
         public string IBCode { get; protected set; }
         [JsonIgnore]
@@ -222,11 +240,58 @@ namespace AmiBroker.OrderManager
                 ((IBOrderType)dest).Slippage = Slippage;
             }
         }
+
+        public new async Task<bool> PlaceOrder(AccountInfo accountInfo, string symbol)
+        {
+            Order order = new Order();
+            order.Transmit = Transmit;
+            order.Account = accountInfo.Name;
+            order.GoodAfterTime = GoodAfterTime.ToString();
+            order.GoodTillDate = GoodTilDate.ToString();            
+            if (order.GoodTillDate != string.Empty)
+                Tif = IBTifType.GTD;
+            order.Tif = Tif.ToString();
+            Contract contract = new Contract();
+            string[] parts = symbol.Split(new char[] { '-' });
+            switch (parts.Length)
+            {
+                case 1:
+                    contract.LocalSymbol = parts[0];
+                    contract.Exchange = "SMART";
+                    contract.SecType = "STK";
+                    break;
+                case 2:
+                    contract.LocalSymbol = parts[0];
+                    contract.Exchange = parts[1];
+                    contract.SecType = "STK";
+                    break;
+                case 3:
+                    contract.LocalSymbol = parts[0];
+                    contract.Exchange = parts[1];
+                    contract.SecType = parts[2];
+                    break;
+                case 4:
+                    contract.LocalSymbol = parts[0];
+                    contract.Exchange = parts[1];
+                    contract.SecType = parts[2];
+                    contract.Currency = parts[3];
+                    break;
+            }
+            contract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+            if (contract != null)
+            {
+                int orderId = ((IBController)accountInfo.Controller).PlaceOrder(order, contract);
+            }
+            else
+            {
+
+            }            
+            return false;
+        }
     }
 
     public class AuctionOrder : IBOrderType
     {
-        public IBTifType Tif { get; }
         public AuctionOrder() : base()
         {            
             Description = "An Auction order is entered into the electronic trading system during the pre-market opening period for execution at the Calculated Opening Price (COP). If your order is not filled on the open, the order is re-submitted as a limit order with the limit price set to the COP or the best bid/ask after the market opens.";
@@ -286,7 +351,6 @@ namespace AmiBroker.OrderManager
 
     public class IBMarketOnOpenOrder : IBOrderType
     {
-        public IBTifType Tif { get; }
         public IBMarketOnOpenOrder() : base()
         {
             Description = "A Market On Open (MOO) combines a market order with the OPG time in force to create an order that is automatically submitted at the market's open and fills at the market price.";
@@ -357,7 +421,6 @@ namespace AmiBroker.OrderManager
     public class IBLimitOnOpenOrder : IBOrderType
     {
         public float LmtPrice { get; set; }
-        public IBTifType Tif { get; }
         public IBLimitOnOpenOrder() : base()
         {
             Description = "A Limit-on-Open (LOO) order combines a limit order with the OPG time in force to create an order that is submitted at the market's open, and that will only execute at the specified limit price or better. Orders are filled in accordance with specific exchange rules.";

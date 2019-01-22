@@ -38,6 +38,29 @@ namespace AmiBroker.Controllers
         public ICommand SaveTemplateOnSite { get; set; } = new SaveTemplateOnSite();
         public ICommand CancelEditTemplateOnSite { get; set; } = new CancelEditTemplateOnSite();
         public ICommand CopyOrderSetup { get; set; } = new CopyOrderSetup();
+        public ICommand Test { get; set; } = new Test();
+    }
+    public class Test: ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            MainViewModel vm = MainViewModel.Instance;
+            IBController c = vm.Controllers.FirstOrDefault(x => x.ConnParam.AccName == "zenhao") as IBController;
+            if (c.IsConnected)
+            {
+                c.test();
+            }
+        }
     }
     public class CopyOrderSetup : ICommand
     {

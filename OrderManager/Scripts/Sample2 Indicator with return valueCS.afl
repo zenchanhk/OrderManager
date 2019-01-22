@@ -6,8 +6,22 @@
 //////////////////////////////////////////////////////////////
 
 // getting the value calculated by the plug-in method
-MySlowMa = BasicSampleCS2();			// see BasicSampleCS2() method in "Basic Samples.cs" for source
+//MySlowMa = BasicSampleCS2();			// see BasicSampleCS2() method in "Basic Samples.cs" for source
 
-Plot(MySlowMa, "MySlowMa", colorBlue, styleLine);
+//Plot(MySlowMa, "MySlowMa", colorBlue, styleLine);
+strategy="test1$test2";
+BuySignals="bs1$bs2";
+SellSignals="ss1$ss2";
+ShortSignals="short1$short2";
+CoverSignals="cs1$cs2";
+BuyPrices="bp1$bp2";
+SellPrices="sp1$sp2";
+ShortPrices="short1$short2";
+CoverPrices="cp1$cp2";
+ActionType="Long$LongAndShort";
+bs1=bs2=true;
+ss1=ss2=true;
 
-Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);
+//Test();
+IBController("sample");
+//Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);

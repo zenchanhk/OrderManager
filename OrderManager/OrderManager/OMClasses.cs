@@ -5,10 +5,23 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using AmiBroker.Controllers;
+using AmiBroker;
 using Newtonsoft.Json;
+using AmiBroker.Controllers;
+using Easy.MessageHub;
+using System.Reflection;
 
 namespace AmiBroker.OrderManager
 {   
+    public enum StrategyStatus
+    {
+        None=1,
+        LongPending=2,
+        Long=4,
+        ShortPending=8,
+        Short=16,
+        LongAndShort=32
+    }
     public enum ActionType
     {
         Long = 0,
@@ -201,22 +214,81 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
+
+        // Order Details
+        private int _pLongPosition;
+        public int LongPosition
+        {
+            get { return _pLongPosition; }
+            set
+            {
+                if (_pLongPosition != value)
+                {
+                    if (this.GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).Script.LongPosition += (value - _pLongPosition);
+                    }
+                    _pLongPosition = value;
+                    OnPropertyChanged("LongPosition");
+                }
+            }
+        }
+
+        private int _pShortPosition;
+        public int ShortPosition
+        {
+            get { return _pShortPosition; }
+            set
+            {
+                if (_pShortPosition != value)
+                {
+                    if (this.GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).Script.ShortPosition += (value - _pShortPosition);
+                    }
+                    _pShortPosition = value;
+                    OnPropertyChanged("ShortPosition");
+                }
+            }
+        }
+        // daily long entry count
+        private int _pLongEntries;
         [JsonIgnore]
-        public string BuySignal { get; set; }
+        public int LongEntries
+        {
+            get { return _pLongEntries; }
+            set
+            {
+                if (_pLongEntries != value)
+                {
+                    if (this.GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).Script.LongEntries += (value - _pLongEntries);
+                    }
+                    _pLongEntries = value;
+                    OnPropertyChanged("LongEntries");
+                }
+            }
+        }
+        // daily short entry count
+        private int _pShortEntries;
         [JsonIgnore]
-        public string SellSignal { get; set; }
-        [JsonIgnore]
-        public string BuyPrice { get; set; }
-        [JsonIgnore]
-        public string SellPrice { get; set; }
-        [JsonIgnore]
-        public string ShortSignal { get; set; }
-        [JsonIgnore]
-        public string CoverSignal { get; set; }
-        [JsonIgnore]
-        public string ShortPrice { get; set; }
-        [JsonIgnore]
-        public string CoverPrice { get; set; }
+        public int ShortEntries
+        {
+            get { return _pShortEntries; }
+            set
+            {
+                if (_pShortEntries != value)
+                {
+                    if (this.GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).Script.ShortEntries += (value - _pShortEntries);
+                    }
+                    _pShortEntries = value;
+                    OnPropertyChanged("ShortEntries");
+                }
+            }
+        }
         public ObservableCollection<BaseOrderType> BuyOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
 		public ObservableCollection<BaseOrderType> SellOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
         public ObservableCollection<BaseOrderType> ShortOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
@@ -238,7 +310,7 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
-
+        // for GUI use
         private VendorOrderType _pSelectedVendor;
         [JsonIgnore]
         public VendorOrderType SelectedVendor
@@ -249,20 +321,6 @@ namespace AmiBroker.OrderManager
                 if (value != null)
                     _pSelectedVendor = value;
                 OnPropertyChanged("SelectedVendor");
-            }
-        }
-
-        private int _pSelectedIndex;
-        public int SelectedIndex
-        {
-            get { return _pSelectedIndex; }
-            set
-            {
-                if (_pSelectedIndex != value)
-                {
-                    _pSelectedIndex = value;
-                    OnPropertyChanged("SelectedIndex");
-                }
             }
         }
 
@@ -277,7 +335,7 @@ namespace AmiBroker.OrderManager
             AllowMultiLong = false;
             AllowMultiShort = false;
             AllowReEntry = false;
-            ReEntryBefore = DateTime.Parse("00:00");
+            ReEntryBefore = null;
             IsNextDay = false;  // indicating if ReEntryBefore is next day for night market
             LongAccounts.Clear();
             ShortAccounts.Clear();
@@ -286,15 +344,45 @@ namespace AmiBroker.OrderManager
             ShortOrderTypes.Clear();
             CoverOrderTypes.Clear();
         }
+
+        public void ChangeTimeZone(Controllers.TimeZone tz)
+        {
+            foreach (var ot in BuyOrderTypes)
+            {
+                ot.TimeZone = tz.Id;
+            }
+            foreach (var ot in SellOrderTypes)
+            {
+                ot.TimeZone = tz.Id;
+            }
+            foreach (var ot in ShortOrderTypes)
+            {
+                ot.TimeZone = tz.Id;
+            }
+            foreach (var ot in CoverOrderTypes)
+            {
+                ot.TimeZone = tz.Id;
+            }
+            // strategy
+            PropertyInfo pi = GetType().GetProperty("Strategies");
+            if (pi != null)
+            {
+                ObservableCollection<Strategy> ss = pi.GetValue(this) as ObservableCollection<Strategy>;
+                foreach (var item in ss)
+                {
+                    item.ChangeTimeZone(tz);
+                }
+            }
+        }
     }
     
     public class Strategy : SSBase
     {
+        private MessageHub _hub = MessageHub.Instance;
         public Strategy() { }
         public Strategy(string strategyName, Script script)
             : base(script.Symbol)
-        {
-            
+        {            
             Name = strategyName;
             Script = script;
         }
@@ -302,6 +390,76 @@ namespace AmiBroker.OrderManager
         public ActionType ActionType { get; set; }
         [JsonIgnore]
         public Script Script { get; private set; }  // parent
+                
+        private int _pLongAttemp;
+        [JsonIgnore]
+        public int LongAttemp
+        {
+            get { return _pLongAttemp; }
+            set
+            {
+                if (_pLongAttemp != value)
+                {
+                    _pLongAttemp = value;
+                    OnPropertyChanged("LongAttemp");
+                }
+            }
+        }
+
+        private int _pShortAttemp;
+        [JsonIgnore]
+        public int ShortAttemp
+        {
+            get { return _pShortAttemp; }
+            set
+            {
+                if (_pShortAttemp != value)
+                {
+                    _pShortAttemp = value;
+                    OnPropertyChanged("ShortAttemp");
+                }
+            }
+        }
+        
+        private StrategyStatus _pStatus;
+        [JsonIgnore]
+        public StrategyStatus Status
+        {
+            get { return _pStatus; }
+            set
+            {
+                if (_pStatus != value)
+                {
+                    _pStatus = value;
+                    OnPropertyChanged("Status");
+                }
+            }
+        }
+
+        [JsonIgnore]
+        public ATAfl BuySignal { get; set; }
+        [JsonIgnore]
+        public ATAfl SellSignal { get; set; }
+        [JsonIgnore]
+        public ATAfl BuyPrice { get; set; }
+        [JsonIgnore]
+        public ATAfl SellPrice { get; set; }
+        [JsonIgnore]
+        public ATAfl ShortSignal { get; set; }
+        [JsonIgnore]
+        public ATAfl CoverSignal { get; set; }
+        [JsonIgnore]
+        public ATAfl ShortPrice { get; set; }
+        [JsonIgnore]
+        public ATAfl CoverPrice { get; set; }
+        // reset in case new day
+        public void ResetForNewDay()
+        {
+            LongAttemp = 0;
+            ShortAttemp = 0;
+            LongEntries = 0;
+            ShortEntries = 0;
+        }
         public void CopyFrom(Strategy strategy)
         {
             MaxEntriesPerDay = strategy.MaxEntriesPerDay;
@@ -458,14 +616,20 @@ namespace AmiBroker.OrderManager
             }
         }
     }
-    public class SymbolDefinition
+    public class SymbolDefinition : NotifyPropertyChangedBase
     {
         public string Vendor { get; set; }
-        public string ContractId { get; set; }
+
+        private string _pContractId;
+        public string ContractId
+        {
+            get { return _pContractId; }
+            set { _UpdateField(ref _pContractId, value); }
+        }
+
     }
     public class SymbolInAction : INotifyPropertyChanged
     {
-        
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string name)
         {
@@ -477,9 +641,15 @@ namespace AmiBroker.OrderManager
         }
         // just for json serilization
         public SymbolInAction() { }
-        public SymbolInAction(string symbol)
+        public SymbolInAction(string symbol, float timeframe)
         {
             Name = symbol;
+            TimeFrame = timeframe;
+            // get current system timezone
+            System.TimeZone timeZone = System.TimeZone.CurrentTimeZone;
+            var tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.UtcOffset.Minutes == timeZone.GetUtcOffset(DateTime.Now).Minutes);
+            if (tz != null)
+                TimeZone = tz;
             // fill in accouts available for selecting
             AppliedControllers.CollectionChanged += AppliedControllers_CollectionChanged;
             // fill in Vendors
@@ -487,6 +657,57 @@ namespace AmiBroker.OrderManager
             for (int i = 0; i < controllers.Count(); i++)
             {
                 SymbolDefinition.Add(new SymbolDefinition { Vendor = controllers[i].Name, ContractId = Name });
+            }
+        }
+
+        private float _pTimeFrame;
+        [JsonIgnore]
+        public float TimeFrame
+        {
+            get { return _pTimeFrame; }
+            set
+            {
+                if (_pTimeFrame != value)
+                {
+                    _pTimeFrame = value;
+                    OnPropertyChanged("TimeFrame");
+                }
+            }
+        }
+
+        private bool _pIsDirty;
+        public bool IsDirty
+        {
+            get { return _pIsDirty; }
+            set
+            {
+                if (_pIsDirty != value)
+                {
+                    _pIsDirty = value;
+                    OnPropertyChanged("IsDirty");
+                }
+            }
+        }
+
+        private AmiBroker.Controllers.TimeZone _pTimeZone;
+        public AmiBroker.Controllers.TimeZone TimeZone
+        {
+            get { return _pTimeZone; }
+            set
+            {
+                if (_pTimeZone != value)
+                {
+                    _pTimeZone = value;
+                    ChangeTimeZone(value);
+                    OnPropertyChanged("TimeZone");
+                }
+            }
+        }
+        private void ChangeTimeZone(AmiBroker.Controllers.TimeZone tz)
+        {
+            foreach (var script in Scripts)
+            {
+                script.ChangeTimeZone(tz);
             }
         }
 
@@ -572,6 +793,7 @@ namespace AmiBroker.OrderManager
                 if (tmp != null)
                     tmp.CopyFrom(item);
             }
+            TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
         }
 
         public string Name { get; set; }

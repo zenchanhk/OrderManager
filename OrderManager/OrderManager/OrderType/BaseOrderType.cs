@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using AmiBroker.Controllers;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -41,6 +42,33 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public string Description { get; protected set; }
 
+        private string _dtFormat = "yyyyMMdd HH:mm:ss";
+        [JsonIgnore]
+        public string DateTimeFormat
+        {
+            get => _dtFormat;
+            set
+            {
+                _dtFormat = value;
+                GoodAfterTime.DateTimeFormat = _dtFormat;
+                GoodTilDate.DateTimeFormat = _dtFormat;
+            }
+        }
+
+        private string _timeZone;
+        public string TimeZone
+        {
+            get => _timeZone;
+            set
+            {
+                _timeZone = value;
+                GoodTilDate.TimeZone = value;
+                GoodAfterTime.TimeZone = value;
+            }
+        }
+        public GoodTime GoodTilDate { get; set; } = new GoodTime();
+        public GoodTime GoodAfterTime { get; set; } = new GoodTime();  // yyyyMMdd HH:mm:ss
+
         private float _pSlippage;
         public float Slippage
         {
@@ -62,5 +90,6 @@ namespace AmiBroker.OrderManager
         }
 
         public virtual void CopyTo(BaseOrderType dest) { }
+        public virtual async Task<bool> PlaceOrder(AccountInfo accountInfo, string  symbol) { return false; }
     }
 }
