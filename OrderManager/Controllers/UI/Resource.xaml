@@ -52,6 +52,8 @@
     <local:FontSizeConverter x:Key="FontSizeConverter"/>
     <local:ParentValueToEnabledConverter x:Key="ParentValueToEnabledConverter"/>
     <local:ParentValueToMaxValueConverter x:Key="ParentValueToMaxValueConverter"/>
+    <local:SelectedItemToMultiComboItemsourceConverter x:Key="SelectedItemToItemSourceConverter"/>
+    <local:MCSelectedToCollectionConverter x:Key="MCSelectedToCollectionConverter"/>
     <local:DummyConverter x:Key="Dummy" />
     
     <Style TargetType="RepeatButton" x:Key="TabButton">

@@ -99,7 +99,8 @@ namespace AmiBroker.Controllers
 
                 BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
                 MethodInfo info = ss.GetType().GetMethod("OnPropertyChanged", flags);
-
+                if (info == null) info = ss.GetType().GetMethod("_RaisePropertyChanged", flags);
+                
                 if (src_item != null && dest_item == null)
                 {
                     destOrderTypes.Add(src_item.Clone());

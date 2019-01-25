@@ -47,12 +47,20 @@ namespace AmiBroker.Controllers
             CachedContentControl control = ((CachedContentControl)d);
             //((dynamic)control.Content).DataContext = null;
             //  use you favorite factory
-            FrameworkElement content = ViewFactory.GetView(e.NewValue.GetType());
-            content.DataContext = control.DataContext;
-            //((ContentControl)content).Content = control.DataContext;
-            Binding binding = new Binding();
-            BindingOperations.SetBinding(content, ContentProperty, binding);
-            control.Content = content;
+            if (e.OldValue == null || (e.OldValue != null && e.NewValue.GetType() != e.OldValue.GetType()))
+            {
+                FrameworkElement content = ViewFactory.GetView(e.NewValue.GetType());
+                control.Content = content;
+                content.DataContext = control.DataContext;
+                //((ContentControl)content).Content = control.DataContext;
+                Binding binding = new Binding();
+                BindingOperations.SetBinding(content, ContentProperty, binding);
+                
+            }
+            else
+            {                 
+                ((FrameworkElement)control.Content).DataContext = control.DataContext;
+            }
         }
     }
 

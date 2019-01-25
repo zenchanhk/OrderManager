@@ -229,8 +229,9 @@
                                                     <CheckBox HorizontalAlignment="Center">
                                                         <CheckBox.IsChecked>
                                                             <local:BcpBinding 
-                                                                            Path="Dummy"
-                                                                            ConverterParameters="Binding ElementName=scriptTabView Path=DataContext.SelectedItem.AppliedControllers, Binding Path=. "
+                                                                            Path="DataContext.Dummy"
+                                                                            ElementName="scriptTabView"
+                                                                            ConverterParameters="Binding ElementName=scriptTabView Path=DataContext, Binding Path=. "
                                                                             Converter="{StaticResource SelectedToCollectionConverter}"
                                                                             Mode="TwoWay" />
                                                         </CheckBox.IsChecked>
@@ -315,6 +316,7 @@
                         <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" 
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"
                                 IsEnabled="{Binding DataContext.SelectedItem, ElementName=scriptTabView, 
                                 Converter={StaticResource ParentValueToEnabledConverter}, ConverterParameter=AllowMultiLong$chkMultiLong}">
                         <CheckBox Name="chkMultiLong" IsChecked="{Binding AllowMultiLong}" Click="cb_Checked" >
@@ -332,6 +334,7 @@
                         </StackPanel>
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"
                                 IsEnabled="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                 Converter={StaticResource ParentValueToEnabledConverter}, ConverterParameter=AllowMultiShort$chkMultiShort}">
                         <CheckBox Name="chkMultiShort" IsChecked="{Binding AllowMultiShort}" Click="cb_Checked" >
@@ -348,6 +351,7 @@
                             <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
                         </StackPanel>
                     </StackPanel>
+                    <!--
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3"
                                 IsEnabled="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                 Converter={StaticResource ParentValueToEnabledConverter}, ConverterParameter=AllowReEntry$chkReEntry}">
@@ -375,7 +379,7 @@
                                 </CheckBox>
                             </StackPanel>
                         </StackPanel>
-                    </StackPanel>
+                    </StackPanel>-->
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <CheckBox IsChecked="{Binding ReverseSignalForcesExit}" >
                             <TextBlock Text="Reverse signal force exit" />
@@ -648,9 +652,12 @@
                                                      EnableFiltering="True"
                                                      FilterService="{StaticResource CustomFilterService}"
                                                      EnableGrouping="True"
-                                                     Loaded="Mc1_Loaded" 
-                                                     SelectedItems="{Binding LongAccounts}"
-                                                     />
+                                                     
+                                                     ItemsSource="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
+                                                        Converter={StaticResource SelectedItemToItemSourceConverter}}"
+                                                     SelectedItems="{Binding DataContext.SelectedItem.LongAccounts, ElementName=scriptTabView}"
+                                                     >
+                            </sdl:MultiSelectComboBox>
                         </DockPanel>
                         <!-- long UI shadow -->
                         <StackPanel Visibility="{Binding Path=., Converter={StaticResource ActionTypeToLongUIVisConverter}}" 
@@ -672,8 +679,9 @@
                                                      EnableFiltering="True"
                                                      FilterService="{StaticResource CustomFilterService}"
                                                      EnableGrouping="True"
-                                                     Loaded="Mc1_Loaded" 
-                                                     SelectedItems="{Binding ShortAccounts}"
+                                                     ItemsSource="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
+                                                        Converter={StaticResource SelectedItemToItemSourceConverter}}"
+                                                     SelectedItems="{Binding DataContext.SelectedItem.ShortAccounts, ElementName=scriptTabView}"
                                                      />
                         </DockPanel>
                         <!-- short UI shadow -->

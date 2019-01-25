@@ -61,6 +61,7 @@ namespace AmiBroker.Controllers
         private void Mc1_Loaded(object sender, RoutedEventArgs e)
         {
             before_mc_loaded(sender);
+            var mc = sender as MultiSelectComboBox;
         }
 
         private void before_mc_loaded(object sender)

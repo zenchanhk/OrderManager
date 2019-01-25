@@ -288,7 +288,7 @@
                             Style="{StaticResource MultiSelectComboBox.SelectedItemsPanel.WrapableItemsSource.Style}">
                         <sdl:ContentItemsControl.Resources>
                             <DataTemplate x:Key="MultiSelectComboBox.SelectedItems.ItemTemplate">
-                                <TextBlock Text="{Binding}" Style="{DynamicResource MultiSelectComboBox.DefaultTextBlock.Style}" Margin="2,0" />
+                                <TextBlock Text="{Binding}" Style="{StaticResource MultiSelectComboBox.DefaultTextBlock.Style}" Margin="2,0" />
                             </DataTemplate>
                             <DataTemplate x:Key="MultiSelectComboBox.SelectedItems.Searchable.ItemTemplate">
                                 <StackPanel Orientation="Horizontal">

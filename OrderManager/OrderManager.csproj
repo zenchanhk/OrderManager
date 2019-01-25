@@ -66,10 +66,6 @@
       <HintPath>..\packages\Newtonsoft.Json.12.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework.Aero2" />
-    <Reference Include="Sdl.MultiSelectComboBox, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\Sdl.MultiSelectComboBox.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
     <Reference Include="System.Data" />
@@ -283,6 +279,10 @@
     <ProjectReference Include="..\..\..\Dragablz-feature-save\Dragablz\Dragablz.net40.csproj">
       <Project>{886ad9de-bced-4a99-8376-5177b376c0ac}</Project>
       <Name>Dragablz.net40</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj">
+      <Project>{0378f38f-5bf3-497f-91c2-1ee77c874593}</Project>
+      <Name>Sdl.MultiSelectComboBox</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

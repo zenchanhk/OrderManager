@@ -137,6 +137,25 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    // tree selected item
+    class SelectedItemToMultiComboItemsourceConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            Type t = value.GetType();
+            if (t == typeof(SymbolInAction))
+                return ((SymbolInAction)value).AccountCandidates;
+            else if (t == typeof(Script) || t == typeof(Strategy))
+                return ((dynamic)value).Symbol.AccountCandidates;
+            else
+                return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
     class ParentValueToMaxValueConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -586,6 +605,21 @@ namespace AmiBroker.Controllers
             return true;
         }
     }
+    public class MCSelectedToCollectionConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            PropertyInfo pi = value.GetType().GetProperty(((dynamic)parameter)[1]);
+            return pi.GetValue(value);
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            object si = ((dynamic)parameter)[0].SelectedItem;
+            PropertyInfo pi = si.GetType().GetProperty(((dynamic)parameter)[1]);
+            pi.SetValue(si, value);
+            return si;
+        }
+    }
     public class CombinedConverter : IMultiValueConverter
     {
         public object Convert(object[] value, Type targetType, object parameter, CultureInfo culture)
@@ -602,13 +636,20 @@ namespace AmiBroker.Controllers
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            ObservableCollection<IController> appliedAccounts = ((dynamic)parameter)[0] as ObservableCollection<IController>;
-            IController ic = ((dynamic)parameter)[1] as IController;
-            return appliedAccounts.Contains(ic);
+            //ObservableCollection<IController> appliedAccounts = ((dynamic)parameter)[0] as ObservableCollection<IController>;
+            object si = MainViewModel.Instance.SelectedItem;
+            if (si.GetType() == typeof(SymbolInAction))
+            {
+                ObservableCollection<IController> appliedAccounts = ((SymbolInAction)si).AppliedControllers;
+                IController ic = ((dynamic)parameter)[1] as IController;
+                return appliedAccounts.Contains(ic);
+            }
+            return false;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            ObservableCollection<IController> appliedAccounts = ((dynamic)parameter)[0] as ObservableCollection<IController>;
+            //ObservableCollection<IController> appliedAccounts = ((dynamic)parameter)[0] as ObservableCollection<IController>;
+            ObservableCollection<IController> appliedAccounts = ((dynamic)MainViewModel.Instance.SelectedItem).AppliedControllers;
             IController ic = ((dynamic)parameter)[1] as IController;
 
             if ((bool)value)

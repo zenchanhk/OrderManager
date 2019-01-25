@@ -11,6 +11,7 @@ using AmiBroker.OrderManager;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Collections.Specialized;
+using System.Windows.Threading;
 
 namespace AmiBroker.Controllers
 {
@@ -88,7 +89,22 @@ namespace AmiBroker.Controllers
                 if (_pSelectedItem != value)
                 {
                     _pSelectedItem = value;
+                    Dummy = !Dummy;
                     OnPropertyChanged("SelectedItem");
+                }
+            }
+        }
+        // for binding(displaying) controller for each symbol
+        private bool _pDummy;
+        public bool Dummy
+        {
+            get { return _pDummy; }
+            set
+            {
+                if (_pDummy != value)
+                {
+                    _pDummy = value;
+                    OnPropertyChanged("Dummy");
                 }
             }
         }
@@ -155,31 +171,96 @@ namespace AmiBroker.Controllers
             TimeZones.Add(new TimeZone { Id = "CST", UtcOffset = new TimeSpan(8,0,0), Description = "China Standard Time" });
             TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
 
-            // testing
-            /*
+        }
+        public void test()
+        {
             LogList.Add(new Log() { Source = "test1", Text = "text" });
-            SymbolInAction symbol = new SymbolInAction("HSI", 5);            
+            SymbolInAction symbol = new SymbolInAction("HSI", 5);
             SymbolInActions.Add(symbol);
-            Script script = new Script("Basic", symbol);
+            Script script = new Script("Basic", symbol);            
             script.AllowMultiLong = true;
             script.MaxOpenPosition = 5;
             script.MaxEntriesPerDay = 3;
             symbol.Scripts.Add(script);
+            Script script1 = new Script("Basic1", symbol);
+            script1.AllowMultiLong = true;
+            script1.MaxOpenPosition = 8;
+            script1.MaxEntriesPerDay = 4;
+            symbol.Scripts.Add(script1);
+            Strategy s2 = new Strategy("strategy2", script);
+            s2.MaxEntriesPerDay = 3;
+            s2.MaxOpenPosition = 5;
+            s2.ActionType = ActionType.LongAndShort;
+            script.Strategies.Add(s2);
+            Strategy s4 = new Strategy("strategy4", script);
+            s4.MaxEntriesPerDay = 3;
+            s4.MaxOpenPosition = 5;
+            s4.ActionType = ActionType.Long;
+            script.Strategies.Add(s4);
             Strategy s1 = new Strategy("strategy1", script);
             s1.MaxEntriesPerDay = 2;
             s1.MaxOpenPosition = 4;
             s1.ActionType = ActionType.LongAndShort;
-            script.Strategies.Add(s1);
-            Strategy s2 = new Strategy("strategy2", script);
-            s2.MaxEntriesPerDay = 3;
-            s2.MaxOpenPosition = 5;
-            s2.ActionType = ActionType.Long;
-            script.Strategies.Add(s2);
+            script.Strategies.Add(s1);            
             Strategy s3 = new Strategy("strategy3", script);
             s3.MaxEntriesPerDay = 2;
             s3.MaxOpenPosition = 6;
             s3.ActionType = ActionType.Short;
-            script.Strategies.Add(s3);*/
+            script.Strategies.Add(s3);
+
+            Strategy s8 = new Strategy("strategy8", script);
+            s8.MaxEntriesPerDay = 2;
+            s8.MaxOpenPosition = 6;
+            s8.ActionType = ActionType.Short;
+            script1.Strategies.Add(s8);
+            Strategy s5 = new Strategy("strategy5", script);
+            s5.MaxEntriesPerDay = 3;
+            s5.MaxOpenPosition = 5;
+            s5.ActionType = ActionType.LongAndShort;
+            script1.Strategies.Add(s5);
+            Strategy s6 = new Strategy("strategy6", script);
+            s6.MaxEntriesPerDay = 6;
+            s6.MaxOpenPosition = 6;
+            s6.ActionType = ActionType.Long;
+            script1.Strategies.Add(s6);
+            Strategy s7 = new Strategy("strategy7", script);
+            s7.MaxEntriesPerDay = 2;
+            s7.MaxOpenPosition = 4;
+            s7.ActionType = ActionType.LongAndShort;
+            script1.Strategies.Add(s7);
+            
+            SymbolInAction symbol1 = new SymbolInAction("QQQ", 5);
+            SymbolInActions.Add(symbol1);
+            Script script2 = new Script("Basic2", symbol1);
+            script2.AllowMultiLong = true;
+            script2.MaxOpenPosition = 8;
+            script2.MaxEntriesPerDay = 5;
+            symbol1.Scripts.Add(script2);
+            Script script3 = new Script("Basic3", symbol1);
+            script3.AllowMultiLong = true;
+            script3.MaxOpenPosition = 8;
+            script3.MaxEntriesPerDay = 6;
+            symbol1.Scripts.Add(script3);
+            Strategy s9 = new Strategy("strategy9", script2);
+            s9.MaxEntriesPerDay = 9;
+            s9.MaxOpenPosition = 9;
+            s9.ActionType = ActionType.Short;
+            script2.Strategies.Add(s9);
+            Strategy s10 = new Strategy("strategy10", script2);
+            s10.MaxEntriesPerDay = 10;
+            s10.MaxOpenPosition = 10;
+            s10.ActionType = ActionType.LongAndShort;
+            script2.Strategies.Add(s10);
+            Strategy s11 = new Strategy("strategy11", script3);
+            s11.MaxEntriesPerDay = 11;
+            s11.MaxOpenPosition = 11;
+            s11.ActionType = ActionType.Long;
+            script3.Strategies.Add(s11);
+            Strategy s12 = new Strategy("strategy12", script3);
+            s12.MaxEntriesPerDay = 12;
+            s12.MaxOpenPosition = 12;
+            s12.ActionType = ActionType.LongAndShort;
+            script3.Strategies.Add(s12);
         }
         public bool AddSymbol(string name, float timeframe, out SymbolInAction symbol)
         {
@@ -192,6 +273,13 @@ namespace AmiBroker.Controllers
                 return true;
             }
             return false;
+        }
+        public void Log(Log log)
+        {
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                LogList.Insert(0, log);
+            });
         }
         private void Orders_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {

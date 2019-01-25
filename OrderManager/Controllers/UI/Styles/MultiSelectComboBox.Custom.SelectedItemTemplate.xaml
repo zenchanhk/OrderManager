@@ -6,6 +6,7 @@
         <ResourceDictionary Source="../Resource.xaml" />
         <ResourceDictionary Source="MultiSelectComboBox.Custom.Tooltip.Resources.xaml"/>
         <ResourceDictionary Source="MultiSelectComboBox.Custom.Image.Resources.xaml"/>
+        <ResourceDictionary Source="MultiSelectComboBox.Custom.ControlTemplate.xaml"/>
     </ResourceDictionary.MergedDictionaries>
 
     <DataTemplate x:Key="MultiSelectComboBox.SelectedItems.Account.ItemTemplate" >
@@ -13,7 +14,7 @@
             <Image Style="{StaticResource MultiSelectComboBox.Custom.Image.Style}" Margin="2,0,2,-1"/>
             <local:IconBlock Icon="Circle" Margin="0" 
                              Foreground="{Binding Controller.ConnectionStatus, Converter={StaticResource StatusToBrushConverter}}" />
-            <TextBlock Style="{DynamicResource MultiSelectComboBox.DefaultTextBlock.Style}" Margin="2,0">
+            <TextBlock Style="{StaticResource MultiSelectComboBox.DefaultTextBlock.Style}" Margin="2,0">
                 <Run Text="["/><Bold><Run Foreground="#FF4F68AA" Text="{Binding Controller.ConnParam.AccName, Mode=OneWay}"/></Bold><Run Text="]"/>
                 <Run Text="{Binding Name, Mode=OneWay}"/>
             </TextBlock>

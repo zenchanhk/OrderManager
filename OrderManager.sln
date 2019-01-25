@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WpfApp1", "WpfApp1\WpfApp1.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{E2949530-168B-4A15-8441-A4385F27F62D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sdl.MultiSelectComboBox", "..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj", "{0378F38F-5BF3-497F-91C2-1EE77C874593}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{E2949530-168B-4A15-8441-A4385F27F62D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E2949530-168B-4A15-8441-A4385F27F62D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E2949530-168B-4A15-8441-A4385F27F62D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

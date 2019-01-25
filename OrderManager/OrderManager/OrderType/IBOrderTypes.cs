@@ -240,11 +240,18 @@ namespace AmiBroker.OrderManager
                 ((IBOrderType)dest).Slippage = Slippage;
             }
         }
-
-        public new async Task<bool> PlaceOrder(AccountInfo accountInfo, string symbol)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="accountInfo"></param>
+        /// <param name="symbol"></param>
+        /// <returns>-1 means failure</returns>
+        public new async Task<int> PlaceOrder(AccountInfo accountInfo, string symbol)
         {
             Order order = new Order();
             order.Transmit = Transmit;
+            order.Action = OrderAction.Buy.ToString();
+            order.OrderType = IBCode;
             order.Account = accountInfo.Name;
             order.GoodAfterTime = GoodAfterTime.ToString();
             order.GoodTillDate = GoodTilDate.ToString();            
@@ -281,12 +288,9 @@ namespace AmiBroker.OrderManager
             if (contract != null)
             {
                 int orderId = ((IBController)accountInfo.Controller).PlaceOrder(order, contract);
-            }
-            else
-            {
-
-            }            
-            return false;
+                return orderId;
+            }     
+            return -1;
         }
     }
 

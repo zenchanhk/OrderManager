@@ -225,8 +225,6 @@ namespace AmiBroker.Controllers
         public int PlaceOrder(Order order, Contract contract)
         {  
             ClientSocket.placeOrder(orderId, contract, order);
-            //Contract contract = new Contract();
-            
             return orderId++;
         }
         public async void Connect()
@@ -335,7 +333,7 @@ namespace AmiBroker.Controllers
             DisplayedOrder dOrder = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == e.OrderId);
             if (dOrder == null)
             {
-                mainVM.LogList.Insert(0, new Log() { Text = String.Format("Order Id: %d cannot be found", e.OrderId), Time = DateTime.Now });
+                mainVM.Log(new Log() { Text = String.Format("Order Id: %d cannot be found", e.OrderId), Time = DateTime.Now });
             }
             else
             {
@@ -344,12 +342,12 @@ namespace AmiBroker.Controllers
                 {
                     dOrder = dOrder.ShallowCopy();
                     dOrder.Time = DateTime.Now;
-                    System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Orders.Insert(0, dOrder);
                     });
                 }
-                System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
                     dOrder.Status = e.Status;
                     dOrder.Filled = e.Filled;

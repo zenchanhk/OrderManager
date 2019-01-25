@@ -64,6 +64,7 @@ namespace ConsoleApp1
         static void Main(string[] args)
         {
             OrderManager om = new OrderManager();
+            MainViewModel.Instance.test();
             Console.ReadLine();
             
             

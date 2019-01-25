@@ -21,7 +21,7 @@ CoverPrices="cp1$cp2";
 ActionType="Long$LongAndShort";
 bs1=bs2=true;
 ss1=ss2=true;
-
+bs1=true;
 //Test();
 IBController("sample");
 //Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);
