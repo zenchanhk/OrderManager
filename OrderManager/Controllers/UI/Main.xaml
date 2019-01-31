@@ -6,7 +6,8 @@
         xmlns:dragablz="http://dragablz.net/winfx/xaml/dragablz"
         xmlns:dockablz="http://dragablz.net/winfx/xaml/dockablz"
         xmlns:system="clr-namespace:System;assembly=mscorlib"
-        xmlns:local="clr-namespace:AmiBroker.Controllers"        
+        xmlns:local="clr-namespace:AmiBroker.Controllers"     
+        xmlns:controls="clr-namespace:ControlLib"
         Topmost="{Binding AlwaysOnTop, ElementName=mainWin}"
         mc:Ignorable="d"
         Name="mainWin"
@@ -23,9 +24,9 @@
             <DataTemplate DataType="{x:Type dragablz:HeaderedItemViewModel}">                
                 <ContentControl Content="{Binding Content}" Margin="4 4 4 4" />
             </DataTemplate>
-            
+
             <dragablz:InterTabController x:Key="InterTabController" x:Shared="False" 
-                                         InterTabClient="{Binding InterTabClient}" 
+                                         InterTabClient="{Binding InterTabClient}"                                          
                                          Partition="{StaticResource MainPartition}" />
             
             <Style TargetType="{x:Type dragablz:TabablzControl}" x:Key="TabablzControlStyle">                
@@ -83,11 +84,22 @@
                           Command="{Binding Commands.ShowConfigDialog}" CommandParameter="{Binding Path=., ElementName=mainWin}"/>
             </MenuItem>
             <MenuItem Header="_Trade">
-                <MenuItem Header="_Close All Open Positions"
-                          Command="{Binding Commands.CloseAllOpenOrders}" CommandParameter="{Binding}">
+                <MenuItem Header="Close Positions">
                     <MenuItem.Icon>
                         <Image Source="{StaticResource order_cancelDrawingImage}" />
                     </MenuItem.Icon>
+                    <MenuItem Header="_Close All Open Positions"
+                              Command="{Binding Commands.CloseAllOpenOrders}" CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource closeAllDrawingImage}" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="_Close Current Open Positions"
+                              Command="{Binding Commands.CloseCurrentOpenOrders}" CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource closeCurrentDrawingImage}" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
                 <MenuItem Header="_Refresh Strategy Parameters" Icon="{Binding ImageRefresh}"
                           Command="{Binding Commands.RefreshStrategyParameters}" CommandParameter="{Binding}"/>
@@ -138,21 +150,32 @@
                     </StackPanel>
                 </Button>
                 <Separator />
-                <Button Background="Transparent" ToolTip="Close all open positions" 
-                        Command="{Binding Commands.CloseAllOpenOrders}" CommandParameter="{Binding}" >
-                    <!--IsEnabled="{Binding Path=ConnectionStatus, Converter={StaticResource StatusToEnableConverter} }"-->
-                    <StackPanel Orientation="Horizontal" >
-                        <Image Source="{StaticResource order_cancelDrawingImage}" Margin="0, 0, 2, 0" Width="17"/>
-                        <!--Image Source="{Binding Path=ImageOrderCancel.Source}" Margin="0, 0, 2, 0" Width="15"/-->
-                        <!--TextBlock Text="Close All" /-->
-                    </StackPanel>
-                </Button>
-                <Button Background="Transparent" ToolTip="Close all open positions" 
-                        Command="{Binding Commands.Test}" CommandParameter="{Binding}" >
-                    <local:IconBlock FontSize="17"
-                            Icon="Refresh" Foreground="Green"
-                            Margin="0, 0, 2, 0"/>
-                </Button>
+                <controls:DropDownButton Background="Transparent" ToolTip="Close open positions" BorderThickness="0">
+                    <controls:DropDownButton.Content>
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="{StaticResource order_cancelDrawingImage}" Margin="0, 0, 2, 0" Width="16"/>
+                            <Path x:Name="BtnArrow" Margin="2" VerticalAlignment="Center" Width="6" Fill="#FF527DB5" Stretch="Uniform" HorizontalAlignment="Right" Data="F1 M 301.14,-189.041L 311.57,-189.041L 306.355,-182.942L 301.14,-189.041 Z "/>                             
+                        </StackPanel>
+                    </controls:DropDownButton.Content>
+                    <controls:DropDownButton.Menu>
+                        <ContextMenu>
+                            <MenuItem Command="{Binding Commands.CloseAllOpenOrders}"
+                                        CommandParameter="{Binding}"
+                                        Header="Close All Open Positions" >
+                                <MenuItem.Icon>
+                                    <Image Source="{StaticResource closeAllDrawingImage}" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Command="{Binding Commands.CloseCurrentOpenOrders}"
+                                        CommandParameter="{Binding}"
+                                        Header="Close Current Open Positions" >
+                                <MenuItem.Icon>
+                                    <Image Source="{StaticResource closeCurrentDrawingImage}" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </controls:DropDownButton.Menu>                    
+                </controls:DropDownButton>                
                 <Separator />
                 <ToggleButton Background="{Binding Path=AlwaysOnTop, ElementName=mainWin, Converter={StaticResource BoolToColorConverter}}" 
                               ToolTip="Always On Top" 
@@ -165,6 +188,15 @@
                     </StackPanel>
                 </ToggleButton>
                 <Separator />
+                <Button Background="Transparent" ToolTip="Refresh strategy parameters" 
+                        Command="{Binding Commands.Test}" CommandParameter="{Binding Path=., ElementName=mainWin}"  >
+                    <StackPanel Orientation="Horizontal" >
+                        <local:IconBlock FontSize="17"
+                            Icon="WindowRestore" Foreground="Indigo"
+                            Margin="0, 0, 2, 0"/>
+                        <!--TextBlock Text="Disconnect All" /-->
+                    </StackPanel>
+                </Button>
                 <Button Background="Transparent" ToolTip="Configuration" 
                         Command="{Binding Commands.ShowConfigDialog}" CommandParameter="{Binding Path=., ElementName=mainWin}">
                     <StackPanel Orientation="Horizontal" >
@@ -179,7 +211,15 @@
                         <Image Source="{StaticResource templateDrawingImage}" Margin="0, 0, 2, 0" Width="17"/>
                     </StackPanel>
                 </Button>
-                <Button Background="Transparent" ToolTip="Export to CSV file" Click="ExportBtn_Click">
+                <Button Background="Transparent" ToolTip="Clear all templates" 
+                        Command="{Binding Commands.ClearAllTemplate}">
+                    <StackPanel Orientation="Horizontal" >
+                        <Image Source="{StaticResource clearTemplatesDrawingImage}" Margin="0, 0, 2, 0" Width="18"/>
+                    </StackPanel>
+                </Button>
+                <Button Background="Transparent" ToolTip="Export to CSV file" 
+                        Command="{Binding Commands.Export}"
+                        CommandParameter="{Binding ElementName=mainWin}">
                 <StackPanel Orientation="Horizontal" >
                     <local:IconBlock FontSize="17"
                             Icon="FileExport"
@@ -195,7 +235,7 @@
             <dockablz:Layout Partition="{StaticResource MainPartition}" >
                 <dockablz:Layout.BranchTemplate>
                     <DataTemplate>
-                        <dragablz:TabablzControl Style="{StaticResource TabablzControlStyle}">
+                        <dragablz:TabablzControl Style="{StaticResource TabablzControlStyle}" >
                             <dragablz:TabablzControl.InterTabController>
                                 <dragablz:InterTabController InterTabClient="{Binding DataContext.InterTabClient, ElementName=mainWin}" 
                                                              Partition="{StaticResource MainPartition}" />
@@ -207,6 +247,7 @@
                 <dragablz:TabablzControl x:Name="InitialTabablzControl" 
                                          SelectionChanged="TabControl_SelectionChanged"
                                          Style="{StaticResource TabablzControlStyle}"
+                                         SelectedItem="{Binding SelectedTab, ElementName=mainWin}"
                                          FixedHeaderCount="{Binding FixedTabCount, ElementName=mainWin}">
                     <dragablz:TabablzControl.InterTabController>
                         <dragablz:InterTabController InterTabClient="{Binding InterTabClient}" Partition="{StaticResource MainPartition}" />

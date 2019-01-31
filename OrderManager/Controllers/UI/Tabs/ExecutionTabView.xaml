@@ -28,7 +28,7 @@
                     <GridViewColumn Header="Avg. Price" Width="60" DisplayMemberBinding="{Binding AvgPrice}" />
                     <GridViewColumn Header="Currency" Width="60" DisplayMemberBinding="{Binding Currency}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
-                    <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                    <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
                     <GridViewColumn Header="Strategy" Width="200" DisplayMemberBinding="{Binding Strategy}" />
                 </GridView>
             </ListView.View>

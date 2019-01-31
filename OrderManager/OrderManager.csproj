@@ -86,8 +86,12 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="Xceed.Wpf.Toolkit">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.Toolkit.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ABMethods.cs" />
     <Compile Include="Controllers\Helper\BcpBinding.cs" />
     <Compile Include="Controllers\Helper\BindableParameter.cs" />
     <Compile Include="Controllers\Helper\Helper.cs" />
@@ -99,9 +103,13 @@
     <Compile Include="Controllers\UI\Command.cs" />
     <Compile Include="Controllers\UI\Controls\CachedContentControl.cs" />
     <Compile Include="Controllers\UI\Controls\DateTimeUpDown\DateTimeUpDown.cs" />
+    <Compile Include="Controllers\UI\Controls\DropDownButton.cs" />
     <Compile Include="Controllers\UI\Controls\NumericUpDown.cs" />
     <Compile Include="Controllers\UI\Controls\ObjectInTreeView.xaml.cs">
       <DependentUpon>ObjectInTreeView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Dialogs\AssignToStrategy.xaml.cs">
+      <DependentUpon>AssignToStrategy.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controllers\UI\Dialogs\SaveLoadTemplate.xaml.cs">
       <DependentUpon>SaveLoadTemplate.xaml</DependentUpon>
@@ -194,6 +202,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controllers\UI\Dialogs\AccountConfig.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Dialogs\AssignToStrategy.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

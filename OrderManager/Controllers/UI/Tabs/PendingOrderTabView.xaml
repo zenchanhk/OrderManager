@@ -14,7 +14,18 @@
         </ResourceDictionary>
     </UserControl.Resources>
     <Grid>
-        <ListView ItemsSource="{Binding PendingOrdersView}" ItemContainerStyle="{StaticResource GridLineStyle}" >
+        <ListView ItemsSource="{Binding PendingOrdersView}" SelectedItem="{Binding SelectedPendingOrder}" >
+            <ListView.Resources>
+                <ContextMenu x:Key="ItemContextMenu">
+                    <MenuItem Header="Assign" Command="{Binding Path=DataContext.Commands.AssignStrategy, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke" 
+                              CommandParameter="{Binding Path=DataContext.SelectedPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}"/>
+                </ContextMenu>
+            </ListView.Resources>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="{x:Type ListViewItem}" BasedOn="{StaticResource GridLineStyle}">
+                    <Setter Property="ContextMenu" Value="{StaticResource ItemContextMenu}" />
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding OrderId}" />
@@ -34,7 +45,7 @@
                     <GridViewColumn Header="OCAType" Width="60" DisplayMemberBinding="{Binding OcaType}" />
                     <GridViewColumn Header="Account" Width="80" DisplayMemberBinding="{Binding Account}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
-                    <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                    <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
                     <GridViewColumn Header="Strategy" Width="200" DisplayMemberBinding="{Binding Strategy}" />
                 </GridView>
             </ListView.View>

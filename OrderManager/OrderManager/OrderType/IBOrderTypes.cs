@@ -7,6 +7,7 @@ using IBApi;
 using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
 
 namespace AmiBroker.OrderManager
 {
@@ -140,7 +141,7 @@ namespace AmiBroker.OrderManager
                     MatchCollection mc = r1.Matches(DateTimeFormat);
                     foreach (Match match in mc)
                     {
-                        if (match.Value.Trim().Length > 0 && match.Value.Contains('D'))
+                        if (match.Value.Trim().Length > 0 && match.Value.Contains('d'))
                             dateFormat = match.Value;
                         if (match.Value.Trim().Length > 0 && match.Value.Contains('m'))
                             timeFormat = match.Value;
@@ -150,7 +151,8 @@ namespace AmiBroker.OrderManager
                     result += TimeZone != null ? " " + TimeZone : "";
                     break;
 				case 2:
-					result =  OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
+                    //result =  OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
+                    result = DateTime.Now.AddSeconds(Seconds).ToString(DateTimeFormat);
                     result += TimeZone != null ? " " + TimeZone : "";
                     break;
                 case 3:
@@ -158,12 +160,12 @@ namespace AmiBroker.OrderManager
                     // in case of the beginning of bar
                     if (OrderTime.Minute % (int)BarInterval == 0)
                         div++;
-                    result = OrderTime.AddMinutes((int)BarInterval*div).ToString(DateTimeFormat);
+                    result = DateTime.Now.AddMinutes((int)BarInterval*div).ToString(DateTimeFormat);
                     result += TimeZone != null ? " " + TimeZone : "";
                     break;
             }
 			return result;
-		}
+        }
 	}
     public class IBOrderType : BaseOrderType
     {
@@ -239,58 +241,22 @@ namespace AmiBroker.OrderManager
 
                 ((IBOrderType)dest).Slippage = Slippage;
             }
-        }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="accountInfo"></param>
-        /// <param name="symbol"></param>
-        /// <returns>-1 means failure</returns>
-        public new async Task<int> PlaceOrder(AccountInfo accountInfo, string symbol)
+        }        
+    }
+    public class PriceItemsSource : IItemsSource
+    {
+        public ItemCollection GetValues()
         {
-            Order order = new Order();
-            order.Transmit = Transmit;
-            order.Action = OrderAction.Buy.ToString();
-            order.OrderType = IBCode;
-            order.Account = accountInfo.Name;
-            order.GoodAfterTime = GoodAfterTime.ToString();
-            order.GoodTillDate = GoodTilDate.ToString();            
-            if (order.GoodTillDate != string.Empty)
-                Tif = IBTifType.GTD;
-            order.Tif = Tif.ToString();
-            Contract contract = new Contract();
-            string[] parts = symbol.Split(new char[] { '-' });
-            switch (parts.Length)
+            ItemCollection items = new ItemCollection();
+            if (MainViewModel.Instance.SelectedItem.GetType() == typeof(Strategy))
             {
-                case 1:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = "SMART";
-                    contract.SecType = "STK";
-                    break;
-                case 2:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = "STK";
-                    break;
-                case 3:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = parts[2];
-                    break;
-                case 4:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = parts[2];
-                    contract.Currency = parts[3];
-                    break;
-            }
-            contract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
-            if (contract != null)
-            {
-                int orderId = ((IBController)accountInfo.Controller).PlaceOrder(order, contract);
-                return orderId;
-            }     
-            return -1;
+                List<string> list = ((Strategy)MainViewModel.Instance.SelectedItem).Prices;
+                foreach (var item in list)
+                {
+                    items.Add(item);
+                }
+            }            
+            return items;
         }
     }
 
@@ -322,7 +288,11 @@ namespace AmiBroker.OrderManager
 
     public class IBMarketIfTouchedOrder : IBOrderType
     {
-        public float AuxPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Stop Price")]
+        [Description("Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; }
         public IBMarketIfTouchedOrder() : base()
         {
             Description = "A Market If Touched (MIT) is an order to buy (or sell) a contract below (or above) the market. It is similar to a stop order, except that an MIT sell order is placed above the current market price, and a stop sell order is placed below.";
@@ -370,7 +340,11 @@ namespace AmiBroker.OrderManager
 
     public class IBLimitOrder : IBOrderType
     {
-        public float LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
         public IBLimitOrder() : base()
         {
             Description = "A Limit order is an order to buy or sell at a specified price or better.";
@@ -389,8 +363,16 @@ namespace AmiBroker.OrderManager
 
     public class IBLimitIfTouchedOrder : IBOrderType
     {
-        public float AuxPrice { get; set; } // trigger price
-        public float LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Trigger Price")]
+        [Description("Trigger Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; } // trigger price
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
         public IBLimitIfTouchedOrder() : base()
         {
             Description = "A Limit if Touched is an order to buy (or sell) a contract at a specified price or better, below (or above) the market. This order is held in the system until the trigger price is touched. An LIT order is similar to a stop limit order, except that an LIT sell order is placed above the current market price, and a stop limit sell order is placed below.";
@@ -409,7 +391,11 @@ namespace AmiBroker.OrderManager
 
     public class IBLimitOnCloseOrder : IBOrderType
     {
-        public float LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
         public IBLimitOnCloseOrder() : base()
         {
             Description = "A Limit-on-close (LOC) order will be submitted at the close and will execute if the closing price is at or better than the submitted limit price.";
@@ -424,7 +410,11 @@ namespace AmiBroker.OrderManager
 
     public class IBLimitOnOpenOrder : IBOrderType
     {
-        public float LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
         public IBLimitOnOpenOrder() : base()
         {
             Description = "A Limit-on-Open (LOO) order combines a limit order with the OPG time in force to create an order that is submitted at the market's open, and that will only execute at the specified limit price or better. Orders are filled in accordance with specific exchange rules.";
@@ -468,7 +458,11 @@ namespace AmiBroker.OrderManager
 
     public class IBStopOrder : IBOrderType
     {
-        public float AuxPrice { get; set; } // stop price
+        [Category("Defining Prices")]
+        [DisplayName("Stop Price")]
+        [Description("Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; } // stop price
         public IBStopOrder() : base()
         {
             Description = "A Stop order is an instruction to submit a buy or sell market order if and when the user-specified stop trigger price is attained or penetrated. ";
@@ -487,8 +481,16 @@ namespace AmiBroker.OrderManager
 
     public class IBStopLimitOrder : IBOrderType
     {
-        public float AuxPrice { get; set; } // stop price
-        public float LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Stop Price")]
+        [Description("Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; } // stop price
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
         public IBStopLimitOrder() : base()
         {
             Description = "A Stop-Limit order is an instruction to submit a buy or sell limit order when the user-specified stop trigger price is attained or penetrated.";
@@ -506,7 +508,11 @@ namespace AmiBroker.OrderManager
 
     public class IBStopProtectionOrder : IBOrderType
     {
-        public float AuxPrice { get; set; } // stop price
+        [Category("Defining Prices")]
+        [DisplayName("Stop Price")]
+        [Description("Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; } // stop price
         public IBStopProtectionOrder() : base()
         {
             Description = "A Stop with Protection order combines the functionality of a stop limit order with a market with protection order. The order is set to trigger at a specified stop price. When the stop price is penetrated, the order is triggered as a market with protection order.";
@@ -518,8 +524,15 @@ namespace AmiBroker.OrderManager
 
     public class IBStopTrailingOrder : IBOrderType
     {
+        [Category("Defining Prices")]
+        [DisplayName("Trailing Percent")]
+        [Description("Trailing Percent")]
         public float TrailingPercent { get; set; }
-        public float TrailStopPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Trail Stop Price")]
+        [Description("Trail Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string TrailStopPrice { get; set; }
         public IBStopTrailingOrder() : base()
         {
             Description = "A sell trailing stop order sets the stop price at a fixed amount below the market price with an attached \"trailing\" amount.";
@@ -537,9 +550,21 @@ namespace AmiBroker.OrderManager
 
     public class IBStopLimitTrailingOrder : IBOrderType
     {
-        public float LmtPrice { get; set; }
-        public float AuxPrice { get; set; }
-        public float TrailStopPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Limit Price")]
+        [Description("Limit Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string LmtPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Stop Price")]
+        [Description("Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string AuxPrice { get; set; }
+        [Category("Defining Prices")]
+        [DisplayName("Trail Stop Price")]
+        [Description("Trail Stop Price")]
+        [ItemsSource(typeof(PriceItemsSource))]
+        public string TrailStopPrice { get; set; }
         public IBStopLimitTrailingOrder() : base()
         {
             Description = "A trailing stop limit order is designed to allow an investor to specify a limit on the maximum possible loss, without setting a limit on the maximum possible gain.";

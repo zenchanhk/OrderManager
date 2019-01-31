@@ -11,6 +11,7 @@ using AmiBroker.OrderManager;
 using System.Windows;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using System.Data;
 
 namespace AmiBroker.Controllers
 {
@@ -21,6 +22,7 @@ namespace AmiBroker.Controllers
         public ICommand ConnectAll { get; set; } = new ConnectAll();
         public ICommand DisconnectAll { get; set; } = new DisconnectAll();
         public ICommand CloseAllOpenOrders { get; set; } = new CloseAllOpenOrders();
+        public ICommand CloseCurrentOpenOrders { get; set; } = new CloseCurrentOpenOrders();
         public ICommand ShowConfigDialog { get; set; } = new DisplayConfigDialog();
         public ICommand ConnectByContextMenu { get; set; } = new ConnectByContextMenu();
         public ICommand RefreshStrategyParameters { get; set; } = new RefreshStrategyParameters();
@@ -29,6 +31,7 @@ namespace AmiBroker.Controllers
         public ICommand ClearSettings { get; set; } = new ClearSettings();
         public ICommand SaveAsTemplate { get; set; } = new SaveAsTemplate();
         public ICommand OpenTemplate { get; set; } = new OpenTemplate();
+        public ICommand ClearAllTemplate { get; set; } = new ClearAllTemplate();
         public ICommand OutSaveAsTemplate { get; set; } = new OutSaveAsTemplate();
         public ICommand OutOpenTemplate { get; set; } = new OutOpenTemplate();
         public ICommand DeleteTemplate { get; set; } = new DeleteTemplate();
@@ -38,6 +41,8 @@ namespace AmiBroker.Controllers
         public ICommand SaveTemplateOnSite { get; set; } = new SaveTemplateOnSite();
         public ICommand CancelEditTemplateOnSite { get; set; } = new CancelEditTemplateOnSite();
         public ICommand CopyOrderSetup { get; set; } = new CopyOrderSetup();
+        public ICommand Export { get; set; } = new Export();
+        public ICommand AssignStrategy { get; set; } = new AssignStrategy();
         public ICommand Test { get; set; } = new Test();
     }
     public class Test: ICommand
@@ -59,6 +64,103 @@ namespace AmiBroker.Controllers
             if (c.IsConnected)
             {
                 c.test();
+            }
+        }
+    }
+    public class AssignStrategy : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            if (parameter != null && parameter.GetType() == typeof(DisplayedOrder))
+            {
+                MainViewModel mainVM = MainViewModel.Instance;
+                DisplayedOrder order = parameter as DisplayedOrder;
+                if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
+                    return false;
+            }
+            return true;
+        }
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            int roundLotSize = 0;
+
+            AssignToStrategy assignToStrategy = new AssignToStrategy();
+            assignToStrategy.DataContext = parameter;
+            assignToStrategy.AvailablePosition = 0;
+
+            List<Strategy> strategies = new List<Strategy>();
+
+            double pos = 0;
+            if (parameter.GetType() == typeof(SymbolInMkt))
+                pos = ((SymbolInMkt)parameter).Position;
+
+            MainViewModel vm = MainViewModel.Instance;
+            var symbols = vm.SymbolInActions.Where(x => 
+            {
+                SymbolDefinition sd = x.SymbolDefinition.FirstOrDefault(y => y.Vendor == ((dynamic)parameter).Vendor + "Controller");
+                if (sd != null)
+                {
+                    string ex1 = sd.Contract.Exchange != null ? sd.Contract.Exchange : sd.Contract.PrimaryExch;
+                    string ex2 = ((dynamic)parameter).Contract.Exchange != null ? ((dynamic)parameter).Contract.Exchange : ((dynamic)parameter).Contract.PrimaryExch;
+                    return sd.Contract.ConId == ((dynamic)parameter).Contract.ConId
+                        && ex1 == ex2;
+                }                    
+                else
+                    return false;
+            }
+            );
+
+            foreach (var symbol in symbols)
+            {
+                if (symbol.GetType() != typeof(bool) && symbol.GetType() == typeof(SymbolInAction))
+                {
+                    roundLotSize = (int)symbol.RoundLotSize;
+                    foreach (Script script in symbol.Scripts)
+                    {
+                        if (script.AccountStat.ContainsKey(((dynamic)parameter).Account))
+                        {
+                            if (pos != 0)
+                                pos -= pos > 0 ? script.AccountStat[((dynamic)parameter).Account].LongPosition * roundLotSize :
+                                            script.AccountStat[((dynamic)parameter).Account].ShortPosition * roundLotSize;
+                            foreach (Strategy strategy in script.Strategies)
+                            {
+                                if (strategy.AccountStat.ContainsKey(((dynamic)parameter).Account) && (
+                                    (pos > 0 && (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)) ||
+                                    (pos < 0 && (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort))
+                                    ))
+                                    strategies.Add(strategy);
+                            }
+                        }
+                    }
+                }                
+            }            
+
+            if (strategies.Count == 0 || (parameter.GetType() == typeof(SymbolInMkt) && pos == 0))
+            {
+                MessageBoxResult result = MessageBox.Show("Cannot find strategy for selected symbol", "Information", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                return;
+            }
+            if (parameter.GetType() == typeof(SymbolInMkt) && ((((SymbolInMkt)parameter).Position > 0 && pos < 0) ||
+                (((SymbolInMkt)parameter).Position < 0 && pos > 0)))
+            {
+                MessageBoxResult result = MessageBox.Show("Position calculation error for selected symbol", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            assignToStrategy.Strategies = strategies;
+            assignToStrategy.AvailablePosition = pos != 0 ? pos / roundLotSize : 0;
+            assignToStrategy.ShowDialog();
+
+            if ((bool)assignToStrategy.DialogResult)
+            {
+                ((Strategy)assignToStrategy.SelectedItem).AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategy.AssignedPosition;
+                ((Strategy)assignToStrategy.SelectedItem).Script.AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategy.AssignedPosition;
             }
         }
     }
@@ -226,7 +328,7 @@ namespace AmiBroker.Controllers
             MessageBoxResult msgResult = MessageBox.Show("Are you sure to delete the selected template permanently?",
                                           "Warning",
                                           MessageBoxButton.YesNo,
-                                          MessageBoxImage.Warning);
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
             if (msgResult == MessageBoxResult.No)
             {
                 return;
@@ -313,6 +415,31 @@ namespace AmiBroker.Controllers
             template.Close();
         }
     }
+    public class ClearAllTemplate : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object vm)
+        {
+            MessageBoxResult result = MessageBox.Show("Are you sure to delete all templates?",
+                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No);
+            if (result == MessageBoxResult.Yes)
+            {
+                Properties.Settings.Default["SymbolInActionTemplates"] = "";
+                Properties.Settings.Default["ScriptTemplates"] = "";
+                Properties.Settings.Default["StrategyTemplates"] = "";
+            }            
+        }
+    }
     public class SaveAsTemplate : ICommand
     {
         public bool CanExecute(object parameter)
@@ -342,7 +469,7 @@ namespace AmiBroker.Controllers
                 MessageBoxResult msgResult = MessageBox.Show("Are you sure to over-write the existing save?",
                                           "Confirmation",
                                           MessageBoxButton.YesNo,
-                                          MessageBoxImage.Question);
+                                          MessageBoxImage.Question, MessageBoxResult.No);
                 if (msgResult == MessageBoxResult.No)
                 {
                     return;
@@ -447,7 +574,7 @@ namespace AmiBroker.Controllers
                 MessageBoxResult result = MessageBox.Show("Are you sure to clear settings?",
                                           "Confirmation",
                                           MessageBoxButton.YesNo,
-                                          MessageBoxImage.Question);
+                                          MessageBoxImage.Question, MessageBoxResult.No);
                 if (result == MessageBoxResult.Yes)
                 {
                     ((dynamic)item).Clear();
@@ -480,7 +607,7 @@ namespace AmiBroker.Controllers
                 MessageBoxResult result = MessageBox.Show("Are you sure to re-write the current setting of strategies?",
                                           "Confirmation",
                                           MessageBoxButton.YesNo,
-                                          MessageBoxImage.Question);
+                                          MessageBoxImage.Question, MessageBoxResult.No);
                 if (result == MessageBoxResult.Yes)
                 {
                     script.ApplySettingsToStrategies();
@@ -696,7 +823,24 @@ namespace AmiBroker.Controllers
             //Your Code
         }
     }
+    public class CloseCurrentOpenOrders : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            return true;
+        }
 
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object VM)
+        {
+            //Your Code
+        }
+    }
     public class DisplayConfigDialog : ICommand
     {
         public bool CanExecute(object parameter)
@@ -727,7 +871,11 @@ namespace AmiBroker.Controllers
     {
         public bool CanExecute(object parameter)
         {
-            return true;
+            MainWindow mainWin = parameter as MainWindow;
+            if (mainWin != null && mainWin.ActivateListView != null)
+                return true;
+            else
+                return false;
         }
 
         public event EventHandler CanExecuteChanged
@@ -736,9 +884,24 @@ namespace AmiBroker.Controllers
             remove { CommandManager.RequerySuggested -= value; }
         }
 
-        public void Execute(object activeTab)
+        public void Execute(object parameter)
         {
-            //Your Code
+            MainWindow mainWin = parameter as MainWindow;
+            
+            Microsoft.Win32.SaveFileDialog dlg = new Microsoft.Win32.SaveFileDialog();
+            dlg.FileName = "Untitled"; // Default file name
+            dlg.DefaultExt = ".csv"; // Default file extension
+            dlg.Filter = "Comma Separated Values File (.csv)|*.csv"; // Filter files by extension
+            
+            // Show save file dialog box
+            Nullable<bool> result = dlg.ShowDialog();
+            // Process save file dialog box results
+            if (result == true)
+            {
+                string filename = dlg.FileName;
+                var lv = mainWin.ActivateListView;
+                ListViewHelper.ListViewToCSV(lv, filename);
+            }
         }
     }
 

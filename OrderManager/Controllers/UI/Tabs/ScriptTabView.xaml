@@ -8,6 +8,7 @@
              xmlns:controls="clr-namespace:ControlLib"             
              xmlns:om="clr-namespace:AmiBroker.OrderManager"
              xmlns:sdl="http://schemas.sdl.com/xaml"
+             xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit"
              Name="scriptTabView"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
@@ -44,12 +45,12 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=1}">
                                             <TextBlock Text="Exact GAT" />
                                         </RadioButton>
-                                        <controls:DateTimeEditor Value="{Binding GoodAfterTime.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 Format="HH:mm:ss" ValueChanged="DateTimeEditor_ValueChanged"
+                                        <controls:DateTimeEditor x:Name="gat_dtEditor" Value="{Binding GoodAfterTime.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                 Format="HH:mm:ss" PreviewKeyDown="gat_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
-                                        <controls:NumericUpDown x:Name="ud_gat" Value="{Binding GoodAfterTime.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             ValueChanged="up_gat_ValueChanged"
+                                        <controls:NumericUpDown x:Name="gat_ud_1" Value="{Binding GoodAfterTime.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             PreviewKeyDown="gat_PreviewKeyDown"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
                                         <TextBlock VerticalAlignment="Center" Text="days"/>
@@ -58,17 +59,16 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=2}">
                                             <TextBlock Text="Seconds after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown x:Name="ud_sec" Value="{Binding GoodAfterTime.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             MinValue="1" MaxValue="10000"
-                                                             ValueChanged="Ud_sec_ValueChanged"
+                                        <controls:NumericUpDown x:Name="gat_ud_sec" Value="{Binding GoodAfterTime.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             MinValue="1" MaxValue="10000" PreviewKeyDown="gat_PreviewKeyDown"
                                                              Width="50" Margin="5, 0" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=3}">
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown x:Name="ud_bar" Value="{Binding GoodAfterTime.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             ValueChanged="Ud_bar_ValueChanged"
+                                        <controls:NumericUpDown x:Name="gat_ud_bar" Value="{Binding GoodAfterTime.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             PreviewKeyDown="gat_PreviewKeyDown"
                                                              MinValue="1" MaxValue="100"
                                                              Width="50" Margin="5, 0" />
                                         <TextBlock Text="(1 means current bar)" VerticalAlignment="Center"/>
@@ -99,11 +99,12 @@
                                             <TextBlock Text="Exact GTD" />
                                         </RadioButton>
                                         <controls:DateTimeEditor Value="{Binding GoodTilDate.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 Format="HH:mm:ss" ValueChanged="gtd_DateTimeEditor_ValueChanged"
+                                                                 x:Name="gtd_dtEditor"
+                                                 Format="HH:mm:ss" PreviewKeyDown="gtd_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             ValueChanged="gtd_up_ValueChanged"
+                                                             PreviewKeyDown="gtd_PreviewKeyDown" x:Name="gtd_ud_1"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
                                         <TextBlock VerticalAlignment="Center" Text="days"/>
@@ -113,8 +114,8 @@
                                             <TextBlock Text="Seconds after order placed" />
                                         </RadioButton>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             MinValue="1" MaxValue="10000"
-                                                             ValueChanged="gtd_Ud_sec_ValueChanged"
+                                                             MinValue="1" MaxValue="10000" x:Name="gtd_ud_sec"
+                                                             PreviewKeyDown="gtd_PreviewKeyDown"
                                                              Width="50" Margin="5, 0" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
@@ -122,7 +123,7 @@
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             ValueChanged="gtd_Ud_bar_ValueChanged"
+                                                             PreviewKeyDown="gtd_PreviewKeyDown" x:Name="gtd_ud_bar"
                                                              MinValue="1" MaxValue="100"
                                                              Width="50" Margin="5, 0" />
                                         <TextBlock Text="(1 means current bar)" VerticalAlignment="Center"/>
@@ -139,8 +140,25 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Slippage: " />
                         <controls:NumericUpDown Value="{Binding Slippage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                                            MinValue="0" MaxValue="30" Increment="1"
+                                                            MinValue="0" MaxValue="1000" Increment="1"
                                                             Margin="5, 0" Width="70" Type="Double" />
+                    </StackPanel>
+                    <StackPanel Margin="10,3,3,3"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
+                        <xctk:PropertyGrid IsManipulationEnabled="True" ShowSearchBox="False"
+                                           AutoGenerateProperties="False"
+                                           ShowSortOptions="False" ShowTitle="False"
+                                           ShowSummary="False"
+                                           ShowPreview="False"
+                                           ShowDescriptionByTooltip="False"
+                                           SelectedObject="{Binding Converter={StaticResource TypeToPGObjectConverter}}" >
+                            <xctk:PropertyGrid.PropertyDefinitions>
+                                <xctk:PropertyDefinition TargetProperties="LmtPrice" />
+                                <xctk:PropertyDefinition TargetProperties="AuxPrice" />
+                                <xctk:PropertyDefinition TargetProperties="TrailingPercent" />
+                                <xctk:PropertyDefinition TargetProperties="TrailStopPrice" />
+                            </xctk:PropertyGrid.PropertyDefinitions>
+                        </xctk:PropertyGrid>
                     </StackPanel>
                     <StackPanel Margin="10,3,3,3">
                         <GroupBox Header="Description">
@@ -182,6 +200,25 @@
                                   Width="350"
                                   />
                     </StackPanel>
+
+                    <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
+                        <TextBlock Text="Symbol Details" Margin="3" FontWeight="Bold"/>
+                    </StackPanel>
+                    <StackPanel Margin="5">
+                        <xctk:PropertyGrid IsManipulationEnabled="True" ShowSearchBox="False"
+                                               AutoGenerateProperties="False"
+                                               ShowSortOptions="False" ShowTitle="False"
+                                               ShowSummary="False" ShowPreview="False"
+                                               ShowDescriptionByTooltip="False"
+                                               SelectedObject="{Binding}" >
+                            <xctk:PropertyGrid.PropertyDefinitions>
+                                <xctk:PropertyDefinition TargetProperties="MinTick" />
+                                <xctk:PropertyDefinition TargetProperties="RoundLotSize" />
+                                <xctk:PropertyDefinition TargetProperties="MinOrderSize" />
+                                <xctk:PropertyDefinition TargetProperties="MaxOrderSize" />
+                            </xctk:PropertyGrid.PropertyDefinitions>
+                        </xctk:PropertyGrid>
+                    </StackPanel>
                     
                     <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
                         <TextBlock Text="Symbol Definition" Margin="3" FontWeight="Bold"/>
@@ -199,6 +236,7 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
+                                    <GridViewColumn Header="Vendor" Width="150" DisplayMemberBinding="{Binding LocalSymbol}"/>
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -300,20 +338,18 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Max. open positions: " />
                         <controls:NumericUpDown Value="{Binding MaxOpenPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                    MinValue="0" Increment="1" Margin="5, 0" Width="70"
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
                                     ConverterParameter=MaxOpenPosition$30}" />
-                        <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Max. entries per day: " />
                         <controls:NumericUpDown Value="{Binding MaxEntriesPerDay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                    MinValue="0" Increment="1" Margin="5, 0" Width="70"
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxEntriesPerDay$10}" />
-                        <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
+                                    ConverterParameter=MaxEntriesPerDay$30}" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" 
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"
@@ -326,11 +362,10 @@
                                     Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="20,3,3,3">
                             <TextBlock VerticalAlignment="Center" Text="Max. long entries: " />
                             <controls:NumericUpDown Value="{Binding MaxLongOpen, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                    MinValue="0" Increment="1" Margin="5, 0" Width="70"
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxLongOpen$10}" />
-                            <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
+                                    ConverterParameter=MaxLongOpen$20}" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3"
@@ -344,11 +379,10 @@
                                     Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="20,3,3,3">
                             <TextBlock VerticalAlignment="Center" Text="Max. short entries: " />
                             <controls:NumericUpDown Value="{Binding MaxShortOpen, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                    MinValue="0" Increment="1" Margin="5, 0" Width="70"
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
                                     ConverterParameter=MaxShortOpen$10}" />
-                            <TextBlock VerticalAlignment="Center" Text="(0 means unlimited)" />
                         </StackPanel>
                     </StackPanel>
                     <!--
@@ -384,6 +418,12 @@
                         <CheckBox IsChecked="{Binding ReverseSignalForcesExit}" >
                             <TextBlock Text="Reverse signal force exit" />
                         </CheckBox>
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Stretch" Orientation="Horizontal" Margin="10,3,3,3">
+                        <TextBlock VerticalAlignment="Center" Text="PositionSize"/>
+                        <controls:NumericUpDown Value="{Binding PositionSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
+                                    MaxValue="100" />
                     </StackPanel>
 
                     <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">
@@ -851,7 +891,6 @@
             </TreeView.Resources>
         </TreeView>
         <ScrollViewer Grid.Column="1" Grid.Row="0" Margin="5">
-            
             <local:CachedContentControl DataContext="{Binding SelectedItem}" Contents="{Binding}" />
         </ScrollViewer>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Grid.Column="1" Grid.Row="1">

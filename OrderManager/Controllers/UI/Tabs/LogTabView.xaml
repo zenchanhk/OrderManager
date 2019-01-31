@@ -17,8 +17,8 @@
         <ListView ItemsSource="{Binding LogList}" ItemContainerStyle="{StaticResource GridLineStyle}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
-                    <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                    <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
+                    <GridViewColumn Header="Source" Width="150" DisplayMemberBinding="{Binding Source}" />
                     <GridViewColumn Header="Message" Width="800" DisplayMemberBinding="{Binding Text}" >
                         <GridViewColumn.HeaderContainerStyle>
                             <Style TargetType="{x:Type GridViewColumnHeader}">

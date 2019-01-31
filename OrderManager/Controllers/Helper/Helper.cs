@@ -18,69 +18,55 @@ using System.Windows.Interactivity;
 using IB.CSharpApiClient;
 using IB.CSharpApiClient.Events;
 using IBApi;
+using System.Data;
+using System.IO;
 
 namespace AmiBroker.Controllers
-{    
-    
-    public static class IBTaskExt
+{
+    class ListViewHelper
     {
-        private static int reqIdCount = 0;
-        public static async Task<T> FromEvent<TEventArgs, T>(
-            Action<EventHandler<TEventArgs>> registerEvent,
-            System.Action<int> action,
-            Action<EventHandler<TEventArgs>> unregisterEvent,
-            CancellationToken token)
+        private static Dictionary<Type, PropertyInfo[]> ExportList = new Dictionary<Type, PropertyInfo[]>();
+        public static void ListViewToCSV(ListView listView, string filePath)
         {
-            int reqId = reqIdCount++;
-            if (reqIdCount >= int.MaxValue)
-                reqIdCount = 0;
-
-            var tcs = new TaskCompletionSource<T>();
-            EventHandler<TEventArgs> handler = (sender, args) =>
+            List<string> lines = new List<string>();
+            StringBuilder sb = new StringBuilder();
+            PropertyInfo[] propertyInfos = null;
+            if (listView.Items.Count > 0)
             {
-                if (args.GetType() == typeof(IB.CSharpApiClient.Events.ErrorEventArgs))
+                object item = listView.Items[0];
+                if (ExportList.ContainsKey(item.GetType()))
+                    propertyInfos = ExportList[item.GetType()];
+                else
                 {
-                    IB.CSharpApiClient.Events.ErrorEventArgs arg = args as IB.CSharpApiClient.Events.ErrorEventArgs;
-                    if (arg.RequestId == reqId)
+                    propertyInfos = item.GetType().GetProperties();
+                    ExportList.Add(item.GetType(), propertyInfos);
+                }
+                foreach (var it in listView.Items)
+                {
+                    if (lines.Count == 0)
                     {
-                        Exception ex = new Exception(arg.Message);
-                        ex.Data.Add("RequestId", arg.RequestId);
-                        ex.Data.Add("ErrorCode", arg.ErrorCode);
-                        ex.Source = "IBTaskExt.FromEvent";
-                        tcs.TrySetException(ex);
-                    }                        
-                }
-                else if(args.GetType() == typeof(IB.CSharpApiClient.Events.ContractDetailsEventArgs))
-                {
-                    ContractDetailsEventArgs arg = args as ContractDetailsEventArgs;
-                    Contract contract = new Contract();
-                    contract.ConId = arg.ContractDetails.Summary.ConId;
-                    contract.LastTradeDateOrContractMonth = arg.ContractDetails.Summary.LastTradeDateOrContractMonth;
-                    contract.LocalSymbol = arg.ContractDetails.Summary.LocalSymbol;
-                    contract.SecType = arg.ContractDetails.Summary.SecType;
-                    contract.Symbol = arg.ContractDetails.Summary.Symbol;
-                    contract.Exchange = arg.ContractDetails.Summary.Exchange;
-                    contract.Currency = arg.ContractDetails.Summary.Currency;
-                    tcs.TrySetResult((T)(object)contract);
-                }
-                    
-            };
-            registerEvent(handler);
+                        for (int i = 0; i < propertyInfos.Length; i++)
+                        {
+                            sb.Append(propertyInfos[i].Name + ",");
+                        }
+                        lines.Add(sb.ToString());
+                        sb.Clear();
+                    }
+                    for (int i = 0; i < propertyInfos.Length; i++)
+                    {
+                        
+                        sb.Append(propertyInfos[i].GetValue(it).ToString() + ",");                        
+                    }
+                    lines.Add(sb.ToString());
+                    sb.Clear();
+                }                
+            }
 
-            try
-            {
-                using (token.Register(() => tcs.SetCanceled()))
-                {
-                    action(reqId);
-                    return await tcs.Task;
-                }
-            }
-            finally
-            {
-                unregisterEvent(handler);
-            }
+            File.WriteAllLines(filePath, lines.ToArray());
         }
+
     }
+    
     public class BindingProxy : Freezable
     {
         protected override Freezable CreateInstanceCore()
@@ -286,7 +272,11 @@ namespace AmiBroker.Controllers
             return null;
         }
     }
+    
+}
 
+namespace System.Collections.ObjectModel
+{
     public class BaseObservableCollection<T> : ObservableCollection<T>
     {
         //Flag used to prevent OnCollectionChanged from firing during a bulk operation like Add(IEnumerable<T>) and Clear()

@@ -156,6 +156,19 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    class StrategyFullNameConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            Strategy strategy = value as Strategy;
+            return strategy.Symbol.TimeFrame + "min." + strategy.Script.Name + "." + strategy.Name;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
     class ParentValueToMaxValueConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -318,6 +331,21 @@ namespace AmiBroker.Controllers
                 return Visibility.Visible;
             else
                 return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class PositionToEnabledConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if ((int)value <= 0)
+                return false;
+            else
+                return true;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -760,6 +788,17 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {            
             return value != null ? value.GetType().Name : "null";
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    public class TypeToPGObjectConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value.GetType().Name == "Script" ? null : value;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

@@ -1,4 +1,5 @@
-﻿using Sdl.MultiSelectComboBox.API;
+﻿using AmiBroker.OrderManager;
+using Sdl.MultiSelectComboBox.API;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,7 +12,15 @@ using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
 namespace AmiBroker.Controllers
-{    
+{
+    class FTContract
+    {
+        public int ConId { get; set; }
+        public string Symbol { get; set; }
+        public string Exchange { get; set; }
+        public string Currency { get; set; }
+        public string LocalSymbol { get; set; }
+    }
     class FTController : IController, INotifyPropertyChanged
     {
 
@@ -33,6 +42,7 @@ namespace AmiBroker.Controllers
         public event PropertyChangedEventHandler PropertyChanged;
         public ObservableCollection<AccountInfo> Accounts { get; } = new ObservableCollection<AccountInfo>();
         public string Vendor { get; } = "FT";
+        public static Dictionary<string, FTContract> Contracts { get; } = new Dictionary<string, FTContract>();
         public static string VendorFullName { get; } = "FuTu NiuNiu";
 
         private ConnectionParam _pConnParam;
@@ -52,7 +62,7 @@ namespace AmiBroker.Controllers
 
         public bool IsConnected { get; private set; } = false;
 
-        private string _pName;        
+        private string _pName;
         public string DisplayName
         {
             get { return _pName; }
@@ -122,5 +132,9 @@ namespace AmiBroker.Controllers
         public Task ConnectAsync() { return new Task(() => { }); }
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
 
+        public async Task<int> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex, int PositionSize = 1)
+        {
+            return -1;
+        }
     }
 }

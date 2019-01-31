@@ -60,25 +60,30 @@ namespace AmiBroker.Controllers
         public Image ImageAbout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.HelpCircle);
         public Image ImageRefresh { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Refresh, Util.Color.Green);
         //public Image ImageOrderCancel { get; private set; } = new Image() { Source = new BitmapImage(new Uri("pack://application:,,,/OrderManager;component/Controllers/images/order-cancel.png")) };        
+        // commands
         public Commands Commands { get; set; } = new Commands();
         public List<TimeZone> TimeZones { get; private set; } = new List<TimeZone>();
+        // All OrderTypes 
         public List<BaseOrderType> AllIBOrderTypes { get; set; } = new List<BaseOrderType>();
         public List<BaseOrderType> AllFTOrderTypes { get; set; } = new List<BaseOrderType>();
-        public Dictionary<string, List<BaseOrderType>> VendorOrderTypes1 { get; set; } = new Dictionary<string, List<BaseOrderType>>();
         public List<VendorOrderType> VendorOrderTypes { get; set; } = new List<VendorOrderType>();
         public UserPreference UserPreference { get; private set; }
         public ObservableCollection<IController> Controllers { get; set; }
+        public Dictionary<int, OrderInfo> OrderInfoList { get; set; } = new Dictionary<int, OrderInfo>();
+        // Lists for displaying
         public ObservableCollection<Message> MessageList { set; get; }
         public ObservableCollection<Log> LogList { set; get; }
         public ObservableCollectionEx<DisplayedOrder> Orders { set; get; }
         public ObservableCollection<SymbolInMkt> Portfolio { set; get; } = new ObservableCollection<SymbolInMkt>();
+        public SymbolInMkt SelectedPortfolio { get; set; }
         public ObservableCollection<SymbolInAction> SymbolInActions { get; set; }
         public ICollectionView PendingOrdersView { get; set; }
+        public object SelectedPendingOrder { get; set; }
         public ICollectionView ExecutionView { get; set; }
         // collectionViewSources for views
         private CollectionViewSource poViewSource;
         private CollectionViewSource execViewSource;
-
+        
         // for script treeview use -- selected treeview item
         private object _pSelectedItem;
         public object SelectedItem
@@ -191,42 +196,50 @@ namespace AmiBroker.Controllers
             s2.MaxEntriesPerDay = 3;
             s2.MaxOpenPosition = 5;
             s2.ActionType = ActionType.LongAndShort;
+            s2.Prices = new List<string>() { "bp2a", "bp2b" };
             script.Strategies.Add(s2);
             Strategy s4 = new Strategy("strategy4", script);
             s4.MaxEntriesPerDay = 3;
             s4.MaxOpenPosition = 5;
             s4.ActionType = ActionType.Long;
+            s4.Prices = new List<string>() { "bp4a", "bp4b" };
             script.Strategies.Add(s4);
             Strategy s1 = new Strategy("strategy1", script);
             s1.MaxEntriesPerDay = 2;
             s1.MaxOpenPosition = 4;
             s1.ActionType = ActionType.LongAndShort;
+            s1.Prices = new List<string>() { "bp1a", "bp1b" };
             script.Strategies.Add(s1);            
             Strategy s3 = new Strategy("strategy3", script);
             s3.MaxEntriesPerDay = 2;
             s3.MaxOpenPosition = 6;
             s3.ActionType = ActionType.Short;
+            s3.Prices = new List<string>() { "bp3a", "bp3b" };
             script.Strategies.Add(s3);
 
             Strategy s8 = new Strategy("strategy8", script);
             s8.MaxEntriesPerDay = 2;
             s8.MaxOpenPosition = 6;
             s8.ActionType = ActionType.Short;
+            s8.Prices = new List<string>() { "bp8a", "bp8b" };
             script1.Strategies.Add(s8);
             Strategy s5 = new Strategy("strategy5", script);
             s5.MaxEntriesPerDay = 3;
             s5.MaxOpenPosition = 5;
             s5.ActionType = ActionType.LongAndShort;
+            s5.Prices = new List<string>() { "bp5a", "bp5b" };
             script1.Strategies.Add(s5);
             Strategy s6 = new Strategy("strategy6", script);
             s6.MaxEntriesPerDay = 6;
             s6.MaxOpenPosition = 6;
             s6.ActionType = ActionType.Long;
+            s6.Prices = new List<string>() { "bp6a", "bp6b" };
             script1.Strategies.Add(s6);
             Strategy s7 = new Strategy("strategy7", script);
             s7.MaxEntriesPerDay = 2;
             s7.MaxOpenPosition = 4;
             s7.ActionType = ActionType.LongAndShort;
+            s7.Prices = new List<string>() { "bp7a", "bp7b" };
             script1.Strategies.Add(s7);
             
             SymbolInAction symbol1 = new SymbolInAction("QQQ", 5);
@@ -245,21 +258,25 @@ namespace AmiBroker.Controllers
             s9.MaxEntriesPerDay = 9;
             s9.MaxOpenPosition = 9;
             s9.ActionType = ActionType.Short;
+            s9.Prices = new List<string>() { "bp9a", "bp9b" };
             script2.Strategies.Add(s9);
             Strategy s10 = new Strategy("strategy10", script2);
             s10.MaxEntriesPerDay = 10;
             s10.MaxOpenPosition = 10;
             s10.ActionType = ActionType.LongAndShort;
+            s10.Prices = new List<string>() { "bp10a", "bp10b" };
             script2.Strategies.Add(s10);
             Strategy s11 = new Strategy("strategy11", script3);
             s11.MaxEntriesPerDay = 11;
             s11.MaxOpenPosition = 11;
             s11.ActionType = ActionType.Long;
+            s11.Prices = new List<string>() { "bp11a", "bp11b" };
             script3.Strategies.Add(s11);
             Strategy s12 = new Strategy("strategy12", script3);
             s12.MaxEntriesPerDay = 12;
             s12.MaxOpenPosition = 12;
             s12.ActionType = ActionType.LongAndShort;
+            s12.Prices = new List<string>() { "bp12a", "bp12b" };
             script3.Strategies.Add(s12);
         }
         public bool AddSymbol(string name, float timeframe, out SymbolInAction symbol)

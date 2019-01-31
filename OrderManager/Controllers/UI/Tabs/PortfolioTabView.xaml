@@ -14,7 +14,22 @@
         </ResourceDictionary>
     </UserControl.Resources>
     <Grid>
-        <ListView ItemsSource="{Binding Portfolio}" ItemContainerStyle="{StaticResource GridLineStyle}" >
+        <ListView ItemsSource="{Binding Portfolio}" SelectedItem="{Binding SelectedPortfolio}" >
+            <ListView.Resources>
+                <ContextMenu x:Key="ItemContextMenu">
+                    <MenuItem Header="Assign to strategy..." Command="{Binding Path=DataContext.Commands.AssignStrategy, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke"
+                              CommandParameter="{Binding Path=DataContext.SelectedPortfolio, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource assignDrawingImage}"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </ContextMenu>                
+            </ListView.Resources>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="{x:Type ListViewItem}" BasedOn="{StaticResource GridLineStyle}">
+                    <Setter Property="ContextMenu" Value="{StaticResource ItemContextMenu}" />
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Symbol" Width="60" DisplayMemberBinding="{Binding Symbol}" />

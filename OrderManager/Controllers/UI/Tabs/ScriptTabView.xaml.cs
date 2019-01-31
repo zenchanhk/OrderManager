@@ -147,15 +147,8 @@ namespace AmiBroker.Controllers
         private void CmbCoverOT_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ChangeItems("CoverOrderTypes", e);
-        }*/
-
-        private void DateTimeEditor_ValueChanged(object sender, ControlLib.DateTimeChangedEventArgs e)
-        {
-            DateTimeEditor dt = sender as DateTimeEditor;
-            if (dt.DataContext != null)
-                ((IBOrderType)dt.DataContext).GoodAfterTime.SelectedIndex = 1;
         }
-
+                
         private void up_gat_ValueChanged(object sender, ValueChangedEventArgs e)
         {
             NumericUpDown up = sender as NumericUpDown;
@@ -203,7 +196,7 @@ namespace AmiBroker.Controllers
             NumericUpDown up = sender as NumericUpDown;
             if (up.DataContext != null)
                 ((IBOrderType)up.DataContext).GoodTilDate.SelectedIndex = 3;
-        }
+        }*/
 
         private void cb_Checked(object sender, RoutedEventArgs e)
         {
@@ -232,6 +225,50 @@ namespace AmiBroker.Controllers
                     else
                         throw new Exception("Property: " + path + " not found in Strategy");
                 }
+            }
+        }
+
+        private void gat_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            FrameworkElement element = sender as FrameworkElement;
+            if (element.DataContext != null)
+            {
+                switch (element.Name)
+                {
+                    case "gat_dtEditor":
+                    case "gat_ud_1":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 1;
+                        break;
+                    case "gat_ud_sec":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 2;
+                        break;
+                    case "gat_ud_bar":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 3;
+                        break;
+                }
+                
+            }                
+        }
+
+        private void gtd_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            FrameworkElement element = sender as FrameworkElement;
+            if (element.DataContext != null)
+            {
+                switch (element.Name)
+                {
+                    case "gtd_dtEditor":
+                    case "gtd_ud_1":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 1;
+                        break;
+                    case "gtd_ud_sec":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 2;
+                        break;
+                    case "gtd_ud_bar":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 3;
+                        break;
+                }
+
             }
         }
     }

@@ -9,19 +9,38 @@
 //MySlowMa = BasicSampleCS2();			// see BasicSampleCS2() method in "Basic Samples.cs" for source
 
 //Plot(MySlowMa, "MySlowMa", colorBlue, styleLine);
+
 strategy="test1$test2";
 BuySignals="bs1$bs2";
 SellSignals="ss1$ss2";
 ShortSignals="short1$short2";
 CoverSignals="cs1$cs2";
-BuyPrices="bp1$bp2";
-SellPrices="sp1$sp2";
-ShortPrices="short1$short2";
-CoverPrices="cp1$cp2";
-ActionType="Long$LongAndShort";
-bs1=bs2=true;
-ss1=ss2=true;
-bs1=true;
+Prices="bp1%sp1%shortp1%cp1$bp2%sp2%shortp2%cp2";
+ActionType="LongAndShort$Long";
+
+bs1=high > ref(high, -1);
+ss1=low < ref(low, -1);
+bs2 = cross(high, MA(close, 5));
+ss2 = cross(MA(close, 5), low); 
+bp1=bp2=high;
+sp1=sp2=low;
+
+bs1 = ExRem(bs1, ss1);
+ss1 = ExRem(ss1, bs1);
+bs2 = ExRem(bs2, ss2);
+ss2 = ExRem(ss2, bs2);
+
+short1 = cross(MA(close, 3), low);
+short2 = cross(MA(close, 10), low);
+cs1 = cross(high, MA(close, 3));
+cs2 = cross(high, MA(close, 10));
+shortp1=shortp2=low;
+cp1=cp2=high;
+
+short1 = ExRem(short1, cs1);
+short2 = ExRem(short2, cs2);
+cs1 = ExRem(cs1, short1);
+cs2 = ExRem(cs2, short2);
 //Test();
-IBController("sample");
+IBC("sample");
 //Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);

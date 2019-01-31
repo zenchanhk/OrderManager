@@ -8,20 +8,12 @@ using AmiBroker.Controllers;
 using Newtonsoft.Json;
 using Easy.MessageHub;
 using System.Reflection;
+using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
+using IBApi;
+using System.Windows.Threading;
 
 namespace AmiBroker.OrderManager
 {   
-    public enum AccountStatus
-    {
-        None=1,
-        BuyPending=2,
-        Long=4,
-        ShortPending=8,
-        Short=16,
-        SellPending=32,
-        CoverPending=64,
-        LongAndShort=128
-    }
     public enum ActionType
     {
         Long = 0,
@@ -34,6 +26,22 @@ namespace AmiBroker.OrderManager
         Sell=1,
         Short=2,
         Cover=3
+    }
+    public class OrderStatus
+    {
+        public string Status { get; set; }
+        public int Filled { get; set; }
+        public string Message { get; set; }
+    }
+    public class OrderInfo
+    {
+        public int OrderId { get; set; }
+        public Strategy Strategy { get; set; }
+        public AccountInfo Account { get; set; }
+        //public List<OrderStatus> Status { get; set; } = new List<OrderStatus>();
+        public OrderAction OrderAction { get; set; }
+        public DisplayedOrder OrderStatus { get; set; }
+        public string Error { get; set; }
     }
     public class BaseStat : NotifyPropertyChangedBase
     {
@@ -96,7 +104,17 @@ namespace AmiBroker.OrderManager
                 foreach (AccountInfo account in e.NewItems)
                 {
                     if (!AccountStat.ContainsKey(account.Name))
-                        AccountStat.Add(account.Name, new BaseStat());
+                        AccountStat.Add(account.Name, new BaseStat() { Account = account });
+                }
+                // add account into script too
+                if (GetType() == typeof(Strategy))
+                {
+                    Script script = ((Strategy)this).Script;
+                    foreach (AccountInfo account in e.NewItems)
+                    {
+                        if (!script.AccountStat.ContainsKey(account.Name))
+                            script.AccountStat.Add(account.Name, new BaseStat() { Account = account });
+                    }
                 }
             }
         }
@@ -173,6 +191,13 @@ namespace AmiBroker.OrderManager
             get { return _pReverseSignalForcesExit; }
             set { _UpdateField(ref _pReverseSignalForcesExit, value); }
         }
+        
+        private int _pPositionSize = 1;
+        public int PositionSize
+        {
+            get { return _pPositionSize; }
+            set { _UpdateField(ref _pPositionSize, value); }
+        }
 
         /*
         // allow re-entry after previous attemps failure in day trade
@@ -231,15 +256,165 @@ namespace AmiBroker.OrderManager
                 }
             }
         }*/
-        public Dictionary<string, BaseStat> AccountStat { get; set; } = new Dictionary<string, BaseStat>();
-        public ObservableCollection<BaseOrderType> BuyOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
-		public ObservableCollection<BaseOrderType> SellOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
-        public ObservableCollection<BaseOrderType> ShortOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
-		public ObservableCollection<BaseOrderType> CoverOrderTypes { get; set; } = new ObservableCollection<BaseOrderType>();
-        public BaseObservableCollection<AccountInfo> LongAccounts { get; set; } = new BaseObservableCollection<AccountInfo>();
-        public BaseObservableCollection<AccountInfo> ShortAccounts { get; set; } = new BaseObservableCollection<AccountInfo>();
+        // key is the name of account which is supposed to unique
+        public Dictionary<string, BaseStat> AccountStat { get; set; } = new Dictionary<string, BaseStat>(); // statistics
 
-        private bool _pIsEnabled;
+        private ObservableCollection<BaseOrderType> _buyOT;
+        public ObservableCollection<BaseOrderType> BuyOrderTypes {
+            get
+            {
+                if (_buyOT == null)
+                {
+                    _buyOT = new ObservableCollection<BaseOrderType>();
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic.Add(OrderAction.Buy, _buyOT);
+                }
+                return _buyOT;
+            }
+            set
+            {
+                if (_buyOT != value)
+                {
+                    _buyOT = value;
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic[OrderAction.Buy] = _buyOT;
+                }
+            }
+        }
+
+        private ObservableCollection<BaseOrderType> _sellOT;
+        public ObservableCollection<BaseOrderType> SellOrderTypes
+        {
+            get
+            {
+                if (_sellOT == null)
+                {
+                    _sellOT = new ObservableCollection<BaseOrderType>();
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic.Add(OrderAction.Sell, _sellOT);
+                }
+                return _sellOT;
+            }
+            set
+            {
+                if (_sellOT != value)
+                {
+                    _sellOT = value;
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic[OrderAction.Sell] = _sellOT;
+                }
+            }
+        }
+
+        private ObservableCollection<BaseOrderType> _shortOT;
+        public ObservableCollection<BaseOrderType> ShortOrderTypes
+        {
+            get
+            {
+                if (_shortOT == null)
+                {
+                    _shortOT = new ObservableCollection<BaseOrderType>();
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic.Add(OrderAction.Short, _shortOT);
+                }
+                return _shortOT;
+            }
+            set
+            {
+                if (_shortOT != value)
+                {
+                    _shortOT = value;
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic[OrderAction.Short] = _shortOT;
+                }
+            }
+        }
+
+        private ObservableCollection<BaseOrderType> _coverOT;
+        public ObservableCollection<BaseOrderType> CoverOrderTypes
+        {
+            get
+            {
+                if (_coverOT == null)
+                {
+                    _coverOT = new ObservableCollection<BaseOrderType>();
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic.Add(OrderAction.Cover, _coverOT);
+                }
+                return _coverOT;
+            }
+            set
+            {
+                if (_coverOT != value)
+                {
+                    _coverOT = value;
+                    if (GetType() == typeof(Strategy))
+                        ((Strategy)this).OrderTypesDic[OrderAction.Cover] = _coverOT;
+                }
+            }
+        }
+
+        private BaseObservableCollection<AccountInfo> _longAccounts;
+        public BaseObservableCollection<AccountInfo> LongAccounts
+        {
+            get
+            {
+                if (_longAccounts == null)
+                {
+                    _longAccounts = new BaseObservableCollection<AccountInfo>();
+                    if (GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Buy, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Cover, _longAccounts);
+                    }                        
+                }
+                return _longAccounts;
+            }
+            set
+            {
+                if (_longAccounts != value)
+                {
+                    _longAccounts = value;
+                    if (GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).AccountsDic[OrderAction.Buy] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.Cover] = _longAccounts;
+                    }                        
+                }
+            }
+        }
+
+        private BaseObservableCollection<AccountInfo> _shortAccounts;
+        public BaseObservableCollection<AccountInfo> ShortAccounts
+        {
+            get
+            {
+                if (_shortAccounts == null)
+                {
+                    _shortAccounts = new BaseObservableCollection<AccountInfo>();
+                    if (GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Short, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Sell, _shortAccounts);
+                    }
+                }
+                return _shortAccounts;
+            }
+            set
+            {
+                if (_shortAccounts != value)
+                {
+                    _shortAccounts = value;
+                    if (GetType() == typeof(Strategy))
+                    {
+                        ((Strategy)this).AccountsDic[OrderAction.Short] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.Sell] = _shortAccounts;
+                    }
+                }
+            }
+        }
+
+        private bool _pIsEnabled = true;
         [JsonIgnore]
         public bool IsEnabled
         {
@@ -312,20 +487,41 @@ namespace AmiBroker.OrderManager
     public class Strategy : SSBase
     {
         private MessageHub _hub = MessageHub.Instance;
-        public Strategy() : base() { }
+        public Strategy() : base()
+        {
+            //Init();
+        }
         public Strategy(string strategyName, Script script)
             : base()
         {            
             Name = strategyName;
             Script = script;
             Symbol = script.Symbol;
-            LongAccounts.CollectionChanged += LongAccounts_CollectionChanged;
+            //Init();
         }
-
+        private void Init()
+        {
+            LongAccounts.CollectionChanged += LongAccounts_CollectionChanged;
+            AccountsDic.Clear();
+            AccountsDic.Add(OrderAction.Buy, LongAccounts);
+            AccountsDic.Add(OrderAction.Sell, LongAccounts);
+            AccountsDic.Add(OrderAction.Short, ShortAccounts);
+            AccountsDic.Add(OrderAction.Cover, ShortAccounts);
+            OrderTypesDic.Clear();
+            OrderTypesDic.Add(OrderAction.Buy, BuyOrderTypes);
+            OrderTypesDic.Add(OrderAction.Sell, SellOrderTypes);
+            OrderTypesDic.Add(OrderAction.Short, ShortOrderTypes);
+            OrderTypesDic.Add(OrderAction.Cover, CoverOrderTypes);
+        }
         private void LongAccounts_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             int i = 0;
         }
+
+        [JsonIgnore]
+        public Dictionary<OrderAction, BaseObservableCollection<AccountInfo>> AccountsDic { get; set; } = new Dictionary<OrderAction, BaseObservableCollection<AccountInfo>>();
+        [JsonIgnore]
+        public Dictionary<OrderAction, ObservableCollection<BaseOrderType>> OrderTypesDic { get; set; } = new Dictionary<OrderAction, ObservableCollection<BaseOrderType>>();
 
         public ActionType ActionType { get; set; }
         [JsonIgnore]
@@ -366,17 +562,11 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public ATAfl SellSignal { get; set; }
         [JsonIgnore]
-        public ATAfl BuyPrice { get; set; }
-        [JsonIgnore]
-        public ATAfl SellPrice { get; set; }
-        [JsonIgnore]
         public ATAfl ShortSignal { get; set; }
         [JsonIgnore]
         public ATAfl CoverSignal { get; set; }
         [JsonIgnore]
-        public ATAfl ShortPrice { get; set; }
-        [JsonIgnore]
-        public ATAfl CoverPrice { get; set; }
+        public List<string> Prices { get; set; } = new List<string>();
         // reset in case new day
         public void ResetForNewDay()
         {
@@ -434,7 +624,8 @@ namespace AmiBroker.OrderManager
                 _RaisePropertyChanged("BuyOrderTypes");
                 _RaisePropertyChanged("SellOrderTypes");
                 _RaisePropertyChanged("LongAccounts");
-            }            
+            }
+            //Init();
         }
     }
     /// <summary>
@@ -524,8 +715,16 @@ namespace AmiBroker.OrderManager
                     }
                     strategy.MaxLongOpen = MaxLongOpen;
                     strategy.AllowMultiLong = AllowMultiLong;
-                    strategy.BuyOrderTypes = new ObservableCollection<BaseOrderType>(BuyOrderTypes);
-                    strategy.SellOrderTypes = new ObservableCollection<BaseOrderType>(SellOrderTypes);
+                    strategy.BuyOrderTypes.Clear();
+                    foreach (var ot in BuyOrderTypes)
+                    {
+                        strategy.BuyOrderTypes.Add(ot.Clone());
+                    }
+                    strategy.SellOrderTypes.Clear();
+                    foreach (var ot in SellOrderTypes)
+                    {
+                        strategy.SellOrderTypes.Add(ot.Clone());
+                    }
                 }
                 if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                 {
@@ -536,8 +735,16 @@ namespace AmiBroker.OrderManager
                     }
                     strategy.MaxShortOpen = MaxShortOpen;
                     strategy.AllowMultiShort = AllowMultiShort;
-                    strategy.ShortOrderTypes = new ObservableCollection<BaseOrderType>(ShortOrderTypes);
-                    strategy.CoverOrderTypes = new ObservableCollection<BaseOrderType>(CoverOrderTypes);
+                    strategy.ShortOrderTypes.Clear();
+                    foreach (var ot in ShortOrderTypes)
+                    {
+                        strategy.ShortOrderTypes.Add(ot.Clone());
+                    }
+                    strategy.CoverOrderTypes.Clear();
+                    foreach (var ot in CoverOrderTypes)
+                    {
+                        strategy.CoverOrderTypes.Add(ot.Clone());
+                    }
                 }
                 strategy.MaxEntriesPerDay = MaxEntriesPerDay;
                 strategy.MaxOpenPosition = MaxOpenPosition;
@@ -554,6 +761,16 @@ namespace AmiBroker.OrderManager
     {
         public string Vendor { get; set; }
 
+        private Contract _pContract;
+        [JsonIgnore]
+        public Contract Contract
+        {
+            get { return _pContract; }
+            set {
+                LocalSymbol = value.LocalSymbol;
+                _UpdateField(ref _pContract, value); }
+        }
+
         private string _pContractId;
         public string ContractId
         {
@@ -561,18 +778,16 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pContractId, value); }
         }
 
-    }
-    public class SymbolInAction : INotifyPropertyChanged
-    {
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged(string name)
+        private string _pLocalSymbol;
+        public string LocalSymbol
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null)
-            {
-                handler(this, new PropertyChangedEventArgs(name));
-            }
+            get { return _pLocalSymbol; }
+            set { _UpdateField(ref _pLocalSymbol, value); }
         }
+
+    }
+    public class SymbolInAction : NotifyPropertyChangedBase
+    {
         // just for json serilization
         public SymbolInAction() { }
         public SymbolInAction(string symbol, float timeframe)
@@ -598,7 +813,43 @@ namespace AmiBroker.OrderManager
 
         private void AccountCandidates_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            OnPropertyChanged("AccountCandidates");
+            _RaisePropertyChanged("AccountCandidates");
+        }
+
+        private double _pMinOrderSize;
+        [Category("Details")]
+        [DisplayName("Min. Order Size")]
+        public double MinOrderSize
+        {
+            get { return _pMinOrderSize; }
+            set { _UpdateField(ref _pMinOrderSize, value); }
+        }
+
+        private double _pMaxOrderSize;
+        [Category("Details")]
+        [DisplayName("Max. Order Size")]
+        public double MaxOrderSize
+        {
+            get { return _pMaxOrderSize; }
+            set { _UpdateField(ref _pMaxOrderSize, value); }
+        }
+
+        private float _pRoundLotSize = 1;
+        [Category("Details")]
+        [DisplayName("Round Lot Size")]
+        public float RoundLotSize
+        {
+            get { return _pRoundLotSize; }
+            set { _UpdateField(ref _pRoundLotSize, value); }
+        }
+
+        private double _pMinTick = 1;
+        [Category("Details")]
+        [DisplayName("Min. Tick Size")]
+        public double MinTick
+        {
+            get { return _pMinTick; }
+            set { _UpdateField(ref _pMinTick, value); }
         }
 
         private float _pTimeFrame;
@@ -606,43 +857,22 @@ namespace AmiBroker.OrderManager
         public float TimeFrame
         {
             get { return _pTimeFrame; }
-            set
-            {
-                if (_pTimeFrame != value)
-                {
-                    _pTimeFrame = value;
-                    OnPropertyChanged("TimeFrame");
-                }
-            }
+            set { _UpdateField(ref _pTimeFrame, value); }
         }
 
         private bool _pIsDirty;
+        [JsonIgnore]
         public bool IsDirty
         {
             get { return _pIsDirty; }
-            set
-            {
-                if (_pIsDirty != value)
-                {
-                    _pIsDirty = value;
-                    OnPropertyChanged("IsDirty");
-                }
-            }
+            set { _UpdateField(ref _pIsDirty, value); }
         }
 
         private AmiBroker.Controllers.TimeZone _pTimeZone;
         public AmiBroker.Controllers.TimeZone TimeZone
         {
             get { return _pTimeZone; }
-            set
-            {
-                if (_pTimeZone != value)
-                {
-                    _pTimeZone = value;
-                    ChangeTimeZone(value);
-                    OnPropertyChanged("TimeZone");
-                }
-            }
+            set { _UpdateField(ref _pTimeZone, value); }
         }
         private void ChangeTimeZone(AmiBroker.Controllers.TimeZone tz)
         {
@@ -651,8 +881,7 @@ namespace AmiBroker.OrderManager
                 script.ChangeTimeZone(tz);
             }
         }
-
-        private void AppliedControllers_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private async void AppliedControllers_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action == NotifyCollectionChangedAction.Add)
             {
@@ -660,9 +889,28 @@ namespace AmiBroker.OrderManager
                 {
                     item.Accounts.CollectionChanged += Accounts_CollectionChanged;
                     //item.Dummy = !item.Dummy;
+                    // TODO: to be improved since this will cause whole list to be updated instead of selected item
                     MainViewModel.Instance.Dummy = !MainViewModel.Instance.Dummy;
                     if (item.IsConnected)
                     {
+                        if (item.Vendor == "IB")
+                        {
+                            
+                            SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor + "Controller");
+                            if (sd != null && sd.Contract == null)
+                            {
+                                IBContract c = await ((IBController)item).reqContractDetailsAsync(sd.ContractId);
+                                sd.Contract = c.Contract;
+                            }                     
+                        }
+                        if (item.Vendor == "FT")
+                        {
+                            SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor);
+                            if (sd != null && sd.Contract == null)
+                            {
+                                // TODO:
+                            }
+                        }
                         foreach (AccountInfo account in item.Accounts)
                         {
                             AccountCandidates.Add(account);
@@ -712,7 +960,6 @@ namespace AmiBroker.OrderManager
                 AppliedControllers.Remove(item);
                 item.Dummy = !item.Dummy;
             }
-
         }
 
         public void CopyFrom(SymbolInAction symbol)
@@ -746,20 +993,13 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public ObservableCollection<AccountInfo> AccountCandidates { get; set; } = new ObservableCollection<AccountInfo>();
         public List<SymbolDefinition> SymbolDefinition { get; private set; } = new List<SymbolDefinition>();
-                
-        private bool _isEnabled = true;
+
+        private bool _pIsEnabled;
         [JsonIgnore]
-        public bool IsEnabled {
-            get => _isEnabled; 
-            set
-            {
-                _isEnabled = value;
-                foreach (var script in Scripts)
-                {
-                    script.IsEnabled = value;
-                }
-                OnPropertyChanged("IsEnabled");
-            }            
+        public bool IsEnabled
+        {
+            get { return _pIsEnabled; }
+            set { _UpdateField(ref _pIsEnabled, value); }
         }
     }
 }

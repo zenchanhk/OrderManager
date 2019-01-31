@@ -65,6 +65,9 @@ namespace ConsoleApp1
         {
             OrderManager om = new OrderManager();
             MainViewModel.Instance.test();
+
+            //IBController controller = new IBController(MainViewModel.Instance);
+            //controller.test();
             Console.ReadLine();
             
             

@@ -46,6 +46,8 @@ namespace AmiBroker.Controllers
         public string Currency { get; set; }
         public string Account { get; set; }
         public string Source { get; set; }
+        public Contract Contract { get; set; }
+        public string Vendor { get; set; }
 
         private double _pPosition;     // from PositionEventArgs.Position
         public double Position
@@ -144,6 +146,8 @@ namespace AmiBroker.Controllers
         public event PropertyChangedEventHandler PropertyChanged;
 
         public int OrderId { get; set; }
+        public Contract Contract { get; set; }
+        public string Vendor { get; set; }
         public string Strategy { get; set; }
         public string Action { get; set; }
         public string Type { get; set; }
@@ -327,13 +331,32 @@ namespace AmiBroker.Controllers
             }
         }                
         
-        private MainViewModel vm = MainViewModel.Instance;
-        public MainViewModel MainVM { get { return vm; } }
+        public MainViewModel MainVM { get; private set; } = MainViewModel.Instance;
 
         private static int id = 0;
         public int ID { get; private set; }
         public int FixedTabCount { get; private set; } = 1;
         public TabsViewModel TabsViewModel { get; private set; }
+        // selected tab
+        public ListView ActivateListView { get; private set; }
+        private object _pSelectedTab;
+        public object SelectedTab
+        {
+            get { return _pSelectedTab; }
+            set
+            {
+                if (_pSelectedTab != value)
+                {
+                    _pSelectedTab = value;
+                    ListView lv = UITreeHelper.FindChild<ListView>(((dynamic)value).Content.Content);
+                    if (lv != null)
+                        ActivateListView = lv;
+                    else
+                        ActivateListView = null;
+                    OnPropertyChanged("SelectedTab");
+                }
+            }
+        }
         // used for main window only once
         public void calledOnce()
         {
@@ -378,7 +401,7 @@ namespace AmiBroker.Controllers
 
             // prevent Alt+F4 from shutting down windows
             this.KeyDown += MainWindow_KeyDown;
-            vm.MessageList.CollectionChanged += MessageList_CollectionChanged;
+            MainVM.MessageList.CollectionChanged += MessageList_CollectionChanged;
 
             //
             TabsViewModel.Items.CollectionChanged += Items_CollectionChanged;
@@ -407,14 +430,14 @@ namespace AmiBroker.Controllers
 
         public void ReadSettings()
         {
-            vm.ReadSettings();            
+            MainVM.ReadSettings();            
         }
         
         public void Log(string message)
         {
             System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                vm.LogList.Insert(0, new Log()
+                MainVM.LogList.Insert(0, new Log()
                 {
                     Time = DateTime.Now,
                     Text = message

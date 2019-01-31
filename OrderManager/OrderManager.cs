@@ -19,24 +19,12 @@ using System.Collections.ObjectModel;
 
 namespace AmiBroker.Controllers
 {
-    public class OrderStrategyEventArgs : EventArgs
-    {
-        public string OrderId { get; set; }
-        public string Strategy { get; set; }
-        public OrderStrategyEventArgs(string orderID, string strategy)
-        {
-            OrderId = orderID;
-            Strategy = strategy;
-        }
-    }
     public class OrderManager : IndicatorBase
-    {
-        public delegate void OrderStrategyUpatedHandler(object sender, OrderStrategyEventArgs e);
-        public static event OrderStrategyUpatedHandler OnOrderStrategyUpated;
-
+    {        
+        private static MainViewModel mainVM;
         private static MainWindow mainWin;
         public static readonly Thread UIThread;
-        public static MainWindow MainWin { get => mainWin; }
+        //public static MainWindow MainWin { get => mainWin; }
         static OrderManager()
         {            
             try
@@ -50,7 +38,9 @@ namespace AmiBroker.Controllers
                     // save layout after exit
                     AppDomain.CurrentDomain.ProcessExit += CurrentDomain_ProcessExit;
                     // create and show the window
+                    mainVM = MainViewModel.Instance;
                     mainWin = new MainWindow();
+                    
                     var l = Properties.Settings.Default.Layout;
                     if (string.IsNullOrWhiteSpace(l))
                     {
@@ -96,23 +86,17 @@ namespace AmiBroker.Controllers
         {
             
         }
-
-        private static void UpdateOrderStrategy(string orderID, string strategy)
-        {
-            if (OnOrderStrategyUpated == null) return;
-            OrderStrategyEventArgs args = new OrderStrategyEventArgs(orderID, strategy);
-            OnOrderStrategyUpated(null, args);
-        }
-
+        /*
         public OrderManager()
         {
             //System.Diagnostics.Debug.WriteLine("Current Thread: " + Thread.CurrentThread.ManagedThreadId);
-        }
+        }*/
 
-        private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>();
+        private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>(); 
         [ABMethod]
-        public void IBController(string scriptName)
+        public void IBC(string scriptName)
         {
+            if (mainWin == null) return;
             DateTime logTime = ATFloat.ABDateTimeToDateTime(AFTools.LastValue(AFDate.DateTime()));
             bool newDay = false;
             string symbolName = AFInfo.Name();
@@ -128,11 +112,13 @@ namespace AmiBroker.Controllers
             else
                 lastBarDateTime.Add(symbolName, logTime);
 
-            SymbolInAction symbol = OrderManager.Initialize(scriptName);
+            SymbolInAction symbol = Initialize(scriptName);
+            if (!symbol.IsEnabled) return;
             
             Script script = symbol.Scripts.FirstOrDefault(x => x.Name == scriptName);
             if (script != null)
             {
+                if (!script.IsEnabled) return;
                 // reset entries count and positions for new day
                 if (newDay)
                 {
@@ -145,62 +131,88 @@ namespace AmiBroker.Controllers
                 {
                     if (!strategy.IsEnabled) continue;
 
+                    bool signal = false;
                     if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                     {
-                        bool buySignal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                        if (buySignal)
+                        signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
+                        if (signal)
+                            ProcessSignal(script, strategy, OrderAction.Buy, logTime);
+
+                        signal = ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
+                        if (signal)
+                            ProcessSignal(script, strategy, OrderAction.Sell, logTime);
+                    }
+                    if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
+                    {
+                        signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
+                        if (signal)
+                            ProcessSignal(script, strategy, OrderAction.Short, logTime);
+
+                        signal = ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
+                        if (signal)
+                            ProcessSignal(script, strategy, OrderAction.Cover, logTime);
+                    }
+                }
+            }
+        }
+
+        private void ProcessSignal(Script script, Strategy strategy, OrderAction orderAction, DateTime logTime)
+        {
+            MainViewModel.Instance.Log(new Log
+            {
+                Time = logTime,
+                Text = orderAction.ToString() + " signal generated",
+                Source = script.Symbol.Name + "." + strategy.Name
+            });
+            
+            string message = string.Empty;
+            foreach (var acc in strategy.AccountsDic[orderAction])
+            {
+                if (ValidateSignal(strategy, strategy.AccountStat[acc.Name], OrderAction.Buy, out message))
+                {
+                    foreach (var account in strategy.AccountsDic[orderAction])
+                    {
+                        string vendor = account.Controller.Vendor;
+                        BaseOrderType orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
+                        string contract = script.Symbol.SymbolDefinition.FirstOrDefault(x => x.Vendor == vendor + "Controller").ContractId;
+                        if (orderType != null)
+                        {
+                            int orderId = account.Controller.PlaceOrder(account, strategy, contract, orderType, orderAction, BarCount - 1).Result;
+                            if (orderId != -1)
+                            {
+                                Dispatcher.FromThread(UIThread).Invoke(() =>
+                                {
+                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc, OrderAction = orderAction };
+                                    strategy.AccountStat[acc.Name].AccoutStatus = AccountStatus.BuyPending;                                    
+                                    MainViewModel.Instance.OrderInfoList.Add(orderId, oi);
+                                });
+                                MainViewModel.Instance.Log(new Log
+                                {
+                                    Time = logTime,
+                                    Text = "Order sent",
+                                    Source = script.Symbol.Name + "." + strategy.Name
+                                });
+                            }
+                        }
+                        else
                         {
                             MainViewModel.Instance.Log(new Log
                             {
                                 Time = logTime,
-                                Text = "Buy signal generated",
+                                Text = vendor + "OrderType not found.",
                                 Source = script.Symbol.Name + "." + strategy.Name
                             });
-
-                            string message = string.Empty;
-                            foreach (var acc in strategy.LongAccounts)
-                            {
-                                if (ValidateSignal(strategy, strategy.AccountStat[acc.Name], OrderAction.Buy, out message))
-                                {
-                                    foreach (var account in strategy.LongAccounts)
-                                    {
-                                        string vendor = account.Controller.Vendor;
-                                        BaseOrderType orderType = strategy.BuyOrderTypes.FirstOrDefault(x => x.GetType().Name == vendor + "OrderType");
-                                        string contract = script.Symbol.SymbolDefinition.FirstOrDefault(x => x.Vendor == vendor).ContractId;
-                                        if (orderType != null)
-                                        {
-                                            bool result = orderType.PlaceOrder(account, contract).Result;
-                                        }
-                                        else
-                                        {
-                                            MainViewModel.Instance.Log(new Log
-                                            {
-                                                Time = logTime,
-                                                Text = vendor + "OrderType not found.",
-                                                Source = script.Symbol.Name + "." + strategy.Name
-                                            });
-                                        }
-                                    }
-                                    MainViewModel.Instance.Log(new Log
-                                    {
-                                        Time = logTime,
-                                        Text = "Order sent",
-                                        Source = script.Symbol.Name + "." + strategy.Name
-                                    });
-                                }
-                                else
-                                {
-                                    MainViewModel.Instance.Log(new Log
-                                    {
-                                        Time = logTime,
-                                        Text = message,
-                                        Source = script.Symbol.Name + "." + strategy.Name
-                                    });
-                                }
-                            }
-                            
-                        }                        
+                        }
                     }
+                }
+                else
+                {
+                    MainViewModel.Instance.Log(new Log
+                    {
+                        Time = logTime,
+                        Text = message.TrimEnd('\n'),
+                        Source = script.Symbol.Name + "." + strategy.Name
+                    });
                 }
             }
         }
@@ -236,6 +248,11 @@ namespace AmiBroker.Controllers
                         message = "There is an pending sell order for strategy - " + strategy.Name;
                         return false;
                     }
+                    if (strategyStat.LongPosition == 0)
+                    {
+                        message = "There is no long position for strategy - " + strategy.Name;
+                        return false;
+                    }
                     break;
                 case OrderAction.Cover:
                     if ((strategyStat.AccoutStatus & AccountStatus.CoverPending) != 0)
@@ -243,18 +260,23 @@ namespace AmiBroker.Controllers
                         message = "There is an pending cover order for strategy - " + strategy.Name;
                         return false;
                     }
+                    if (strategyStat.ShortPosition == 0)
+                    {
+                        message = "There is no short position for strategy - " + strategy.Name;
+                        return false;
+                    }
                     break;
             }
 
             if (action == OrderAction.Buy || action == OrderAction.Short)
             {
-                if (strategyStat.LongEntry + strategyStat.ShortEntry == strategy.MaxEntriesPerDay)
+                if (strategyStat.LongEntry + strategyStat.ShortEntry == strategy.MaxEntriesPerDay && strategy.MaxEntriesPerDay != 0)
                     message = "Max. entries per day reached(strategy).\n";
-                if (strategy.MaxOpenPosition == strategyStat.LongPosition + strategyStat.ShortPosition)
+                if (strategy.MaxOpenPosition == strategyStat.LongPosition + strategyStat.ShortPosition && strategy.MaxOpenPosition != 0)
                     message = "Max. open position(strategy) reached.\n";
-                if (script.MaxOpenPosition == scriptStat.LongPosition + scriptStat.ShortPosition)
+                if (script.MaxOpenPosition == scriptStat.LongPosition + scriptStat.ShortPosition && script.MaxOpenPosition != 0)
                     message = "Max. open position(script) reached.\n";
-                if (script.MaxEntriesPerDay == scriptStat.LongEntry + scriptStat.ShortEntry)
+                if (script.MaxEntriesPerDay == scriptStat.LongEntry + scriptStat.ShortEntry && script.MaxEntriesPerDay != 0)
                     message = "Max. entries per day(script) reached.\n";
             }
 
@@ -277,6 +299,7 @@ namespace AmiBroker.Controllers
             {
                 ATAfl afl = new ATAfl();
                 Script script = new Script(scriptName, symbol);
+                script.IsEnabled = true;
                 Dispatcher.FromThread(UIThread).Invoke(() =>
                 {
                     symbol.Scripts.Add(script);
@@ -291,14 +314,8 @@ namespace AmiBroker.Controllers
                 string[] shortSignals = afl.GetString().Split(new char[] { '$' });
                 afl.Name = "CoverSignals";
                 string[] coverSignals = afl.GetString().Split(new char[] { '$' });
-                afl.Name = "BuyPrices";
-                string[] buyPrices = afl.GetString().Split(new char[] { '$' });
-                afl.Name = "SellPrices";
-                string[] sellPrices = afl.GetString().Split(new char[] { '$' });
-                afl.Name = "ShortPrices";
-                string[] shortPrices = afl.GetString().Split(new char[] { '$' });
-                afl.Name = "CoverPrices";
-                string[] coverPrices = afl.GetString().Split(new char[] { '$' });
+                afl.Name = "Prices";
+                string[] prices = afl.GetString().Split(new char[] { '$' });
                 afl.Name = "ActionType";
                 string[] actionTypes = afl.GetString().Split(new char[] { '$' });
                 for (int i = 0; i < strategyNames.Length; i++)
@@ -306,26 +323,23 @@ namespace AmiBroker.Controllers
                     Strategy s = new Strategy(strategyNames[i], script);
                     ActionType at = (ActionType)Enum.Parse(typeof(ActionType), actionTypes[i]);
                     s.ActionType = at;
+                    s.Prices = new List<string>(prices[i].Split(new char[] { '%' }));
                     if (at == ActionType.Long || at == ActionType.LongAndShort)
                     {
                         s.BuySignal = new ATAfl(buySignals[i]);
-                        s.BuyPrice = new ATAfl(buyPrices[i]);
                         s.SellSignal = new ATAfl(sellSignals[i]);
-                        s.SellPrice = new ATAfl(sellPrices[i]);
                     }
                     if (at == ActionType.Short || at == ActionType.LongAndShort)
                     {
                         s.ShortSignal = new ATAfl(shortSignals[i]);
-                        s.ShortPrice = new ATAfl(shortPrices[i]);
                         s.CoverSignal = new ATAfl(coverSignals[i]);
-                        s.CoverPrice = new ATAfl(coverPrices[i]);
                     }
                     script.Strategies.Add(s);
                 }
             }
             return symbol;
         }
-
+        
         [ABMethod]
         public void Test()
         {
@@ -333,7 +347,7 @@ namespace AmiBroker.Controllers
         }
 
         [ABMethod]
-        public ATArray BS2(string scriptName)
+        public ATArray BSe2(string scriptName)
         {
             
             // calculate bar avg price

@@ -43,7 +43,6 @@ namespace AmiBroker.OrderManager
         public string Description { get; protected set; }
 
         private string _dtFormat = "yyyyMMdd HH:mm:ss";
-        [JsonIgnore]
         public string DateTimeFormat
         {
             get => _dtFormat;
@@ -82,6 +81,11 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
+        public BaseOrderType()
+        {
+            GoodAfterTime.DateTimeFormat = DateTimeFormat;
+            GoodTilDate.DateTimeFormat = DateTimeFormat;
+        }
 
         public virtual BaseOrderType Clone()
         {
@@ -90,6 +94,6 @@ namespace AmiBroker.OrderManager
         }
 
         public virtual void CopyTo(BaseOrderType dest) { }
-        public virtual async Task<bool> PlaceOrder(AccountInfo accountInfo, string  symbol) { return false; }
+        public virtual async Task<int> PlaceOrder(AccountInfo accountInfo, string  symbol) { return -1; }
     }
 }

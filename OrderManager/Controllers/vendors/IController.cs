@@ -10,20 +10,19 @@ using System.Windows.Media.Imaging;
 using System.Drawing;
 using System.Collections.Specialized;
 using System.Runtime.Serialization;
+using AmiBroker.OrderManager;
 
 namespace AmiBroker.Controllers
 {
-    public class OrderPositionEventArgs : EventArgs
+    public enum AccountStatus
     {
-        public string Account { get; set; }
-        public string Symbol { get; set; }
-        public int Position { get; set; }
-        public OrderPositionEventArgs(string symbol, string account, int pos)
-        {
-            Symbol = symbol;
-            Account = account;
-            Position = pos;
-        }
+        None=1,
+        BuyPending=2,
+        Long=4,
+        ShortPending=8,
+        Short=16,
+        SellPending=32,
+        CoverPending=64
     }
     public class AccountTag : INotifyPropertyChanged
     {
@@ -125,12 +124,12 @@ namespace AmiBroker.Controllers
         }
     }
     public interface IController : IItemGroupAware, IItemEnabledAware
-    {      
+    {
         // IB can have more than one linked account (Finacial Advisor Account and sub accounts)
         ObservableCollection<AccountInfo> Accounts { get; }
         AccountInfo SelectedAccount { get; set; }
         // should be unique
-        string DisplayName { get; }    
+        string DisplayName { get; }
         string Vendor { get; }  //short name
         ConnectionParam ConnParam { get; set; }
         bool IsConnected { get; }
@@ -142,5 +141,6 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
+        Task<int> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex, int PositionSize = 1);
     }
 }

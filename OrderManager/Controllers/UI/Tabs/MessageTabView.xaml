@@ -17,7 +17,7 @@
         <ListView ItemsSource="{Binding MessageList}" ItemContainerStyle="{StaticResource GridLineStyle}">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Time" Width="80" DisplayMemberBinding="{Binding Time, Converter={StaticResource TimeToTextConverter}}" />
+                    <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
                     <GridViewColumn Header="Code" Width="50" DisplayMemberBinding="{Binding Code}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
                     <GridViewColumn Header="Message" Width="600" DisplayMemberBinding="{Binding Text}" >
