@@ -11,6 +11,7 @@ using System.Drawing;
 using System.Collections.Specialized;
 using System.Runtime.Serialization;
 using AmiBroker.OrderManager;
+using Newtonsoft.Json;
 
 namespace AmiBroker.Controllers
 {
@@ -23,6 +24,66 @@ namespace AmiBroker.Controllers
         Short=16,
         SellPending=32,
         CoverPending=64
+    }
+    public class AccountStatusOp
+    {
+        public static void RevertActionStatus(ref BaseStat stat, OrderAction orderAction)
+        {
+            if (orderAction == OrderAction.Buy)
+            {
+                stat.AccoutStatus &= ~AccountStatus.BuyPending;
+            }
+            else if (orderAction == OrderAction.Short)
+            {
+                stat.AccoutStatus &= ~AccountStatus.ShortPending;
+            }
+            else if (orderAction == OrderAction.Sell)
+            {
+                stat.AccoutStatus &= ~AccountStatus.SellPending;
+            }
+            else if (orderAction == OrderAction.Cover)
+            {
+                stat.AccoutStatus &= ~AccountStatus.CoverPending;
+            }
+        }
+        public static void SetActionStatus(ref BaseStat stat, OrderAction orderAction)
+        {
+            if (orderAction == OrderAction.Buy)
+            {
+                stat.AccoutStatus |= AccountStatus.BuyPending;
+            }
+            else if (orderAction == OrderAction.Short)
+            {
+                stat.AccoutStatus |= AccountStatus.ShortPending;
+            }
+            else if (orderAction == OrderAction.Sell)
+            {
+                stat.AccoutStatus |= AccountStatus.SellPending;
+            }
+            else if (orderAction == OrderAction.Cover)
+            {
+                stat.AccoutStatus |= AccountStatus.CoverPending;
+            }
+        }
+        public static void SetPositionStatus(ref BaseStat stat, OrderAction orderAction)
+        {
+            if (orderAction == OrderAction.Buy)
+            {
+                stat.AccoutStatus |= AccountStatus.Long;
+            }
+            else if (orderAction == OrderAction.Short)
+            {
+                stat.AccoutStatus |= AccountStatus.Short;
+            }
+            else if (orderAction == OrderAction.Sell && stat.LongPosition == 0)
+            {
+                stat.AccoutStatus &= ~AccountStatus.Long;
+            }
+            else if (orderAction == OrderAction.Cover && stat.ShortPosition == 0)
+            {
+                stat.AccoutStatus &= ~AccountStatus.Short;
+            }
+        }
     }
     public class AccountTag : INotifyPropertyChanged
     {
@@ -70,6 +131,7 @@ namespace AmiBroker.Controllers
         }        
         public string Name { get; private set; }        
         public IController Controller { get; private set; }
+        [JsonIgnore]
         public ObservableCollection<AccountTag> Properties { get; set; } = new ObservableCollection<AccountTag>();
         // properties for use in Multi-select combox
         public IItemGroup Group { get; set; }
@@ -141,6 +203,6 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<int> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex, int PositionSize = 1);
+        Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex);
     }
 }

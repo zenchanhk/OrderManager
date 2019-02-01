@@ -54,8 +54,8 @@ namespace AmiBroker.OrderManager
             }
         }
 
-        private string _timeZone;
-        public string TimeZone
+        private AmiBroker.Controllers.TimeZone _timeZone;
+        public AmiBroker.Controllers.TimeZone TimeZone
         {
             get => _timeZone;
             set

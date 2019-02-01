@@ -46,11 +46,11 @@
                                             <TextBlock Text="Exact GAT" />
                                         </RadioButton>
                                         <controls:DateTimeEditor x:Name="gat_dtEditor" Value="{Binding GoodAfterTime.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 Format="HH:mm:ss" PreviewKeyDown="gat_PreviewKeyDown"
+                                                 Format="HH:mm:ss" PreviewKeyDown="gt_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
                                         <controls:NumericUpDown x:Name="gat_ud_1" Value="{Binding GoodAfterTime.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             PreviewKeyDown="gat_PreviewKeyDown"
+                                                             PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
                                         <TextBlock VerticalAlignment="Center" Text="days"/>
@@ -60,15 +60,15 @@
                                             <TextBlock Text="Seconds after order placed" />
                                         </RadioButton>
                                         <controls:NumericUpDown x:Name="gat_ud_sec" Value="{Binding GoodAfterTime.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             MinValue="1" MaxValue="10000" PreviewKeyDown="gat_PreviewKeyDown"
-                                                             Width="50" Margin="5, 0" />
+                                                             MinValue="1" MaxValue="10000" PreviewKeyDown="gt_PreviewKeyDown"
+                                                             Width="50" Margin="5, 0" Click="gt_Click" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=3}">
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
                                         <controls:NumericUpDown x:Name="gat_ud_bar" Value="{Binding GoodAfterTime.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             PreviewKeyDown="gat_PreviewKeyDown"
+                                                             PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              MinValue="1" MaxValue="100"
                                                              Width="50" Margin="5, 0" />
                                         <TextBlock Text="(1 means current bar)" VerticalAlignment="Center"/>
@@ -100,11 +100,11 @@
                                         </RadioButton>
                                         <controls:DateTimeEditor Value="{Binding GoodTilDate.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                                  x:Name="gtd_dtEditor"
-                                                 Format="HH:mm:ss" PreviewKeyDown="gtd_PreviewKeyDown"
+                                                 Format="HH:mm:ss" PreviewKeyDown="gt_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             PreviewKeyDown="gtd_PreviewKeyDown" x:Name="gtd_ud_1"
+                                                             PreviewKeyDown="gt_PreviewKeyDown" x:Name="gtd_ud_1" Click="gt_Click"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
                                         <TextBlock VerticalAlignment="Center" Text="days"/>
@@ -115,7 +115,7 @@
                                         </RadioButton>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                              MinValue="1" MaxValue="10000" x:Name="gtd_ud_sec"
-                                                             PreviewKeyDown="gtd_PreviewKeyDown"
+                                                             PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              Width="50" Margin="5, 0" />
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
@@ -123,8 +123,8 @@
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
                                         <controls:NumericUpDown Value="{Binding GoodTilDate.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                             PreviewKeyDown="gtd_PreviewKeyDown" x:Name="gtd_ud_bar"
-                                                             MinValue="1" MaxValue="100"
+                                                             PreviewKeyDown="gt_PreviewKeyDown" x:Name="gtd_ud_bar"
+                                                             MinValue="1" MaxValue="100" Click="gt_Click"
                                                              Width="50" Margin="5, 0" />
                                         <TextBlock Text="(1 means current bar)" VerticalAlignment="Center"/>
                                     </StackPanel>

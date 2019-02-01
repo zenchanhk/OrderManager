@@ -5,23 +5,15 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
-using FontAwesome.Sharp;
-using IB.CSharpApiClient.Events;
-using IB.CSharpApiClient;
 using IBApi;
-using System.Dynamic;
-using Newtonsoft.Json;
-using System.Windows.Media;
-using Dragablz;
+using Xceed.Wpf.AvalonDock.Layout;
+using Xceed.Wpf.AvalonDock.Themes;
 
 namespace AmiBroker.Controllers
 {
@@ -262,25 +254,7 @@ namespace AmiBroker.Controllers
                 handler(this, new PropertyChangedEventArgs(name));
             }
         }
-    }
-    /// <summary>
-    /// InterTabClient for dragablz
-    /// </summary>
-    public class MainWindowTabClient : IInterTabClient
-    {
-        public INewTabHost<Window> GetNewHost(IInterTabClient interTabClient, object partition, TabablzControl source)
-        {
-           
-            var model = new TabsViewModel();
-            var view = new MainWindow(model);
-            return new NewTabHost<Window>(view, view.InitialTabablzControl);
-        }
-
-        public TabEmptiedResponse TabEmptiedHandler(TabablzControl tabControl, Window window)
-        {
-            return TabEmptiedResponse.CloseWindowOrLayoutBranch;
-        }
-    }
+    }    
     /// <summary>
     /// Interaction logic for Main.xaml
     /// </summary>
@@ -335,8 +309,6 @@ namespace AmiBroker.Controllers
 
         private static int id = 0;
         public int ID { get; private set; }
-        public int FixedTabCount { get; private set; } = 1;
-        public TabsViewModel TabsViewModel { get; private set; }
         // selected tab
         public ListView ActivateListView { get; private set; }
         private object _pSelectedTab;
@@ -348,43 +320,40 @@ namespace AmiBroker.Controllers
                 if (_pSelectedTab != value)
                 {
                     _pSelectedTab = value;
-                    ListView lv = UITreeHelper.FindChild<ListView>(((dynamic)value).Content.Content);
-                    if (lv != null)
-                        ActivateListView = lv;
-                    else
-                        ActivateListView = null;
+                    if (value != null)
+                    {
+                        ListView lv = UITreeHelper.FindChild<ListView>(((dynamic)value).Content.Content);
+                        if (lv != null)
+                            ActivateListView = lv;
+                        else
+                            ActivateListView = null;
+                    }                    
                     OnPropertyChanged("SelectedTab");
                 }
             }
         }
-        // used for main window only once
-        public void calledOnce()
+
+        private int _pSelectedTheme;
+        public int SelectedTheme
         {
-            TabsViewModel = new TabsViewModel();
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Pending Orders")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Execution")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Portfolio")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Account")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Script")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Message")));
-            TabsViewModel.Items.Add(new TabContentViewModel(new TabContentModel("Log")));
-            this.DataContext = TabsViewModel;
+            get { return _pSelectedTheme; }
+            set
+            {
+                if (_pSelectedTheme != value)
+                {
+                    _pSelectedTheme = value;
+                    OnPropertyChanged("SelectedTheme");
+                }
+            }
         }
+
         public MainWindow()
         {
-            TabsViewModel = new TabsViewModel();
-            init();
-        }
-        public MainWindow(TabsViewModel tabClientModel)
-        {
-            TabsViewModel = tabClientModel;
+            //TabsViewModel = new TabsViewModel();
             init();
         }
         private void init()
-        {
-            ID = id;
-            if (ID != 0) FixedTabCount = 0;
-            id++;
+        {            
             InitializeComponent();
             /* embedded resource
             string[] t = Assembly.GetExecutingAssembly().GetManifestResourceNames();
@@ -396,15 +365,11 @@ namespace AmiBroker.Controllers
             BitmapImage bi = new BitmapImage(uri);
             this.Icon = bi;
 
-            this.DataContext = TabsViewModel;
             ScalingFactor = 1;
 
             // prevent Alt+F4 from shutting down windows
             this.KeyDown += MainWindow_KeyDown;
             MainVM.MessageList.CollectionChanged += MessageList_CollectionChanged;
-
-            //
-            TabsViewModel.Items.CollectionChanged += Items_CollectionChanged;
         }
 
         private void Items_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -509,21 +474,6 @@ namespace AmiBroker.Controllers
                 ScalingFactor += ((args.Delta > 0) ? 0.1 : -0.1);
             }
         }
-        
-        private void ExportBtn_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-
-        private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            TabItem ti = (sender as TabControl).SelectedItem as TabItem;
-            // remove style
-            if (ti != null && ti.Style != null)
-            {
-                ti.Style = null;
-            }
-        }
 
         private void Mi_Connect_Click(object sender, RoutedEventArgs e)
         {
@@ -539,6 +489,34 @@ namespace AmiBroker.Controllers
         {
             SaveLoadTemplate win = new SaveLoadTemplate(TemplateAction.Manage);
             win.ShowDialog();
+        }
+
+        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            Xceed.Wpf.AvalonDock.Layout.LayoutAnchorable d = new Xceed.Wpf.AvalonDock.Layout.LayoutAnchorable();
+            // Check the menu item.
+            foreach (MenuItem item in ((sender as MenuItem).Parent as MenuItem).Items)
+            {
+                item.IsChecked = (item == (sender as MenuItem));
+                if (item.IsChecked)
+                {
+                    if (item.Name == "aero")
+                        SelectedTheme = 1;
+                    else if (item.Name == "metro")
+                        SelectedTheme = 2;
+                    else if (item.Name == "vs2010")
+                        SelectedTheme = 3;
+                    else
+                        SelectedTheme =0;
+                }                
+            }
+        }
+
+        private void LayoutDocument_IsSelectedChanged(object sender, EventArgs e)
+        {
+            LayoutDocument doc = sender as LayoutDocument;
+            if (doc.IsSelected)
+                SelectedTab = doc;
         }
     }
 

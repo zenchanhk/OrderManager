@@ -34,21 +34,14 @@ namespace AmiBroker.Controllers
         private List<AccountInfo> _accounts;
         public List<AccountInfo> Accounts { get => _accounts ?? (_accounts = new List<AccountInfo>()); }
     }
-    public class MainViewModel : INotifyPropertyChanged
+    public class MainViewModel : NotifyPropertyChangedBase
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-        private string _pStatusMsg = "Ready";
+
+        private string _pStatusMsg;
         public string StatusMsg
         {
             get { return _pStatusMsg; }
-            set
-            {
-                if (_pStatusMsg != value)
-                {
-                    _pStatusMsg = value;
-                    OnPropertyChanged("StatusMsg");
-                }
-            }
+            set { _UpdateField(ref _pStatusMsg, value); }
         }
         // Icons
         public Image ImageSaveLayout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.ContentSaveAll, Util.Color.Indigo);
@@ -58,7 +51,7 @@ namespace AmiBroker.Controllers
         public Image ImageSettings { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Settings);
         public Image ImageHelp { get; private set; } = Util.MaterialIconToImage(MaterialIcons.BookOpenPageVariant, Util.Color.Purple);
         public Image ImageAbout { get; private set; } = Util.MaterialIconToImage(MaterialIcons.HelpCircle);
-        public Image ImageRefresh { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Refresh, Util.Color.Green);
+        public Image ImageRefresh { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Refresh, Util.Color.Green);        
         //public Image ImageOrderCancel { get; private set; } = new Image() { Source = new BitmapImage(new Uri("pack://application:,,,/OrderManager;component/Controllers/images/order-cancel.png")) };        
         // commands
         public Commands Commands { get; set; } = new Commands();
@@ -83,35 +76,21 @@ namespace AmiBroker.Controllers
         // collectionViewSources for views
         private CollectionViewSource poViewSource;
         private CollectionViewSource execViewSource;
-        
+
         // for script treeview use -- selected treeview item
         private object _pSelectedItem;
         public object SelectedItem
         {
             get { return _pSelectedItem; }
-            set
-            {
-                if (_pSelectedItem != value)
-                {
-                    _pSelectedItem = value;
-                    Dummy = !Dummy;
-                    OnPropertyChanged("SelectedItem");
-                }
-            }
+            set { _UpdateField(ref _pSelectedItem, value); }
         }
+
         // for binding(displaying) controller for each symbol
         private bool _pDummy;
         public bool Dummy
         {
             get { return _pDummy; }
-            set
-            {
-                if (_pDummy != value)
-                {
-                    _pDummy = value;
-                    OnPropertyChanged("Dummy");
-                }
-            }
+            set { _UpdateField(ref _pDummy, value); }
         }
 
         // for selecting accounts - multiselect-combox
@@ -354,15 +333,5 @@ namespace AmiBroker.Controllers
             }
 
         }
-
-        protected void OnPropertyChanged(string name)
-        {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null)
-            {
-                handler(this, new PropertyChangedEventArgs(name));
-            }
-        }
-
     }
 }

@@ -252,9 +252,9 @@ namespace AmiBroker.Controllers
                     {
                         BaseOrderType newItem = ((BaseOrderType)value[0]).Clone();
                         if (si.GetType() == typeof(Script))
-                            newItem.TimeZone = ((Script)si).Symbol.TimeZone.Id;
+                            newItem.TimeZone = ((Script)si).Symbol.TimeZone;
                         if (si.GetType() == typeof(Strategy))
-                            newItem.TimeZone = ((Strategy)si).Script.Symbol.TimeZone.Id;
+                            newItem.TimeZone = ((Strategy)si).Script.Symbol.TimeZone;
                         orderTypes.Add(newItem);
                         return newItem;
                     }
@@ -342,7 +342,7 @@ namespace AmiBroker.Controllers
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if ((int)value <= 0)
+            if ((double)value <= 0)
                 return false;
             else
                 return true;

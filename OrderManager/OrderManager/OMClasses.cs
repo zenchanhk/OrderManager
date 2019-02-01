@@ -47,22 +47,22 @@ namespace AmiBroker.OrderManager
     {
         public AccountInfo Account { get; set; }
 
-        private AccountStatus _pAccoutStatus;
+        private AccountStatus _pAccoutStatus = AccountStatus.None;
         public AccountStatus AccoutStatus
         {
             get { return _pAccoutStatus; }
             set { _UpdateField(ref _pAccoutStatus, value); }
         }
 
-        private int _pLongPosition;
-        public int LongPosition
+        private double _pLongPosition;
+        public double LongPosition
         {
             get { return _pLongPosition; }
             set { _UpdateField(ref _pLongPosition, value); }
         }
 
-        private int _pShortPosition;
-        public int ShortPosition
+        private double _pShortPosition;
+        public double ShortPosition
         {
             get { return _pShortPosition; }
             set { _UpdateField(ref _pShortPosition, value); }
@@ -110,11 +110,15 @@ namespace AmiBroker.OrderManager
                 if (GetType() == typeof(Strategy))
                 {
                     Script script = ((Strategy)this).Script;
-                    foreach (AccountInfo account in e.NewItems)
+                    // duing de/serialization, script will be null
+                    if (script != null)
                     {
-                        if (!script.AccountStat.ContainsKey(account.Name))
-                            script.AccountStat.Add(account.Name, new BaseStat() { Account = account });
-                    }
+                        foreach (AccountInfo account in e.NewItems)
+                        {
+                            if (!script.AccountStat.ContainsKey(account.Name))
+                                script.AccountStat.Add(account.Name, new BaseStat() { Account = account });
+                        }
+                    }                    
                 }
             }
         }
@@ -457,19 +461,19 @@ namespace AmiBroker.OrderManager
         {
             foreach (var ot in BuyOrderTypes)
             {
-                ot.TimeZone = tz.Id;
+                ot.TimeZone = tz;
             }
             foreach (var ot in SellOrderTypes)
             {
-                ot.TimeZone = tz.Id;
+                ot.TimeZone = tz;
             }
             foreach (var ot in ShortOrderTypes)
             {
-                ot.TimeZone = tz.Id;
+                ot.TimeZone = tz;
             }
             foreach (var ot in CoverOrderTypes)
             {
-                ot.TimeZone = tz.Id;
+                ot.TimeZone = tz;
             }
             // strategy
             PropertyInfo pi = GetType().GetProperty("Strategies");
@@ -589,6 +593,7 @@ namespace AmiBroker.OrderManager
             MaxEntriesPerDay = strategy.MaxEntriesPerDay;
             MaxOpenPosition = strategy.MaxOpenPosition;
             ReverseSignalForcesExit = strategy.ReverseSignalForcesExit;
+            PositionSize = strategy.PositionSize;
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -681,6 +686,7 @@ namespace AmiBroker.OrderManager
             SellOrderTypes = script.SellOrderTypes;
             ShortOrderTypes = script.ShortOrderTypes;
             CoverOrderTypes = script.CoverOrderTypes;
+            PositionSize = script.PositionSize;
             _RaisePropertyChanged("ShortOrderTypes");
             _RaisePropertyChanged("CoverOrderTypes");
             _RaisePropertyChanged("BuyOrderTypes");
@@ -749,6 +755,7 @@ namespace AmiBroker.OrderManager
                 strategy.MaxEntriesPerDay = MaxEntriesPerDay;
                 strategy.MaxOpenPosition = MaxOpenPosition;
                 strategy.ReverseSignalForcesExit = ReverseSignalForcesExit;
+                strategy.PositionSize = PositionSize;
                 /*
                 strategy.AllowReEntry = AllowReEntry;
                 strategy.ReEntryBefore = ReEntryBefore;
@@ -984,6 +991,10 @@ namespace AmiBroker.OrderManager
                     tmp.CopyFrom(item);
             }
             TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
+            RoundLotSize = symbol.RoundLotSize;
+            MinTick = symbol.MinTick;
+            MaxOrderSize = symbol.MaxOrderSize;
+            MinOrderSize = symbol.MinOrderSize;
         }
 
         public string Name { get; set; }

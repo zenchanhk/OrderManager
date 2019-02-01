@@ -228,7 +228,7 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private void gat_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void gt_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             FrameworkElement element = sender as FrameworkElement;
             if (element.DataContext != null)
@@ -245,18 +245,38 @@ namespace AmiBroker.Controllers
                     case "gat_ud_bar":
                         ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 3;
                         break;
+                    case "gtd_dtEditor":
+                    case "gtd_ud_1":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 1;
+                        break;
+                    case "gtd_ud_sec":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 2;
+                        break;
+                    case "gtd_ud_bar":
+                        ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 3;
+                        break;
                 }
                 
             }                
         }
 
-        private void gtd_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void gt_Click(object sender, RoutedEventArgs e)
         {
             FrameworkElement element = sender as FrameworkElement;
             if (element.DataContext != null)
             {
                 switch (element.Name)
                 {
+                    case "gat_dtEditor":
+                    case "gat_ud_1":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 1;
+                        break;
+                    case "gat_ud_sec":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 2;
+                        break;
+                    case "gat_ud_bar":
+                        ((IBOrderType)element.DataContext).GoodAfterTime.SelectedIndex = 3;
+                        break;
                     case "gtd_dtEditor":
                     case "gtd_ud_1":
                         ((IBOrderType)element.DataContext).GoodTilDate.SelectedIndex = 1;

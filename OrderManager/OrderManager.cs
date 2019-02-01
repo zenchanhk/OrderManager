@@ -14,13 +14,21 @@ using IBApi;
 using System.Windows.Threading;
 using AmiBroker.OrderManager;
 using Newtonsoft.Json;
-using Dragablz.Savablz;
 using System.Collections.ObjectModel;
+using Xceed.Wpf.AvalonDock;
 
 namespace AmiBroker.Controllers
 {
+    public class OrderLog
+    {
+        public int OrderId { get; set; }
+        public double OrgPrice { get; set; }
+        public double LmtPrice { get; set; }
+
+    }
     public class OrderManager : IndicatorBase
-    {        
+    {
+        public static MainWindow MainWin { get; private set; }
         private static MainViewModel mainVM;
         private static MainWindow mainWin;
         public static readonly Thread UIThread;
@@ -40,20 +48,16 @@ namespace AmiBroker.Controllers
                     // create and show the window
                     mainVM = MainViewModel.Instance;
                     mainWin = new MainWindow();
-                    
-                    var l = Properties.Settings.Default.Layout;
-                    if (string.IsNullOrWhiteSpace(l))
+                    MainWin = mainWin;
+
+                    if (System.IO.File.Exists("layout.cfg"))
                     {
-                        mainWin.calledOnce();
-                        mainWin.Show();
-                    }
-                    else
-                    {
-                        // Restore layout
-                        var windowsState = JsonConvert.DeserializeObject<LayoutWindowState<TabContentModel>[]>(l);
-                        mainWin.Show();
-                        WindowsStateSaver.RestoreWindowsState(mainWin.InitialTabablzControl, windowsState, m => new TabContentViewModel(m));
-                    }
+                        DockingManager dock = OrderManager.MainWin.FindName("dockingManager") as DockingManager;
+                        Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer layoutSerializer = new Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer(dock);
+                        layoutSerializer.Deserialize("layout.cfg");
+                    }                    
+
+                    mainWin.Show();
                     app.Run();
                     mainWin.Dispatcher.Invoke(new System.Action(() => { }), DispatcherPriority.DataBind);
                     // start the Dispatcher processing 
@@ -97,6 +101,17 @@ namespace AmiBroker.Controllers
         public void IBC(string scriptName)
         {
             if (mainWin == null) return;
+            if (AFTools.LastValue(AFDate.DateTime()) <= 0)
+            {
+                mainVM.Log(new Log
+                {
+                    Time = DateTime.Now,
+                    Text = "DateTime data error",
+                    Source = scriptName
+                });
+                return;
+            }
+
             DateTime logTime = ATFloat.ABDateTimeToDateTime(AFTools.LastValue(AFDate.DateTime()));
             bool newDay = false;
             string symbolName = AFInfo.Name();
@@ -160,8 +175,8 @@ namespace AmiBroker.Controllers
         {
             MainViewModel.Instance.Log(new Log
             {
-                Time = logTime,
-                Text = orderAction.ToString() + " signal generated",
+                Time = DateTime.Now,
+                Text = orderAction.ToString() + " signal generated at " + logTime.ToString("yyyMMdd HH:mm:ss"),
                 Source = script.Symbol.Name + "." + strategy.Name
             });
             
@@ -177,28 +192,37 @@ namespace AmiBroker.Controllers
                         string contract = script.Symbol.SymbolDefinition.FirstOrDefault(x => x.Vendor == vendor + "Controller").ContractId;
                         if (orderType != null)
                         {
-                            int orderId = account.Controller.PlaceOrder(account, strategy, contract, orderType, orderAction, BarCount - 1).Result;
-                            if (orderId != -1)
+                            BaseStat strategyStat = strategy.AccountStat[acc.Name];
+                            AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
+                            OrderLog log = account.Controller.PlaceOrder(account, strategy, contract, orderType, orderAction, BarCount - 1).Result;
+                            if (log.OrderId != -1)
                             {
                                 Dispatcher.FromThread(UIThread).Invoke(() =>
                                 {
                                     OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc, OrderAction = orderAction };
-                                    strategy.AccountStat[acc.Name].AccoutStatus = AccountStatus.BuyPending;                                    
-                                    MainViewModel.Instance.OrderInfoList.Add(orderId, oi);
+                                    //strategy.AccountStat[acc.Name].AccoutStatus = AccountStatus.BuyPending;                                    
+                                    MainViewModel.Instance.OrderInfoList.Add(log.OrderId, oi);
                                 });
+                                // log order place details
                                 MainViewModel.Instance.Log(new Log
                                 {
-                                    Time = logTime,
-                                    Text = "Order sent",
+                                    Time = DateTime.Now,
+                                    Text = "Order sent (OrderId:" + log.OrderId.ToString() + ", OrgPrice:" + log.OrgPrice.ToString() +
+                                        ", LmtPrice:" + log.LmtPrice.ToString() + ")",
                                     Source = script.Symbol.Name + "." + strategy.Name
                                 });
+                            }
+                            else
+                            {
+                                strategyStat = strategy.AccountStat[acc.Name];
+                                AccountStatusOp.RevertActionStatus(ref strategyStat, orderAction);
                             }
                         }
                         else
                         {
                             MainViewModel.Instance.Log(new Log
                             {
-                                Time = logTime,
+                                Time = DateTime.Now,
                                 Text = vendor + "OrderType not found.",
                                 Source = script.Symbol.Name + "." + strategy.Name
                             });
@@ -209,7 +233,7 @@ namespace AmiBroker.Controllers
                 {
                     MainViewModel.Instance.Log(new Log
                     {
-                        Time = logTime,
+                        Time = DateTime.Now,
                         Text = message.TrimEnd('\n'),
                         Source = script.Symbol.Name + "." + strategy.Name
                     });
@@ -225,6 +249,11 @@ namespace AmiBroker.Controllers
             switch (action)
             {
                 case OrderAction.Buy:
+                    if ((strategyStat.AccoutStatus & AccountStatus.Long) != 0)
+                    {
+                        message = "There is already a long position for strategy - " + strategy.Name;
+                        return false;
+                    }
                     if ((strategyStat.AccoutStatus & AccountStatus.BuyPending) != 0)
                     {
                         message = "There is an pending buy order for strategy - " + strategy.Name;
@@ -234,6 +263,11 @@ namespace AmiBroker.Controllers
                         message = "Max. long position(script) reached.\n";
                     break;
                 case OrderAction.Short:
+                    if ((strategyStat.AccoutStatus & AccountStatus.Short) != 0)
+                    {
+                        message = "There is already a short position for strategy - " + strategy.Name;
+                        return false;
+                    }
                     if ((strategyStat.AccoutStatus & AccountStatus.ShortPending) != 0)
                     {
                         message = "There is an pending short order for strategy - " + strategy.Name;
@@ -270,13 +304,13 @@ namespace AmiBroker.Controllers
 
             if (action == OrderAction.Buy || action == OrderAction.Short)
             {
-                if (strategyStat.LongEntry + strategyStat.ShortEntry == strategy.MaxEntriesPerDay && strategy.MaxEntriesPerDay != 0)
+                if (strategyStat.LongEntry + strategyStat.ShortEntry >= strategy.MaxEntriesPerDay)
                     message = "Max. entries per day reached(strategy).\n";
-                if (strategy.MaxOpenPosition == strategyStat.LongPosition + strategyStat.ShortPosition && strategy.MaxOpenPosition != 0)
+                if (strategy.MaxOpenPosition <= strategyStat.LongPosition + strategyStat.ShortPosition)
                     message = "Max. open position(strategy) reached.\n";
-                if (script.MaxOpenPosition == scriptStat.LongPosition + scriptStat.ShortPosition && script.MaxOpenPosition != 0)
+                if (script.MaxOpenPosition <= scriptStat.LongPosition + scriptStat.ShortPosition)
                     message = "Max. open position(script) reached.\n";
-                if (script.MaxEntriesPerDay == scriptStat.LongEntry + scriptStat.ShortEntry && script.MaxEntriesPerDay != 0)
+                if (script.MaxEntriesPerDay <= scriptStat.LongEntry + scriptStat.ShortEntry)
                     message = "Max. entries per day(script) reached.\n";
             }
 

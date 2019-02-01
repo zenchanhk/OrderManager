@@ -19,11 +19,7 @@ namespace AmiBroker.Controllers
     /// Interaction logic for AssignToStrategy.xaml
     /// </summary>
     public partial class AssignToStrategy : Window
-    {
-        public List<Strategy> Strategies { get; set; } = new List<Strategy>();
-        public double AvailablePosition { get; set; }
-        public Strategy SelectedItem { get; set; }
-        public int AssignedPosition { get; set; }
+    {       
         public AssignToStrategy()
         {
             InitializeComponent();
@@ -39,7 +35,54 @@ namespace AmiBroker.Controllers
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             this.DialogResult = false;
-            this.Close();
+            this.Close(); 
         }
+
+        private void AssignToStrategy_Loaded(object sender, RoutedEventArgs e)
+        {
+            ComboBox cb = FindName("cb_strategy") as ComboBox;
+            //if (cb != null)
+            //    cb.ItemsSource = Strategies;
+        }
+    }
+
+    public class AssignToStrategyVM : NotifyPropertyChangedBase
+    {
+
+        private List<Strategy> _pStrategies = new List<Strategy>();
+        public List<Strategy> Strategies
+        {
+            get { return _pStrategies; }
+            set { _UpdateField(ref _pStrategies, value); }
+        }
+
+        private string _pSymbol;
+        public string Symbol
+        {
+            get { return _pSymbol; }
+            set { _UpdateField(ref _pSymbol, value); }
+        }
+
+        private double _pAvailablePosition;
+        public double AvailablePosition
+        {
+            get { return _pAvailablePosition; }
+            set { _UpdateField(ref _pAvailablePosition, value); }
+        }
+
+        private Strategy _pSelectedItem;
+        public Strategy SelectedItem
+        {
+            get { return _pSelectedItem; }
+            set { _UpdateField(ref _pSelectedItem, value); }
+        }
+
+        private double _pAssignedPosition;
+        public double AssignedPosition
+        {
+            get { return _pAssignedPosition; }
+            set { _UpdateField(ref _pAssignedPosition, value); }
+        }
+
     }
 }

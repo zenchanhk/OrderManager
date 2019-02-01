@@ -73,6 +73,21 @@ namespace ControlLib
             }
         }
 
+        public static readonly RoutedEvent ClickEvent = EventManager.RegisterRoutedEvent(
+            "Click", RoutingStrategy.Direct,
+            typeof(ClickEventHandler), typeof(NumericUpDown));
+        public event ClickEventHandler Click
+        {
+            add
+            {
+                base.AddHandler(NumericUpDown.ClickEvent, value);
+            }
+            remove
+            {
+                base.RemoveHandler(NumericUpDown.ClickEvent, value);
+            }
+        }
+
         public double MaxValue
         {
             get { return (double)GetValue(MaxValueProperty); }
@@ -192,10 +207,14 @@ namespace ControlLib
         private void buttonUp_Click(object sender, RoutedEventArgs e)
         {
             Value += Increment;
+            RoutedEventArgs args = new RoutedEventArgs(ClickEvent, this);
+            RaiseEvent(args);
         }
         private void buttonDown_Click(object sender, RoutedEventArgs e)
         {
             Value -= Increment;
+            RoutedEventArgs args = new RoutedEventArgs(ClickEvent, this);
+            RaiseEvent(args);
         }
 
         private Timer t = new Timer();
@@ -284,5 +303,7 @@ namespace ControlLib
         public double OldValue { get; private set; }
         public double NewValue { get; private set; }
     }
+
+    public delegate void ClickEventHandler(object sender, RoutedEventArgs e);
 }
 

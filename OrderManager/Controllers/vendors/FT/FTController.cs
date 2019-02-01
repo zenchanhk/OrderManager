@@ -132,9 +132,9 @@ namespace AmiBroker.Controllers
         public Task ConnectAsync() { return new Task(() => { }); }
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
 
-        public async Task<int> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex, int PositionSize = 1)
+        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex)
         {
-            return -1;
+            return null;
         }
     }
 }

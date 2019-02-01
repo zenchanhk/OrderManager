@@ -155,8 +155,8 @@ namespace AmiBroker.Controllers
             EventDispatcher.ManagedAccounts += eh_ManagedAccounts;
             EventDispatcher.Position += eh_Position;
             EventDispatcher.UpdatePortfolio += eh_UpdatePortfolio;
-            EventDispatcher.AccountSummary += eh_AccountSummary;
-            EventDispatcher.AccountValue += EventDispatcher_AccountValue;
+            //EventDispatcher.AccountSummary += eh_AccountSummary;
+            EventDispatcher.AccountValue += eh_AccountValue;
             EventDispatcher.ContractDetails += EventDispatcher_ContractDetails;
         }
 
@@ -283,7 +283,7 @@ namespace AmiBroker.Controllers
         /// <param name="BarIndex"></param>
         /// <param name="posSize"></param>
         /// <returns></returns>
-        private Order TransformIBOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int posSize = 1)
+        private Order TransformIBOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex)
         {
             Order order = new Order();
             IBOrderType ot = orderType as IBOrderType;
@@ -291,22 +291,22 @@ namespace AmiBroker.Controllers
             order.Transmit = ot.Transmit;
             if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
             {
-                order.TotalQuantity = posSize * symbol.RoundLotSize;
+                order.TotalQuantity = strategy.PositionSize * symbol.RoundLotSize;
             }
             else
             {
-                int pos = 0;
+                double pos = 0;
                 if (orderAction == OrderAction.Sell)
                     pos = strategy.AccountStat[accountInfo.Name].LongPosition;
                 else if (orderAction == OrderAction.Cover)
                     pos = strategy.AccountStat[accountInfo.Name].ShortPosition;
                 order.TotalQuantity = pos * symbol.RoundLotSize;
-                if (pos > posSize)
+                if (pos > strategy.PositionSize)
                 {
                     mainVM.Log(new Log
                     {
                         Time = DateTime.Now,
-                        Text = string.Format("Warning: existing position(%d) is greater than specified one(%d).", pos, posSize),
+                        Text = string.Format("Warning: existing position(%d) is greater than specified one(%d).", pos, strategy.PositionSize),
                         Source = symbol.Name + "." + strategy.Name + "." + accountInfo.Name
                     });
                 }
@@ -335,11 +335,7 @@ namespace AmiBroker.Controllers
             PropertyInfo pi = pInfos.FirstOrDefault(x => x.Name == "LmtPrice");
             if (pi != null)
             {
-                order.LmtPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
-                if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
-                    order.LmtPrice += orderType.Slippage * symbol.MinTick;
-                else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
-                    order.LmtPrice -= orderType.Slippage * symbol.MinTick;
+                order.LmtPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];                
             }
             pi = pInfos.FirstOrDefault(x => x.Name == "AuxPrice");
             if (pi != null)
@@ -359,9 +355,22 @@ namespace AmiBroker.Controllers
         /// <param name="accountInfo"></param>
         /// <param name="symbol"></param>
         /// <returns>-1 means failure</returns>
-        public async Task<int> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbolName, BaseOrderType orderType, OrderAction orderAction, int barIndex, int posSize = 1)
+        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbolName, BaseOrderType orderType, OrderAction orderAction, int barIndex)
         {
-            Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex, posSize);
+            Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex);
+            OrderLog orderLog = new OrderLog();
+            orderLog.OrgPrice = order.LmtPrice;
+            if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
+            {
+                order.LmtPrice -= order.LmtPrice % strategy.Symbol.MinTick;
+                order.LmtPrice += orderType.Slippage * strategy.Symbol.MinTick;
+            }
+            else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
+            {
+                order.LmtPrice += order.LmtPrice % strategy.Symbol.MinTick;
+                order.LmtPrice -= orderType.Slippage * strategy.Symbol.MinTick;
+            }
+            orderLog.LmtPrice = order.LmtPrice;
             Contract contract = new Contract();
             string[] parts = symbolName.Split(new char[] { '-' });
             switch (parts.Length)
@@ -395,9 +404,11 @@ namespace AmiBroker.Controllers
                 int orderId = NextValidOrderId;
                 ClientSocket.placeOrder(orderId, contract, order);
                 NextValidOrderId++;
-                return orderId;
+                orderLog.OrderId = orderId;
+                return orderLog;
             }
-            return -1;
+            orderLog.OrderId = -1;
+            return orderLog;
         }
         public async void Connect()
         {
@@ -420,28 +431,6 @@ namespace AmiBroker.Controllers
                 if (!IsConnected)
                     ConnectionStatus = "Disconnected";
             }
-        }
-        private void eh_AccountSummary(object sender, AccountSummaryEventArgs e)
-        {
-            AccountInfo acc = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == e.Account);
-            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
-            {
-                if (acc == null)
-                {
-                    Accounts.Add(new AccountInfo(e.Account, this));
-                    mainVM.LogList.Add(new Log()
-                    {
-                        Source = DisplayName,
-                        Time = DateTime.Now,
-                        Text = "A new account has been added"
-                    });
-                }
-                AccountTag tag = acc.Properties.FirstOrDefault<AccountTag>(x => x.Tag == e.Tag);
-                if (tag == null)
-                    acc.Properties.Add(new AccountTag() { Tag = e.Tag, Currency = e.Currency, Value = e.Value });
-                else
-                    tag.Value = e.Value;
-            });
         }
         private void eh_ManagedAccounts(object sender, ManagedAccountsEventArgs e)
         {
@@ -501,26 +490,7 @@ namespace AmiBroker.Controllers
                 }                
             });
 
-        }
-        private void RevertActionStatus(BaseStat stat, OrderAction orderAction)
-        {
-            if (orderAction == OrderAction.Buy)
-            {
-                stat.AccoutStatus &= ~AccountStatus.BuyPending;
-            }
-            else if (orderAction == OrderAction.Short)
-            {
-                stat.AccoutStatus &= ~AccountStatus.ShortPending;
-            }
-            else if (orderAction == OrderAction.Sell)
-            {
-                stat.AccoutStatus &= ~AccountStatus.SellPending;
-            }
-            else if (orderAction == OrderAction.Cover)
-            {
-                stat.AccoutStatus &= ~AccountStatus.CoverPending;
-            }
-        }
+        }        
         private void eh_OrderStatus(object sender, OrderStatusEventArgs e)
         {
             DisplayedOrder dOrder = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == e.OrderId);
@@ -565,44 +535,36 @@ namespace AmiBroker.Controllers
                             break;
                         case "ApiCancelled":
                         case "Cancelled":
-                            RevertActionStatus(strategyStat, oi.OrderAction);
+                            AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                             break;
                         case "Filled":
-                            int filled = (int)(((int)dOrder.Filled) / script.Symbol.RoundLotSize);
+                            int filled = (int)(((int)dOrder.Filled) / script.Symbol.RoundLotSize);                            
                             if (oi.OrderAction == OrderAction.Buy)
-                            {
-                                strategyStat.AccoutStatus &= ~AccountStatus.BuyPending;
-                                strategyStat.AccoutStatus &= AccountStatus.Long;
-                                strategyStat.LongPosition += filled;
-                                scriptStat.LongPosition += filled;
+                            {                                
+                                strategyStat.LongPosition += filled / oi.Strategy.Symbol.RoundLotSize;
+                                scriptStat.LongPosition += filled / oi.Strategy.Symbol.RoundLotSize;
                                 strategyStat.LongEntry++;
                                 scriptStat.LongEntry++;
                             }
                             else if (oi.OrderAction == OrderAction.Short)
-                            {
-                                strategyStat.AccoutStatus &= ~AccountStatus.ShortPending;
-                                strategyStat.AccoutStatus &= AccountStatus.Short;
-                                strategyStat.ShortPosition += filled;
-                                scriptStat.ShortPosition += filled;
+                            {                                
+                                strategyStat.ShortPosition += filled / oi.Strategy.Symbol.RoundLotSize;
+                                scriptStat.ShortPosition += filled / oi.Strategy.Symbol.RoundLotSize;
                                 strategyStat.ShortEntry++;
                                 scriptStat.ShortEntry++;
                             }
                             else if (oi.OrderAction == OrderAction.Sell)
                             {
-                                strategyStat.AccoutStatus &= ~AccountStatus.SellPending;
-                                strategyStat.LongPosition -= filled;
-                                scriptStat.LongPosition -= filled;
-                                if (strategyStat.LongPosition == 0)
-                                    strategyStat.AccoutStatus &= ~AccountStatus.Long;
+                                strategyStat.LongPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
+                                scriptStat.LongPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
                             }
                             else if (oi.OrderAction == OrderAction.Cover)
                             {
-                                strategyStat.AccoutStatus &= ~AccountStatus.CoverPending;
-                                strategyStat.ShortPosition -= filled;
-                                scriptStat.ShortPosition -= filled;
-                                if (strategyStat.ShortPosition == 0)
-                                    strategyStat.AccoutStatus &= ~AccountStatus.Short;
+                                strategyStat.ShortPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
+                                scriptStat.ShortPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
                             }
+                            AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
+                            AccountStatusOp.SetPositionStatus(ref strategyStat, oi.OrderAction);
                             break;
                     }
                 }                    
@@ -661,7 +623,8 @@ namespace AmiBroker.Controllers
                 if (oi.Strategy.AccountStat[oi.Account.Name].AccoutStatus.ToString().ToLower().Contains("pending"))
                 {
                     oi.Error = e.Message;
-                    RevertActionStatus(oi.Strategy.AccountStat[oi.Account.Name], oi.OrderAction);
+                    BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
+                    AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()
@@ -738,9 +701,27 @@ namespace AmiBroker.Controllers
             else
                 ConnectionStatus = "Disconnected";
         }
-        private void EventDispatcher_AccountValue(object sender, AccountValueEventArgs e)
+        private void eh_AccountValue(object sender, AccountValueEventArgs e)
         {
-            int i = 0;
+            AccountInfo acc = Accounts.FirstOrDefault<AccountInfo>(x => x.Name == e.AccountName);
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                if (acc == null)
+                {
+                    Accounts.Add(new AccountInfo(e.AccountName, this));
+                    mainVM.LogList.Add(new Log()
+                    {
+                        Source = DisplayName,
+                        Time = DateTime.Now,
+                        Text = "A new account has been added"
+                    });
+                }
+                AccountTag tag = acc.Properties.FirstOrDefault<AccountTag>(x => x.Tag == e.Key);
+                if (tag == null)
+                    acc.Properties.Add(new AccountTag() { Tag = e.Key, Currency = e.Currency, Value = e.Value });
+                else
+                    tag.Value = e.Value;
+            });
         }
         
         protected void OnPropertyChanged(string name)
@@ -801,7 +782,6 @@ namespace AmiBroker.Controllers
                     }
                     catch (Exception)
                     {
-
                         int i = 0;
                     }
                     //tcs.TrySetResult((T)(object)ibContract);

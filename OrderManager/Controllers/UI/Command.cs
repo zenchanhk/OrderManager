@@ -1,5 +1,4 @@
-﻿using Dragablz.Savablz;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +10,7 @@ using AmiBroker.OrderManager;
 using System.Windows;
 using System.Collections.ObjectModel;
 using System.Reflection;
-using System.Data;
+using Xceed.Wpf.AvalonDock;
 
 namespace AmiBroker.Controllers
 {
@@ -89,11 +88,7 @@ namespace AmiBroker.Controllers
         public void Execute(object parameter)
         {
             int roundLotSize = 0;
-
-            AssignToStrategy assignToStrategy = new AssignToStrategy();
-            assignToStrategy.DataContext = parameter;
-            assignToStrategy.AvailablePosition = 0;
-
+            string symbolName = string.Empty;
             List<Strategy> strategies = new List<Strategy>();
 
             double pos = 0;
@@ -106,9 +101,10 @@ namespace AmiBroker.Controllers
                 SymbolDefinition sd = x.SymbolDefinition.FirstOrDefault(y => y.Vendor == ((dynamic)parameter).Vendor + "Controller");
                 if (sd != null)
                 {
-                    string ex1 = sd.Contract.Exchange != null ? sd.Contract.Exchange : sd.Contract.PrimaryExch;
-                    string ex2 = ((dynamic)parameter).Contract.Exchange != null ? ((dynamic)parameter).Contract.Exchange : ((dynamic)parameter).Contract.PrimaryExch;
-                    return sd.Contract.ConId == ((dynamic)parameter).Contract.ConId
+                    symbolName = sd.ContractId;
+                    string ex1 = sd?.Contract?.Exchange != null ? sd?.Contract?.Exchange : sd?.Contract?.PrimaryExch;
+                    string ex2 = ((dynamic)parameter).Contract?.Exchange != null ? ((dynamic)parameter).Contract?.Exchange : ((dynamic)parameter).Contract?.PrimaryExch;
+                    return sd.Contract != null && sd?.Contract?.ConId == ((dynamic)parameter).Contract?.ConId
                         && ex1 == ex2;
                 }                    
                 else
@@ -118,27 +114,24 @@ namespace AmiBroker.Controllers
 
             foreach (var symbol in symbols)
             {
-                if (symbol.GetType() != typeof(bool) && symbol.GetType() == typeof(SymbolInAction))
+                roundLotSize = (int)symbol.RoundLotSize;
+                foreach (Script script in symbol.Scripts)
                 {
-                    roundLotSize = (int)symbol.RoundLotSize;
-                    foreach (Script script in symbol.Scripts)
+                    if (script.AccountStat.ContainsKey(((dynamic)parameter).Account))
                     {
-                        if (script.AccountStat.ContainsKey(((dynamic)parameter).Account))
+                        if (pos != 0)
+                            pos -= pos > 0 ? script.AccountStat[((dynamic)parameter).Account].LongPosition * roundLotSize :
+                                        script.AccountStat[((dynamic)parameter).Account].ShortPosition * roundLotSize;
+                        foreach (Strategy strategy in script.Strategies)
                         {
-                            if (pos != 0)
-                                pos -= pos > 0 ? script.AccountStat[((dynamic)parameter).Account].LongPosition * roundLotSize :
-                                            script.AccountStat[((dynamic)parameter).Account].ShortPosition * roundLotSize;
-                            foreach (Strategy strategy in script.Strategies)
-                            {
-                                if (strategy.AccountStat.ContainsKey(((dynamic)parameter).Account) && (
-                                    (pos > 0 && (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)) ||
-                                    (pos < 0 && (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort))
-                                    ))
-                                    strategies.Add(strategy);
-                            }
+                            if (strategy.AccountStat.ContainsKey(((dynamic)parameter).Account) && (
+                                (pos > 0 && (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)) ||
+                                (pos < 0 && (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort))
+                                ))
+                                strategies.Add(strategy);
                         }
                     }
-                }                
+                }        
             }            
 
             if (strategies.Count == 0 || (parameter.GetType() == typeof(SymbolInMkt) && pos == 0))
@@ -152,15 +145,19 @@ namespace AmiBroker.Controllers
                 MessageBoxResult result = MessageBox.Show("Position calculation error for selected symbol", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
-            
-            assignToStrategy.Strategies = strategies;
-            assignToStrategy.AvailablePosition = pos != 0 ? pos / roundLotSize : 0;
+
+            AssignToStrategyVM assignToStrategyVM = new AssignToStrategyVM();
+            assignToStrategyVM.Strategies = strategies;
+            assignToStrategyVM.AvailablePosition = pos != 0 ? pos / roundLotSize : 0;
+            assignToStrategyVM.Symbol = symbolName;
+            AssignToStrategy assignToStrategy = new AssignToStrategy();
+            assignToStrategy.DataContext = assignToStrategyVM;
             assignToStrategy.ShowDialog();
 
             if ((bool)assignToStrategy.DialogResult)
             {
-                ((Strategy)assignToStrategy.SelectedItem).AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategy.AssignedPosition;
-                ((Strategy)assignToStrategy.SelectedItem).Script.AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategy.AssignedPosition;
+                ((Strategy)assignToStrategyVM.SelectedItem).AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategyVM.AssignedPosition;
+                ((Strategy)assignToStrategyVM.SelectedItem).Script.AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategyVM.AssignedPosition;
             }
         }
     }
@@ -477,19 +474,33 @@ namespace AmiBroker.Controllers
                 else
                 // over-writing
                 {
-                    result.ContentAsString = JsonConvert.SerializeObject(template.SaveItem, JSONConstants.saveSerializerSettings);
-                    result.ModifiedDate = DateTime.Now;
+                    try
+                    {
+                        result.ContentAsString = JsonConvert.SerializeObject(template.SaveItem, JSONConstants.saveSerializerSettings);
+                        result.ModifiedDate = DateTime.Now;
+                    }
+                    catch (Exception ex)
+                    {
+                        int i = 0;
+                    }                    
                 }
             }
             else
             {
-                template.TemplateList.Add(new OptionTemplate
+                try
                 {
-                    Name = template.TemplateName,
-                    TypeName = template.SaveItem.GetType().Name,
-                    ContentAsString = JsonConvert.SerializeObject(template.SaveItem, JSONConstants.saveSerializerSettings),
-                    ModifiedDate = DateTime.Now
-                });
+                    template.TemplateList.Add(new OptionTemplate
+                    {
+                        Name = template.TemplateName,
+                        TypeName = template.SaveItem.GetType().Name,
+                        ContentAsString = JsonConvert.SerializeObject(template.SaveItem, JSONConstants.saveSerializerSettings),
+                        ModifiedDate = DateTime.Now
+                    });
+                }
+                catch (Exception ex)
+                {
+                    int i = 0;
+                }                
             }
             
             Properties.Settings.Default[template.PropName] = JsonConvert.SerializeObject(template.TemplateList, JSONConstants.saveSerializerSettings);
@@ -674,9 +685,12 @@ namespace AmiBroker.Controllers
 
         public void Execute(object mw)
         {
-            MainWindow _mw = mw as MainWindow;
-            // Saves the layout and exit
-            _mw.calledOnce();
+            if (System.IO.File.Exists("org_layout.cfg"))
+            {
+                DockingManager dock = OrderManager.MainWin.FindName("dockingManager") as DockingManager;
+                Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer layoutSerializer = new Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer(dock);
+                layoutSerializer.Deserialize("org_layout.cfg");
+            }
         }
     }
     public class SaveLayout : ICommand
@@ -695,30 +709,9 @@ namespace AmiBroker.Controllers
         public void Execute(object VM)
         {
             // Saves the layout and exit
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
-            {
-                var windowsState =
-                WindowsStateSaver.GetWindowsState<TabContentModel, TabContentViewModel>(vm =>
-                    new TabContentModel(vm.Header));
-
-                if (windowsState.First().Child == null)
-                {
-                    // All tabs in the main window have been closed.
-                    // A choice have been made for this sample app : When all tabs in the main window have been closed,
-                    // resets the settings so that a fresh window is created next time.
-                    // Feel free to implement that the way you want here
-                    Properties.Settings.Default.Layout = null;
-                }
-                else
-                {
-                    //var jsonResolver = new IgnorableSerializerContractResolver(true);
-                    //jsonResolver.Ignore(typeof(UserControl));
-                    //var jsonSettings = new JsonSerializerSettings() { ReferenceLoopHandling = ReferenceLoopHandling.Ignore, ContractResolver = jsonResolver };
-                    Properties.Settings.Default.Layout = JsonConvert.SerializeObject(windowsState, Formatting.None); //, jsonSettings);
-                }
-
-                Properties.Settings.Default.Save();
-            });
+            DockingManager dock = OrderManager.MainWin.FindName("dockingManager") as DockingManager;                
+            Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer layoutSerializer = new Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer(dock);
+            layoutSerializer.Serialize("layout.cfg");
         }
     }
     public class ConnectAll : ICommand

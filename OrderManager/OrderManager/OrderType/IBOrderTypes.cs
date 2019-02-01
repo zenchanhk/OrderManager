@@ -50,7 +50,7 @@ namespace AmiBroker.OrderManager
         }
         [JsonIgnore]
         public DateTime OrderTime { get; set; } = DateTime.Now;
-        public string TimeZone { get; set; }
+        public AmiBroker.Controllers.TimeZone TimeZone { get; set; }
 
         private DateTime _pExactTime = DateTime.Now;
         public DateTime ExactTime
@@ -131,7 +131,7 @@ namespace AmiBroker.OrderManager
 
         public override string ToString() 
 		{
-            string result = string.Empty;
+            string result = null;
 			switch(SelectedIndex)
 			{
 				case 1:
@@ -146,14 +146,25 @@ namespace AmiBroker.OrderManager
                         if (match.Value.Trim().Length > 0 && match.Value.Contains('m'))
                             timeFormat = match.Value;
                     }
-                    result = DateTimeFormat.Replace(dateFormat, ExactTime.AddDays(ExactTimeValidDays).ToString(dateFormat));
-                    result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
-                    result += TimeZone != null ? " " + TimeZone : "";
+                    System.TimeZone zone = System.TimeZone.CurrentTimeZone;
+                    TimeSpan span = zone.GetUtcOffset(DateTime.Now);
+                    DateTime dtLocal = DateTime.Now.Add(TimeZone.UtcOffset - span);
+                    // if GAT is behind Now, return null
+                    if (ExactTimeValidDays == 0 && DateTime.Parse(dtLocal.ToShortTimeString()) >= DateTime.Parse(ExactTime.ToShortTimeString()))
+                    {
+                        result = null;
+                    }
+                    else
+                    {
+                        result = DateTimeFormat.Replace(dateFormat, dtLocal.AddDays(ExactTimeValidDays).ToString(dateFormat));
+                        result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
+                        result += TimeZone != null ? " " + TimeZone.Id : "";
+                    }
                     break;
 				case 2:
                     //result =  OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
+                    // assume using current timezone setting
                     result = DateTime.Now.AddSeconds(Seconds).ToString(DateTimeFormat);
-                    result += TimeZone != null ? " " + TimeZone : "";
                     break;
                 case 3:
                     int div = (int)Math.Ceiling((float)(OrderTime.Minute / (int)BarInterval));
@@ -161,7 +172,6 @@ namespace AmiBroker.OrderManager
                     if (OrderTime.Minute % (int)BarInterval == 0)
                         div++;
                     result = DateTime.Now.AddMinutes((int)BarInterval*div).ToString(DateTimeFormat);
-                    result += TimeZone != null ? " " + TimeZone : "";
                     break;
             }
 			return result;

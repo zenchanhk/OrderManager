@@ -86,6 +86,18 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="Xceed.Wpf.AvalonDock">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Aero">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Aero.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Metro">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Metro.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.VS2010">
+      <HintPath>..\..\OrderManager\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.VS2010.dll</HintPath>
+    </Reference>
     <Reference Include="Xceed.Wpf.Toolkit">
       <HintPath>..\packages\Extended.Wpf.Toolkit.3.4.0\lib\net40\Xceed.Wpf.Toolkit.dll</HintPath>
     </Reference>
@@ -138,10 +150,6 @@
     <Compile Include="Controllers\UI\Tabs\ScriptTabView.xaml.cs">
       <DependentUpon>ScriptTabView.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Controllers\UI\Tabs\TabContentModel.cs" />
-    <Compile Include="Controllers\UI\Tabs\TabContentViewModel.cs" />
-    <Compile Include="Controllers\UI\Tabs\TabsViewModel.cs" />
-    <Compile Include="Controllers\UI\Tabs\TabsViewModel1.cs" />
     <Compile Include="OrderManager.cs" />
     <Compile Include="OrderManager\Contract\ContractBase.cs" />
     <Compile Include="OrderManager\OMAfl.cs" />
@@ -288,10 +296,6 @@
     <Resource Include="Controllers\images\ft.png" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Dragablz-feature-save\Dragablz\Dragablz.net40.csproj">
-      <Project>{886ad9de-bced-4a99-8376-5177b376c0ac}</Project>
-      <Name>Dragablz.net40</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj">
       <Project>{0378f38f-5bf3-497f-91c2-1ee77c874593}</Project>
       <Name>Sdl.MultiSelectComboBox</Name>
