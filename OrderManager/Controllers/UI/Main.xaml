@@ -84,7 +84,8 @@
                     <MenuItem Name="metro" Header="Metro Theme" Click="MenuItem_Click"/>
                     <MenuItem Name="vs2010" Header="VS2010 Theme" Click="MenuItem_Click"/>
                 </MenuItem>
-                <MenuItem Header="Object Inspector" IsCheckable="True" IsChecked="{Binding IsVisible, ElementName=propWin}" />
+                <MenuItem Name="MI_oi_win" Header="Object Inspector" IsCheckable="True" IsChecked="{Binding IsVisible, ElementName=propWin}"
+                          Click="MI_oi_win_Click"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="View Help" Icon="{Binding ImageHelp}" />
@@ -213,7 +214,8 @@
         </ToolBarTray>
         
         <!-- Main Window -->
-        <ComboBox x:Name="_themeCombo" SelectedIndex="{Binding SelectedTheme, ElementName=mainWin}" Visibility="Collapsed" >
+        <ComboBox x:Name="_themeCombo" SelectedIndex="{Binding SelectedTheme, ElementName=mainWin}" Visibility="Collapsed"
+                  SelectionChanged="_themeCombo_SelectionChanged">
             <ComboBoxItem Content="Generic" />
             <ComboBoxItem Content="Aero">
                 <ComboBoxItem.Tag>
@@ -245,16 +247,47 @@
             </xcad:DockingManager.DocumentHeaderTemplate>
 
             <xcad:LayoutRoot x:Name="_layoutRoot">
-                <xcad:LayoutPanel Orientation="Horizontal">
+                <xcad:LayoutPanel Orientation="Horizontal" >
                     <xcad:LayoutAnchorablePane DockWidth="200">
                         <xcad:LayoutAnchorable x:Name="propWin" ContentId="properties" Title="Object Inspector" 
                                             AutoHideWidth="240" >
-                            <controls:ObjectInTreeView ObjectToVisualize="{Binding MainVM.SelectedItem, ElementName=mainWin}"/>
+                            <DockPanel VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                                <ToolBarTray DockPanel.Dock="Top">
+                                    <ToolBar >
+                                        <Button Name="refreshTV" Background="Transparent" ToolTip="Refresh" 
+                                                Click="refreshTV_Click">
+                                            <StackPanel Orientation="Horizontal" >
+                                                <local:IconBlock FontSize="17"
+                                                    Icon="Refresh" Foreground="Green"
+                                                    Margin="0, 0, 2, 0"/>       
+                                            </StackPanel>
+                                        </Button>
+                                        <ToggleButton Name="filterTB" Background="Transparent" ToolTip="Filter result"
+                                                      Click="FilterTB_Click">
+                                            <StackPanel Orientation="Horizontal" >
+                                                <local:IconBlock FontSize="17"
+                                                    Icon="Filter" Foreground="MediumAquamarine"
+                                                    Margin="0, 0, 2, 0"/>
+                                            </StackPanel>
+                                        </ToggleButton>
+                                        <TextBox Name="filterText" VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                                 ToolTip="Filter text for filtering result"
+                                                 Visibility="{Binding IsChecked, ElementName=filterTB,
+                                                            Converter={StaticResource BoolToVisbilityConverter}}"
+                                                 MinWidth="70" Width="100" MaxWidth="150"
+                                                 Margin="0, 0, 2, 0"/>
+                                    </ToolBar>
+                                </ToolBarTray>
+                                <controls:ObjectInTreeView ObjectToVisualize="{Binding MainVM.SelectedItem, ElementName=mainWin}"
+                                                           x:Name="oit_SelecteItem"
+                                                Filter="{Binding Text, ElementName=filterText}" DockPanel.Dock="Bottom"/>
+                            </DockPanel>
                         </xcad:LayoutAnchorable>
                     </xcad:LayoutAnchorablePane>
-                    <xcad:LayoutDocumentPaneGroup >
+                    <xcad:LayoutDocumentPaneGroup>
                         <xcad:LayoutDocumentPane >
                             <xcad:LayoutDocument ContentId="script" Title="Script" CanClose="False" 
+                                                 
                                                  IsSelectedChanged="LayoutDocument_IsSelectedChanged" >
                                 <local:ScriptTabView DataContext="{Binding MainVM, ElementName=mainWin}"/>
                             </xcad:LayoutDocument>

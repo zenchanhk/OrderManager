@@ -19,6 +19,8 @@ using System.Windows.Shapes;
 using AmiBroker.Controllers;
 using AmiBroker.OrderManager;
 using Newtonsoft.Json.Serialization;
+using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
 
 namespace ControlLib
 {
@@ -134,6 +136,8 @@ namespace ControlLib
         private static void OnObjectChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             TreeNode tree = TreeNode.CreateTree(e.NewValue);
+            if ((d as ObjectInTreeView).Filter != null && (d as ObjectInTreeView).Filter != string.Empty)
+                TreeNode.FilterNode(null, tree, (d as ObjectInTreeView).Filter);
             (d as ObjectInTreeView).TreeNodes = new List<TreeNode>() { tree };
             (d as ObjectInTreeView)._oldObj = e.NewValue;
         }
@@ -153,10 +157,36 @@ namespace ControlLib
             {
                 WriteBack(oit._oldObj, oit.TreeNodes[0]);
             }
-            // refresh treeview
-            //Action action = delegate () { };
-            //(d as ObjectInTreeView).Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle,
-             //   action);
+        }
+
+        public string Filter
+        {
+            get { return (string)GetValue(FilterProperty); }
+            set { SetValue(FilterProperty, value); }
+        }
+        public static readonly DependencyProperty FilterProperty =
+            DependencyProperty.Register("Filter", typeof(string), typeof(ObjectInTreeView), new PropertyMetadata(null, OnFilterChanged));
+
+        private static DebounceDispatcher debounceTimer = new DebounceDispatcher();
+        private static void OnFilterChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            debounceTimer.Debounce(500, parm =>
+            {
+                if ((e.NewValue == null || (string)e.NewValue == string.Empty) &&
+                (e.OldValue != null && (string)e.OldValue == string.Empty)
+                && e.NewValue != e.OldValue)
+                {
+                    TreeNode tree = TreeNode.CreateTree((d as ObjectInTreeView).ObjectToVisualize);
+                    (d as ObjectInTreeView).TreeNodes = new List<TreeNode>() { tree };
+                }
+                if (e.NewValue != null && (string)e.NewValue != string.Empty && (d as ObjectInTreeView).ObjectToVisualize != null)
+                {
+                    if ((string)e.NewValue == "!") return;
+                    TreeNode tree = TreeNode.CreateTree((d as ObjectInTreeView).ObjectToVisualize);
+                    TreeNode.FilterNode(null, tree, (d as ObjectInTreeView).Filter);
+                    (d as ObjectInTreeView).TreeNodes = new List<TreeNode>() { tree };
+                }
+            });                        
         }
 
         private static void WriteBack(object obj, TreeNode treeNode)
@@ -218,6 +248,17 @@ namespace ControlLib
         }
         public static readonly DependencyProperty TreeNodesProperty =
             DependencyProperty.Register("TreeNodes", typeof(List<TreeNode>), typeof(ObjectInTreeView), new PropertyMetadata(null));
+        
+        public void Refresh()
+        {
+            TreeNode tree = null;
+            if (ObjectToVisualize != null)
+                tree = TreeNode.CreateTree(ObjectToVisualize);
+            if (Filter != null && Filter != string.Empty && ObjectToVisualize != null)
+                TreeNode.FilterNode(null, tree, Filter);
+            if (tree != null)
+                TreeNodes = new List<TreeNode>() { tree };
+        }
     }
     
     public class TreeNode
@@ -245,9 +286,12 @@ namespace ControlLib
             var root = new TreeNode();
             root.Name = "Root";
             BuildTree(dic, root, obj);
+            PropertyInfo pi = obj?.GetType()?.GetProperty("Name");
+            if (pi != null)
+                root.Name = (string)pi.GetValue(obj) + "(Root)"; // important for converter to be recognized as root
             return root;
         }
-
+        
         private static string FindName(ArrayList list)
         {
             foreach (object item in list)
@@ -331,9 +375,66 @@ namespace ControlLib
             }
             catch (Exception e)
             {
-
-                throw;
+                throw e;
             }            
+        }
+
+        public static void FilterNode(TreeNode parent, TreeNode child, string filter)
+        {
+            try
+            {
+                if (CheckFilter(child.Name, filter)) return;
+                for (int i = child.Children.Count - 1; i >= 0; i--)
+                {
+                    TreeNode node = child.Children[i];
+                    if (!CheckFilter(node.Name, filter) && (IsAtomic(node.Type) || (!IsAtomic(node.Type) && node.Children.Count == 0)))
+                    {
+                        child.Children.Remove(node);
+                    }
+                    if (node.Children.Count > 0)
+                        FilterNode(child, node, filter);
+                }
+                if (child.Type != null && (IsAtomic(child.Type) || (!IsAtomic(child.Type) && child.Children.Count == 0)))
+                {
+                    parent.Children.Remove(child);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+            
+        }
+
+        private static bool IsAtomic(Type t)
+        {
+            return t.IsPrimitive || t == typeof(decimal) || t == typeof(string) || t == typeof(DateTime);
+        }
+
+        private static bool CheckFilter(string name, string filter)
+        {
+            if (filter != null)
+            {
+                bool neg = false;
+                if (filter[0] == '!')
+                {
+                    neg = true;
+                    filter = filter.Substring(1);
+                }                
+                string[] words = filter.Split(new char[] { ' ', ',', ';', ':' });
+                List<string> vs = new List<string>(words);
+                vs = vs.Where(x => x != null && (x.Trim() != string.Empty)).ToList();
+                string pattern = string.Join("|", vs.Select(w => Regex.Escape(w)));
+                Regex regex = new Regex(pattern, RegexOptions.IgnoreCase);
+                if (neg && !regex.IsMatch(name))
+                    return true;
+                else if (!neg && regex.IsMatch(name))
+                    return true;
+                else
+                    return false;
+            }
+            else
+                return true;
         }
 
         private static string GetValueAsString(object value)

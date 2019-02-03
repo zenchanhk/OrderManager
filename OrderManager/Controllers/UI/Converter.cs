@@ -73,7 +73,7 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             double v = (double)value;
-            return v * 0.6;
+            return v * 0.5;
 
             //double v = (double)value;
             //v = v - 7;
@@ -142,6 +142,8 @@ namespace AmiBroker.Controllers
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
+            if (value == null) return null;
+
             Type t = value.GetType();
             if (t == typeof(SymbolInAction))
                 return ((SymbolInAction)value).AccountCandidates;
@@ -457,7 +459,7 @@ namespace AmiBroker.Controllers
             ControlLib.TreeNode item = value[0] as ControlLib.TreeNode;
             ControlLib.ObjectInTreeView oit = value[1] as ControlLib.ObjectInTreeView;
             DrawingImage drawingImage = null;
-            if (item.Name == "Root")
+            if (item.Name.Contains("(Root)"))
             {
                 if (item.Children != null && item.Children.Count > 0 && 
                     item.Children.FirstOrDefault(x => x.Name == "ActionType") != null )

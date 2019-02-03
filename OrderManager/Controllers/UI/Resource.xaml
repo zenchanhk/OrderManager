@@ -60,12 +60,12 @@
     <local:DummyConverter x:Key="Dummy" />
     
     <Style TargetType="RepeatButton" x:Key="TabButton">
-        <Setter Property="Background" Value="White" />
+        <Setter Property="Background" Value="LightGray" />
         <Setter Property="TextBlock.TextAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RepeatButton">
-                    <Border CornerRadius="{TemplateBinding Border.CornerRadius}" Background="Gray" BorderBrush="DimGray" BorderThickness="0,1,1,1" >
+                    <Border CornerRadius="{TemplateBinding Border.CornerRadius}" Background="{TemplateBinding Background}" BorderThickness="0,1,1,1" >
                         <ContentPresenter x:Name="contentPresenter" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" Margin="{TemplateBinding Padding}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
                     </Border>
                 </ControlTemplate>
@@ -73,17 +73,17 @@
         </Setter>
     </Style>
     <Style TargetType="RepeatButton" x:Key="TabButtonFirst" BasedOn="{StaticResource TabButton}">
-        <Setter Property="Border.CornerRadius" Value="0,2,0,0" />
+        
     </Style>
 
     <Style TargetType="RepeatButton" x:Key="TabButtonLast" BasedOn="{StaticResource TabButton}">
-        <Setter Property="Border.CornerRadius" Value="0,0,2,0" />
+        
     </Style>
     <Style TargetType="{x:Type ControlLib:NumericUpDown}">
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ControlLib:NumericUpDown}">
-                    <Border Background="{TemplateBinding Background}" BorderBrush="DimGray" CornerRadius="2" BorderThickness="{TemplateBinding BorderThickness}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="DimGray" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition/>
@@ -113,10 +113,11 @@
         <Setter Property="Width" Value="100"/>
     </Style>
     <Style TargetType="{x:Type ControlLib:DateTimeEditor}">
+        <Setter Property="BorderBrush" Value="DimGray"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ControlLib:DateTimeEditor}">
-                    <Border Background="{TemplateBinding Background}" BorderBrush="DimGray" CornerRadius="2" BorderThickness="{TemplateBinding BorderThickness}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
                         <Grid>
                             <TextBox x:Name="PART_TextBox" BorderThickness="0" VerticalAlignment="Center" TextAlignment="Center"/>
                         </Grid>

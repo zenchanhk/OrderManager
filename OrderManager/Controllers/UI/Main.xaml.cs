@@ -11,7 +11,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using ControlLib;
 using IBApi;
+using Xceed.Wpf.AvalonDock;
+using Xceed.Wpf.AvalonDock.Controls;
 using Xceed.Wpf.AvalonDock.Layout;
 using Xceed.Wpf.AvalonDock.Themes;
 
@@ -491,6 +494,7 @@ namespace AmiBroker.Controllers
             win.ShowDialog();
         }
 
+        private LayoutDocument scriptDocument = null;
         private void MenuItem_Click(object sender, RoutedEventArgs e)
         {
             Xceed.Wpf.AvalonDock.Layout.LayoutAnchorable d = new Xceed.Wpf.AvalonDock.Layout.LayoutAnchorable();
@@ -508,6 +512,8 @@ namespace AmiBroker.Controllers
                         SelectedTheme = 3;
                     else
                         SelectedTheme =0;
+
+                    
                 }                
             }
         }
@@ -515,8 +521,99 @@ namespace AmiBroker.Controllers
         private void LayoutDocument_IsSelectedChanged(object sender, EventArgs e)
         {
             LayoutDocument doc = sender as LayoutDocument;
-            if (doc.IsSelected)
+            if (doc.IsSelected && doc.ContentId == "script")
+            {
                 SelectedTab = doc;
+                RefreshCachedControl(doc);
+            }                
+        }
+
+        private void RefreshCachedControl(LayoutDocument document)
+        {
+            ScrollViewer sv = UITreeHelper.FindChild<ScrollViewer>(((dynamic)document.Content).Content, "contentSV");
+            if (sv != null)
+            {
+                CachedContentControl cachedContent = sv.Content as CachedContentControl;
+                if (cachedContent.Content == null)
+                {
+                    var tmp = MainVM.SelectedItem;
+                    MainVM.SelectedItem = null;
+                    MainVM.SelectedItem = tmp;
+                }                
+            }
+        }
+
+        private LayoutDocument FindDocument()
+        {
+            DockingManager manager = this.FindName("dockingManager") as DockingManager;
+            if (manager == null) return null;
+
+            foreach (var child in manager.LayoutRootPanel.Children)
+            {
+                if (child.GetType() == typeof(LayoutDocumentPaneGroupControl))
+                {
+                    foreach (var docControl in ((LayoutDocumentPaneGroupControl)child).Children)
+                    {
+                        if (docControl.GetType() == typeof(LayoutDocumentPaneControl))
+                        {
+                            foreach (var doc in ((LayoutDocumentPaneControl)docControl).Items)
+                            {
+                                if (((LayoutDocument)doc)?.ContentId == "script")
+                                {
+                                    scriptDocument = (LayoutDocument)doc;
+                                    return (LayoutDocument)doc;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        private Timer timer = new Timer(); // used to update scriptTabView's cachedContentControl
+        private void _themeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (scriptDocument == null)
+            {
+                FindDocument();
+            }
+            if (scriptDocument != null && scriptDocument.IsSelected)
+            {                
+                timer.Interval = 50;
+                timer.Elapsed += Timer_Elapsed;
+                timer.Start();
+                
+            }
+        }
+
+        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                RefreshCachedControl(scriptDocument);
+            });
+            timer.Stop();
+        }
+
+        private void FilterTB_Click(object sender, RoutedEventArgs e)
+        {
+            TextBox tb = this.FindName("filterText") as TextBox;
+            tb.Text = "";
+        }
+
+        private void refreshTV_Click(object sender, RoutedEventArgs e)
+        {
+            ObjectInTreeView oit = this.FindName("oit_SelecteItem") as ObjectInTreeView;
+            oit.Refresh();
+        }
+
+        private void MI_oi_win_Click(object sender, RoutedEventArgs e)
+        {
+            if (scriptDocument == null)
+                FindDocument();
+            if (scriptDocument != null && scriptDocument.IsSelected)
+                RefreshCachedControl(scriptDocument);
         }
     }
 

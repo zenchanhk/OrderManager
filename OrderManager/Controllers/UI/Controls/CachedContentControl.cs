@@ -47,6 +47,11 @@ namespace AmiBroker.Controllers
             CachedContentControl control = ((CachedContentControl)d);
             //((dynamic)control.Content).DataContext = null;
             //  use you favorite factory
+            if (e.NewValue == null)
+            {
+                //control.Content = null;
+                return;
+            }
             if (e.OldValue == null || (e.OldValue != null && e.NewValue.GetType() != e.OldValue.GetType()))
             {
                 FrameworkElement content = ViewFactory.GetView(e.NewValue.GetType());

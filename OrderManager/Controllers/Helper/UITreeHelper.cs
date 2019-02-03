@@ -28,7 +28,7 @@ namespace AmiBroker.Controllers
             return null;
         }
 
-        public static T FindChild<T>(UIElement control) where T : UIElement
+        public static T FindChild<T>(UIElement control, string name = null) where T : UIElement
         {
             UIElement c = null;
             for (int i = 0; i < VisualTreeHelper.GetChildrenCount(control); i++)
@@ -37,9 +37,16 @@ namespace AmiBroker.Controllers
                 if (c != null)
                 {
                     if (c is T)
-                        return c as T;
+                    {
+                        if ((name != null && ((Control)c).Name == name) || name == null)
+                            return c as T;
+                    }                        
                     else if (VisualTreeHelper.GetChildrenCount(c) > 0)
-                        return FindChild<T>(c);
+                    {
+                        var child = FindChild<T>(c, name);
+                        if (child != null)
+                            return child;
+                    }                        
                 }
             }
             return null;

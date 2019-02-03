@@ -890,7 +890,7 @@
                 </DataTemplate>
             </TreeView.Resources>
         </TreeView>
-        <ScrollViewer Grid.Column="1" Grid.Row="0" Margin="5">
+        <ScrollViewer Grid.Column="1" Grid.Row="0" Margin="5" Name="contentSV">
             <local:CachedContentControl DataContext="{Binding SelectedItem}" Contents="{Binding}" />
         </ScrollViewer>
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Grid.Column="1" Grid.Row="1">
