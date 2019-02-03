@@ -24,7 +24,8 @@ namespace AmiBroker.Controllers
         public int OrderId { get; set; }
         public double OrgPrice { get; set; }
         public double LmtPrice { get; set; }
-
+        public string Message { get; set; }
+        public string Error { get; set; }
     }
     public class OrderManager : IndicatorBase
     {
@@ -151,64 +152,75 @@ namespace AmiBroker.Controllers
                     {
                         signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
                         if (signal)
-                            ProcessSignal(script, strategy, OrderAction.Buy, logTime);
+                            ProcessSignalAysnc(script, strategy, OrderAction.Buy, logTime);
 
                         signal = ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
                         if (signal)
-                            ProcessSignal(script, strategy, OrderAction.Sell, logTime);
+                            ProcessSignalAysnc(script, strategy, OrderAction.Sell, logTime);
                     }
                     if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                     {
                         signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
                         if (signal)
-                            ProcessSignal(script, strategy, OrderAction.Short, logTime);
+                            ProcessSignalAysnc(script, strategy, OrderAction.Short, logTime);
 
                         signal = ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
                         if (signal)
-                            ProcessSignal(script, strategy, OrderAction.Cover, logTime);
+                            ProcessSignalAysnc(script, strategy, OrderAction.Cover, logTime);
                     }
                 }
             }
         }
 
+        private async Task ProcessSignalAysnc(Script script, Strategy strategy, OrderAction orderAction, DateTime logTime)
+        {
+            await Task.Run(() => ProcessSignal(script, strategy, orderAction, logTime));
+        }
+
         private void ProcessSignal(Script script, Strategy strategy, OrderAction orderAction, DateTime logTime)
         {
-            MainViewModel.Instance.Log(new Log
+            Log log = new Log
             {
                 Time = DateTime.Now,
                 Text = orderAction.ToString() + " signal generated at " + logTime.ToString("yyyMMdd HH:mm:ss"),
                 Source = script.Symbol.Name + "." + strategy.Name
-            });
-            
+            };
+
+            if (strategy.AccountsDic[orderAction].Count == 0)
+            {
+                log.Text += "\nBut there is no account assigned.";
+                mainVM.Log(log);
+                return;
+            }
+            mainVM.Log(log);
+
             string message = string.Empty;
             foreach (var acc in strategy.AccountsDic[orderAction])
             {
-                if (ValidateSignal(strategy, strategy.AccountStat[acc.Name], OrderAction.Buy, out message))
+                if (ValidateSignal(strategy, strategy.AccountStat[acc.Name], orderAction, out message))
                 {
                     foreach (var account in strategy.AccountsDic[orderAction])
                     {
                         string vendor = account.Controller.Vendor;
                         BaseOrderType orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
-                        string contract = script.Symbol.SymbolDefinition.FirstOrDefault(x => x.Vendor == vendor + "Controller").ContractId;
                         if (orderType != null)
                         {
                             BaseStat strategyStat = strategy.AccountStat[acc.Name];
                             AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
-                            OrderLog log = account.Controller.PlaceOrder(account, strategy, contract, orderType, orderAction, BarCount - 1).Result;
-                            if (log.OrderId != -1)
+                            OrderLog orderLog = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1).Result;
+                            if (orderLog.OrderId != -1)
                             {
                                 Dispatcher.FromThread(UIThread).Invoke(() =>
                                 {
-                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc, OrderAction = orderAction };
-                                    //strategy.AccountStat[acc.Name].AccoutStatus = AccountStatus.BuyPending;                                    
-                                    MainViewModel.Instance.OrderInfoList.Add(log.OrderId, oi);
+                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc, OrderAction = orderAction };           
+                                    MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
                                 });
                                 // log order place details
                                 MainViewModel.Instance.Log(new Log
                                 {
                                     Time = DateTime.Now,
-                                    Text = "Order sent (OrderId:" + log.OrderId.ToString() + ", OrgPrice:" + log.OrgPrice.ToString() +
-                                        ", LmtPrice:" + log.LmtPrice.ToString() + ")",
+                                    Text = "Order sent (OrderId:" + orderLog.OrderId.ToString() + ", OrgPrice:" + orderLog.OrgPrice.ToString() +
+                                        ", LmtPrice:" + orderLog.LmtPrice.ToString() + ")",
                                     Source = script.Symbol.Name + "." + strategy.Name
                                 });
                             }
@@ -377,7 +389,7 @@ namespace AmiBroker.Controllers
         [ABMethod]
         public void Test()
         {
-
+            System.Diagnostics.Debug.WriteLine(AFInfo.Name());
         }
 
         [ABMethod]

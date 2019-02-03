@@ -41,6 +41,6 @@ short1 = ExRem(short1, cs1);
 short2 = ExRem(short2, cs2);
 cs1 = ExRem(cs1, short1);
 cs2 = ExRem(cs2, short2);
-//Test();
+Test();
 IBC("sample");
 //Title = _SECTION_NAME() +", Number of bars:" + NumToStr(BarCount, 1.0);

@@ -813,7 +813,48 @@ namespace AmiBroker.Controllers
 
         public void Execute(object VM)
         {
-            //Your Code
+            MessageBoxResult msgResult = MessageBox.Show("Are you sure to close all open positions?",
+                                          "Warning",
+                                          MessageBoxButton.YesNo,
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
+            if (msgResult == MessageBoxResult.No)
+            {
+                return;
+            }
+            else
+            {
+                MainViewModel mainVM = MainViewModel.Instance;
+                foreach (SymbolInMkt symbol in mainVM.Portfolio)
+                {
+                    IController controller = mainVM.Controllers.FirstOrDefault(x => x.Accounts.FirstOrDefault(y => y.Name == symbol.Account) != null);
+                    AccountInfo accountInfo = controller.Accounts.FirstOrDefault(x => x.Name == symbol.Account);
+                    BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(symbol.Vendor + "MarketOrder");
+                    OrderAction orderAction = OrderAction.Buy;
+                    if (symbol.Position == 0) continue;
+                    if (symbol.Position > 0) orderAction = OrderAction.Sell;
+                    if (symbol.Position < 0) orderAction = OrderAction.Cover;
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
+                }
+                foreach (SymbolInAction symbol in mainVM.SymbolInActions)
+                {
+                    foreach (Script script in symbol.Scripts)
+                    {
+                        foreach (var status in script.AccountStat)
+                        {
+                            status.Value.LongPosition = 0;
+                            status.Value.ShortPosition = 0;
+                        }
+                        foreach (Strategy strategy in script.Strategies)
+                        {
+                            foreach (var status in strategy.AccountStat)
+                            {
+                                status.Value.LongPosition = 0;
+                                status.Value.ShortPosition = 0;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     public class CloseCurrentOpenOrders : ICommand
@@ -829,9 +870,33 @@ namespace AmiBroker.Controllers
             remove { CommandManager.RequerySuggested -= value; }
         }
 
-        public void Execute(object VM)
+        public void Execute(object parameter)
         {
-            //Your Code
+            MessageBoxResult msgResult = MessageBox.Show("Are you sure to close current open positions?",
+                                          "Warning",
+                                          MessageBoxButton.YesNo,
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
+            if (msgResult == MessageBoxResult.No)
+            {
+                return;
+            }
+            else
+            {
+                if (parameter != null)
+                {
+                    MethodInfo mi = parameter.GetType().GetMethod("CloseAllPositions");
+                    if (mi != null)
+                        mi.Invoke(parameter, null);
+                }
+                else
+                {
+                    MainViewModel mainVM = MainViewModel.Instance;
+                    foreach (SymbolInAction symbol in mainVM.SymbolInActions)
+                    {
+                        symbol.CloseAllPositions();
+                    }
+                }
+            }
         }
     }
     public class DisplayConfigDialog : ICommand

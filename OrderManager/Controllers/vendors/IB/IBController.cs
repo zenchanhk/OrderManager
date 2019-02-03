@@ -24,7 +24,7 @@ namespace AmiBroker.Controllers
     {
         public Contract Contract { get; set; }
         public double MinTick { get; set; }
-        public double LotSize { get; set; }
+        public double RoundLotSize { get; set; }
     }
     public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
@@ -248,11 +248,13 @@ namespace AmiBroker.Controllers
                     EventDispatcher.Error -= new EventHandler<ErrorEventArgs>(handler);
                 },
                 CancellationToken.None, this);
-                Contracts.Add(symbol, c);
+                if (!Contracts.ContainsKey(symbol))
+                    Contracts.Add(symbol, c);
                 return c;
             }
             catch (Exception ex)
             {
+                throw ex;
                 return null;
             }            
         }
@@ -283,44 +285,58 @@ namespace AmiBroker.Controllers
         /// <param name="BarIndex"></param>
         /// <param name="posSize"></param>
         /// <returns></returns>
-        private Order TransformIBOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex)
+        private Order TransformIBOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, out string message, double? posSize = null)
         {
+            message = string.Empty;
             Order order = new Order();
             IBOrderType ot = orderType as IBOrderType;
-            SymbolInAction symbol = strategy.Symbol;
+            SymbolInAction symbol = strategy?.Symbol;
             order.Transmit = ot.Transmit;
-            if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
+
+            if (posSize == null)
             {
-                order.TotalQuantity = strategy.PositionSize * symbol.RoundLotSize;
+                if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
+                {
+                    order.TotalQuantity = strategy.PositionSize * symbol.RoundLotSize;
+                }
+                else
+                {
+                    double pos = 0;
+                    if (orderAction == OrderAction.Sell)
+                        pos = strategy.AccountStat[accountInfo.Name].LongPosition;
+                    else if (orderAction == OrderAction.Cover)
+                        pos = strategy.AccountStat[accountInfo.Name].ShortPosition;
+                    order.TotalQuantity = pos * symbol.RoundLotSize;
+                    if (pos > strategy.PositionSize)
+                    {
+                        mainVM.Log(new Log
+                        {
+                            Time = DateTime.Now,
+                            Text = string.Format("Warning: existing position(%d) is greater than specified one(%d).", pos, strategy.PositionSize),
+                            Source = symbol.Name + "." + strategy.Name + "." + accountInfo.Name
+                        });
+                    }
+                }
             }
             else
             {
-                double pos = 0;
-                if (orderAction == OrderAction.Sell)
-                    pos = strategy.AccountStat[accountInfo.Name].LongPosition;
-                else if (orderAction == OrderAction.Cover)
-                    pos = strategy.AccountStat[accountInfo.Name].ShortPosition;
-                order.TotalQuantity = pos * symbol.RoundLotSize;
-                if (pos > strategy.PositionSize)
+                order.TotalQuantity = (double)posSize;
+            }   
+
+            if (symbol != null)
+            {
+                if (symbol.MinOrderSize > 0 && symbol.MaxOrderSize > 0 &&
+                (order.TotalQuantity < symbol.MinOrderSize || order.TotalQuantity > symbol.MaxOrderSize))
                 {
                     mainVM.Log(new Log
                     {
                         Time = DateTime.Now,
-                        Text = string.Format("Warning: existing position(%d) is greater than specified one(%d).", pos, strategy.PositionSize),
-                        Source = symbol.Name + "." + strategy.Name + "." + accountInfo.Name
+                        Text = string.Format("Total quantity %d is out of range(%d - %d)", order.TotalQuantity, symbol.MinOrderSize, symbol.MaxOrderSize),
+                        Source = symbol?.Name + "." + strategy?.Name + "." + accountInfo.Name
                     });
                 }
-            }
-            if (symbol.MinOrderSize > 0 && symbol.MaxOrderSize > 0 && 
-                (order.TotalQuantity < symbol.MinOrderSize || order.TotalQuantity > symbol.MaxOrderSize))
-            {
-                mainVM.Log(new Log
-                {
-                    Time = DateTime.Now,
-                    Text = string.Format("Total quantity %d is out of range(%d - %d)", order.TotalQuantity, symbol.MinOrderSize, symbol.MaxOrderSize),
-                    Source = symbol.Name + "." + strategy.Name + "." + accountInfo.Name
-                });
-            }
+            }            
+
             order.Action = (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover) ? "BUY" : "SELL";
             order.OrderType = ot.IBCode;
             order.Account = accountInfo.Name;
@@ -333,19 +349,44 @@ namespace AmiBroker.Controllers
 
             PropertyInfo[] pInfos = ot.GetType().GetProperties();
             PropertyInfo pi = pInfos.FirstOrDefault(x => x.Name == "LmtPrice");
+            string aflVar = pi?.GetValue(ot)?.ToString();
             if (pi != null)
             {
-                order.LmtPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];                
+                if (aflVar != null)
+                    order.LmtPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                else
+                    message += "Limit price is not available. ";
             }
+
             pi = pInfos.FirstOrDefault(x => x.Name == "AuxPrice");
+            aflVar = pi?.GetValue(ot)?.ToString();
             if (pi != null)
-                order.AuxPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+            {
+                if (aflVar != null)
+                    order.AuxPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                else
+                    message += "Auxarily price is not available. ";
+            }
+
             pi = pInfos.FirstOrDefault(x => x.Name == "TrailingPercent");
+            aflVar = pi?.GetValue(ot)?.ToString();
             if (pi != null)
-                order.TrailingPercent = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+            {
+                if (aflVar != null)
+                    order.TrailingPercent = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                else
+                    message += "Trailing precent is not available. ";
+            }
+
             pi = pInfos.FirstOrDefault(x => x.Name == "TrailStopPrice");
+            aflVar = pi?.GetValue(ot)?.ToString();
             if (pi != null)
-                order.TrailStopPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+            {
+                if (aflVar != null)
+                    order.TrailStopPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                else
+                    message += "Trail stop price is not available.";
+            }
 
             return order;
         }
@@ -355,50 +396,67 @@ namespace AmiBroker.Controllers
         /// <param name="accountInfo"></param>
         /// <param name="symbol"></param>
         /// <returns>-1 means failure</returns>
-        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbolName, BaseOrderType orderType, OrderAction orderAction, int barIndex)
-        {
-            Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex);
+        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
+        {         
             OrderLog orderLog = new OrderLog();
+            string message = string.Empty;
+            Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex, out message, posSize);
+            orderLog.Error = message;
+            if (message != string.Empty && !errorSuppressed)
+            {
+                return orderLog;
+            }            
             orderLog.OrgPrice = order.LmtPrice;
-            if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
+            if ((int)order.LmtPrice != 0)
             {
-                order.LmtPrice -= order.LmtPrice % strategy.Symbol.MinTick;
-                order.LmtPrice += orderType.Slippage * strategy.Symbol.MinTick;
-            }
-            else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
-            {
-                order.LmtPrice += order.LmtPrice % strategy.Symbol.MinTick;
-                order.LmtPrice -= orderType.Slippage * strategy.Symbol.MinTick;
-            }
+                if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
+                {
+                    order.LmtPrice -= order.LmtPrice % strategy.Symbol.MinTick;
+                    order.LmtPrice += orderType.Slippage * strategy.Symbol.MinTick;
+                }
+                else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
+                {
+                    order.LmtPrice += order.LmtPrice % strategy.Symbol.MinTick;
+                    order.LmtPrice -= orderType.Slippage * strategy.Symbol.MinTick;
+                }
+            }            
             orderLog.LmtPrice = order.LmtPrice;
+
             Contract contract = new Contract();
-            string[] parts = symbolName.Split(new char[] { '-' });
-            switch (parts.Length)
+            if (security == null)
             {
-                case 1:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = "SMART";
-                    contract.SecType = "STK";
-                    break;
-                case 2:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = "STK";
-                    break;
-                case 3:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = parts[2];
-                    break;
-                case 4:
-                    contract.LocalSymbol = parts[0];
-                    contract.Exchange = parts[1];
-                    contract.SecType = parts[2];
-                    contract.Currency = parts[3];
-                    break;
+                string symbolName = strategy.Symbol.SymbolDefinition.FirstOrDefault(x => x.Vendor == Vendor + "Controller")?.ContractId;
+                string[] parts = symbolName.Split(new char[] { '-' });
+                switch (parts.Length)
+                {
+                    case 1:
+                        contract.LocalSymbol = parts[0];
+                        contract.Exchange = "SMART";
+                        contract.SecType = "STK";
+                        break;
+                    case 2:
+                        contract.LocalSymbol = parts[0];
+                        contract.Exchange = parts[1];
+                        contract.SecType = "STK";
+                        break;
+                    case 3:
+                        contract.LocalSymbol = parts[0];
+                        contract.Exchange = parts[1];
+                        contract.SecType = parts[2];
+                        break;
+                    case 4:
+                        contract.LocalSymbol = parts[0];
+                        contract.Exchange = parts[1];
+                        contract.SecType = parts[2];
+                        contract.Currency = parts[3];
+                        break;
+                }
+                IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+                contract = c.Contract;
             }
-            IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
-            contract = c.Contract;
+            else
+                contract = security;
+            
             if (contract != null)
             {
                 int orderId = NextValidOrderId;
@@ -538,30 +596,30 @@ namespace AmiBroker.Controllers
                             AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                             break;
                         case "Filled":
-                            int filled = (int)(((int)dOrder.Filled) / script.Symbol.RoundLotSize);                            
+                            int filled = (int)Math.Round(dOrder.Filled / script.Symbol.RoundLotSize, 0);                            
                             if (oi.OrderAction == OrderAction.Buy)
                             {                                
-                                strategyStat.LongPosition += filled / oi.Strategy.Symbol.RoundLotSize;
-                                scriptStat.LongPosition += filled / oi.Strategy.Symbol.RoundLotSize;
+                                strategyStat.LongPosition += filled;
+                                scriptStat.LongPosition += filled;
                                 strategyStat.LongEntry++;
                                 scriptStat.LongEntry++;
                             }
                             else if (oi.OrderAction == OrderAction.Short)
                             {                                
-                                strategyStat.ShortPosition += filled / oi.Strategy.Symbol.RoundLotSize;
-                                scriptStat.ShortPosition += filled / oi.Strategy.Symbol.RoundLotSize;
+                                strategyStat.ShortPosition += filled;
+                                scriptStat.ShortPosition += filled;
                                 strategyStat.ShortEntry++;
                                 scriptStat.ShortEntry++;
                             }
                             else if (oi.OrderAction == OrderAction.Sell)
                             {
-                                strategyStat.LongPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
-                                scriptStat.LongPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
+                                strategyStat.LongPosition -= filled;
+                                scriptStat.LongPosition -= filled;
                             }
                             else if (oi.OrderAction == OrderAction.Cover)
                             {
-                                strategyStat.ShortPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
-                                scriptStat.ShortPosition -= filled / oi.Strategy.Symbol.RoundLotSize;
+                                strategyStat.ShortPosition -= filled;
+                                scriptStat.ShortPosition -= filled;
                             }
                             AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                             AccountStatusOp.SetPositionStatus(ref strategyStat, oi.OrderAction);
@@ -584,7 +642,7 @@ namespace AmiBroker.Controllers
                 symbol = new SymbolInMkt();
                 isInPortfolio = false;
             }
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 if (isInPortfolio)
                 {
@@ -683,12 +741,12 @@ namespace AmiBroker.Controllers
             ConnectionStatus = "Disconnected";
         }
 
-        private void eh_ConnectionStatus(object sender, IB.CSharpApiClient.Events.ConnectionStatusEventArgs e)
+        private async void eh_ConnectionStatus(object sender, IB.CSharpApiClient.Events.ConnectionStatusEventArgs e)
         {
             if (e.IsConnected)
             {
                 ConnectionStatus = "Connected";
-                System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
                     mainVM.MessageList.Insert(0, new Message()
                     {
@@ -697,6 +755,37 @@ namespace AmiBroker.Controllers
                         Text = "Connected -- NextValidOrderID: " + e.NextValidOrderId
                     });
                 });
+
+                // place an order impossible traded for JITed performance
+                Log log = new Log { Time = DateTime.Now, Text = "Faked order sent." };
+                mainVM.Log(log);
+                SymbolInAction symbol = new SymbolInAction("QQQ", 60);
+                symbol.AppliedControllers.Add(this);
+                symbol.MinTick = 0.01;
+                symbol.RoundLotSize = 1;
+                Script script = new Script("script1", symbol);
+                symbol.Scripts.Add(script);
+                Strategy strategy = new Strategy("strategy1", script);
+                script.Strategies.Add(strategy);
+                strategy.PositionSize = 1;
+                IBLimitOrder orderType = new IBLimitOrder();
+                orderType.Slippage = 0;
+                strategy.BuyOrderTypes.Add(orderType);
+
+                OrderLog ol1 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
+                mainVM.Log(log1);
+
+                OrderLog ol2 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                Log log2 = new Log { Time = DateTime.Now, Text = "Faked order2 placed." };
+                mainVM.Log(log2);
+
+                OrderLog ol3 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                Log log3 = new Log { Time = DateTime.Now, Text = "Faked order3 placed." };
+                mainVM.Log(log3);
+                ClientSocket.cancelOrder(ol1.OrderId);
+                ClientSocket.cancelOrder(ol2.OrderId);
+                ClientSocket.cancelOrder(ol3.OrderId);
             }                
             else
                 ConnectionStatus = "Disconnected";

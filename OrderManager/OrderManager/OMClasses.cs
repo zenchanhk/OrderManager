@@ -571,6 +571,35 @@ namespace AmiBroker.OrderManager
         public ATAfl CoverSignal { get; set; }
         [JsonIgnore]
         public List<string> Prices { get; set; } = new List<string>();
+
+        public async void CloseAllPositions()
+        {
+            foreach (var item in AccountStat)
+            {
+                if (item.Value.LongPosition > 0 || item.Value.ShortPosition > 0)
+                {
+                    IController controller = item.Value.Account.Controller;
+                    OrderAction orderAction = OrderAction.Buy;
+                    double posSize = 0;
+                    if (item.Value.LongPosition > 0)
+                    {
+                        orderAction = OrderAction.Sell;
+                        posSize = item.Value.LongPosition * Symbol.RoundLotSize;
+                    }                        
+                    if (item.Value.ShortPosition > 0)
+                    {
+                        orderAction = OrderAction.Cover;
+                        posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
+                    }                        
+                    string vendor = item.Value.Account.Controller.Vendor;
+                    BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
+                    await controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, 0, posSize);
+                    item.Value.LongPosition = 0;
+                    item.Value.ShortPosition = 0;
+                    item.Value.AccoutStatus = AccountStatus.None;
+                }
+            }
+        }
         // reset in case new day
         public void ResetForNewDay()
         {
@@ -661,7 +690,43 @@ namespace AmiBroker.OrderManager
                 _UpdateField(ref _pIsEnabled, value);
             }
         }
-
+        public async void CloseAllPositions()
+        {
+            foreach (var item in AccountStat)
+            {
+                if (item.Value.LongPosition > 0 || item.Value.ShortPosition > 0)
+                {
+                    IController controller = item.Value.Account.Controller;
+                    OrderAction orderAction = OrderAction.Buy;
+                    double posSize = 0;
+                    if (item.Value.LongPosition > 0)
+                    {
+                        orderAction = OrderAction.Sell;
+                        posSize = item.Value.LongPosition * Symbol.RoundLotSize;
+                    }
+                    if (item.Value.ShortPosition > 0)
+                    {
+                        orderAction = OrderAction.Cover;
+                        posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
+                    }
+                    string vendor = item.Value.Account.Controller.Vendor;
+                    BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
+                    await controller.PlaceOrder(item.Value.Account, Strategies[0], orderType, orderAction, 0, posSize);
+                    item.Value.LongPosition = 0;
+                    item.Value.ShortPosition = 0;
+                }
+            }
+            // reset for strategies
+            foreach (var strategy in Strategies)
+            {
+                foreach (var stat in strategy.AccountStat)
+                {
+                    stat.Value.LongPosition = 0;
+                    stat.Value.ShortPosition = 0;
+                    stat.Value.AccoutStatus = AccountStatus.None;
+                }
+            }
+        }
         public void CopyFrom(Script script)
         {
             foreach (var item in script.Strategies)
@@ -881,6 +946,13 @@ namespace AmiBroker.OrderManager
             get { return _pTimeZone; }
             set { _UpdateField(ref _pTimeZone, value); }
         }
+        public void CloseAllPositions()
+        {
+            foreach (var script in Scripts)
+            {
+                script.CloseAllPositions();
+            }
+        }
         private void ChangeTimeZone(AmiBroker.Controllers.TimeZone tz)
         {
             foreach (var script in Scripts)
@@ -908,6 +980,7 @@ namespace AmiBroker.OrderManager
                             {
                                 IBContract c = await ((IBController)item).reqContractDetailsAsync(sd.ContractId);
                                 sd.Contract = c.Contract;
+                                MinTick = c.MinTick;
                             }                     
                         }
                         if (item.Vendor == "FT")

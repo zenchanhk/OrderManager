@@ -824,6 +824,13 @@
                                           Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
                                           CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
                                           />
+                                <MenuItem Header="Close Positions"
+                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
+                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                                    <MenuItem.Icon>
+                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>                                          
                             </ContextMenu>
                         </Grid.ContextMenu>
                         <Image Source="{StaticResource stockDrawingImage}" Width="19" Margin="2" />
@@ -853,6 +860,13 @@
                                           Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
                                           CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
                                           />
+                                <MenuItem Header="Close Positions"
+                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
+                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                                    <MenuItem.Icon>
+                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
                             </ContextMenu>
                         </Grid.ContextMenu>
                         <Image Source="{StaticResource scriptDrawingImage}" Width="19" Margin="2" />
@@ -877,6 +891,13 @@
                                           Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
                                           CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
                                           />
+                                <MenuItem Header="Close Positions"
+                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
+                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                                    <MenuItem.Icon>
+                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
                             </ContextMenu>
                         </Grid.ContextMenu>
                         <Image Source="{StaticResource StrategyDrawingImage}" Width="19" Margin="2"/>

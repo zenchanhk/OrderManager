@@ -157,7 +157,6 @@
     <Compile Include="OrderManager\OrderType\BaseOrderType.cs" />
     <Compile Include="OrderManager\OrderType\FTOrderType.cs" />
     <Compile Include="OrderManager\OrderType\IBOrderTypes.cs" />
-    <Compile Include="OrderManager\StateMachine.cs" />
     <Compile Include="Settings.cs" />
     <Compile Include="Controllers\UI\Dialogs\AccountConfig.xaml.cs">
       <DependentUpon>AccountConfig.xaml</DependentUpon>

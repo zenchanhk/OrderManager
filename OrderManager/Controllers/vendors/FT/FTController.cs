@@ -1,4 +1,5 @@
 ﻿using AmiBroker.OrderManager;
+using IBApi;
 using Sdl.MultiSelectComboBox.API;
 using System;
 using System.Collections.Generic;
@@ -132,7 +133,7 @@ namespace AmiBroker.Controllers
         public Task ConnectAsync() { return new Task(() => { }); }
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
 
-        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex)
+        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
         {
             return null;
         }

@@ -12,6 +12,7 @@ using System.Collections.Specialized;
 using System.Runtime.Serialization;
 using AmiBroker.OrderManager;
 using Newtonsoft.Json;
+using IBApi;
 
 namespace AmiBroker.Controllers
 {
@@ -203,6 +204,6 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, string symbol, BaseOrderType orderType, OrderAction orderAction, int barIndex);
+        Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppress = false);
     }
 }
