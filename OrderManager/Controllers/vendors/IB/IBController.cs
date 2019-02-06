@@ -342,7 +342,7 @@ namespace AmiBroker.Controllers
             order.Account = accountInfo.Name;
             order.GoodAfterTime = ot.GoodAfterTime.ToString();
             order.GoodTillDate = ot.GoodTilDate.ToString();
-            if (order.GoodTillDate != string.Empty)
+            if (order.GoodTillDate != null)
                 order.Tif = IBTifType.GTD.ToString();
             else
                 order.Tif = ot.Tif.ToString();
@@ -353,7 +353,9 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.LmtPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                {                    
+                    order.LmtPrice = strategy.CurrentPrices[aflVar];
+                }                    
                 else
                     message += "Limit price is not available. ";
             }
@@ -363,7 +365,7 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.AuxPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                    order.AuxPrice = strategy.CurrentPrices[aflVar];
                 else
                     message += "Auxarily price is not available. ";
             }
@@ -373,7 +375,7 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.TrailingPercent = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                    order.TrailingPercent = strategy.CurrentPrices[aflVar];
                 else
                     message += "Trailing precent is not available. ";
             }
@@ -383,7 +385,7 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.TrailStopPrice = (new ATAfl(pi.GetValue(ot).ToString())).GetArray()[barIndex];
+                    order.TrailStopPrice = strategy.CurrentPrices[aflVar];
                 else
                     message += "Trail stop price is not available.";
             }
@@ -416,8 +418,8 @@ namespace AmiBroker.Controllers
                 }
                 else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
                 {
-                    order.LmtPrice += order.LmtPrice % strategy.Symbol.MinTick;
-                    order.LmtPrice -= orderType.Slippage * strategy.Symbol.MinTick;
+                    order.LmtPrice -= order.LmtPrice % strategy.Symbol.MinTick;
+                    order.LmtPrice -= (orderType.Slippage - 1) * strategy.Symbol.MinTick;
                 }
             }            
             orderLog.LmtPrice = order.LmtPrice;
@@ -463,6 +465,7 @@ namespace AmiBroker.Controllers
                 ClientSocket.placeOrder(orderId, contract, order);
                 NextValidOrderId++;
                 orderLog.OrderId = orderId;
+                orderLog.PosSize = (int)Math.Round(order.TotalQuantity / strategy.Symbol.RoundLotSize);
                 return orderLog;
             }
             orderLog.OrderId = -1;
@@ -596,33 +599,38 @@ namespace AmiBroker.Controllers
                             AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                             break;
                         case "Filled":
-                            int filled = (int)Math.Round(dOrder.Filled / script.Symbol.RoundLotSize, 0);                            
-                            if (oi.OrderAction == OrderAction.Buy)
-                            {                                
-                                strategyStat.LongPosition += filled;
-                                scriptStat.LongPosition += filled;
-                                strategyStat.LongEntry++;
-                                scriptStat.LongEntry++;
-                            }
-                            else if (oi.OrderAction == OrderAction.Short)
-                            {                                
-                                strategyStat.ShortPosition += filled;
-                                scriptStat.ShortPosition += filled;
-                                strategyStat.ShortEntry++;
-                                scriptStat.ShortEntry++;
-                            }
-                            else if (oi.OrderAction == OrderAction.Sell)
+                            int filled = (int)Math.Round(dOrder.Filled / script.Symbol.RoundLotSize, 0);   
+                            int remaining = (int)Math.Round(dOrder.Remaining / script.Symbol.RoundLotSize, 0);
+                            if (oi.PosSize - oi.Filled > remaining)
                             {
-                                strategyStat.LongPosition -= filled;
-                                scriptStat.LongPosition -= filled;
-                            }
-                            else if (oi.OrderAction == OrderAction.Cover)
-                            {
-                                strategyStat.ShortPosition -= filled;
-                                scriptStat.ShortPosition -= filled;
-                            }
-                            AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
-                            AccountStatusOp.SetPositionStatus(ref strategyStat, oi.OrderAction);
+                                oi.Filled += filled;
+                                if (oi.OrderAction == OrderAction.Buy)
+                                {                                    
+                                    strategyStat.LongPosition += filled;
+                                    scriptStat.LongPosition += filled;
+                                    strategyStat.LongEntry++;
+                                    scriptStat.LongEntry++;
+                                }
+                                else if (oi.OrderAction == OrderAction.Short)
+                                {
+                                    strategyStat.ShortPosition += filled;
+                                    scriptStat.ShortPosition += filled;
+                                    strategyStat.ShortEntry++;
+                                    scriptStat.ShortEntry++;
+                                }
+                                else if (oi.OrderAction == OrderAction.Sell)
+                                {
+                                    strategyStat.LongPosition -= filled;
+                                    scriptStat.LongPosition -= filled;
+                                }
+                                else if (oi.OrderAction == OrderAction.Cover)
+                                {
+                                    strategyStat.ShortPosition -= filled;
+                                    scriptStat.ShortPosition -= filled;
+                                }
+                                AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
+                                AccountStatusOp.SetPositionStatus(ref strategyStat, oi.OrderAction);
+                            }                            
                             break;
                     }
                 }                    

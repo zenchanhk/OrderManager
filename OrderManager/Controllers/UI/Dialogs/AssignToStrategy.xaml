@@ -31,11 +31,18 @@
         <TextBlock Text="Symbol:" Margin="5" />
         <TextBlock Grid.Column="1" Text="{Binding Symbol}" Margin="5"/>
         <TextBlock Text="Position:" Margin="5" Grid.Row="1" VerticalAlignment="Center" />
-        <controls:NumericUpDown Grid.Row="1" Grid.Column="1" Margin="5" HorizontalAlignment="Left"
-                                Value="{Binding AssignedPosition}" 
-                                MinValue="1" MaxValue="{Binding AvailablePosition}" Increment="1"
-                                IsEnabled="{Binding AvailablePosition, Converter={StaticResource PositionToEnabledConverter}}"
-                                />        
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="1" Margin="5">
+            <controls:NumericUpDown  HorizontalAlignment="Left" Width="70"
+                                    Value="{Binding AssignedPosition, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}" 
+                                    MinValue="1" MaxValue="{Binding AvailablePosition}" Increment="1"
+                                    IsEnabled="{Binding AvailablePosition, Converter={StaticResource PositionToEnabledConverter}}"
+                                    />
+            <TextBlock Margin="5" VerticalAlignment="Center">
+                <Run Text="(Available: "/>
+                <Bold><Run Text="{Binding AvailablePosition}"/></Bold>
+                <Run Text=")"/>
+            </TextBlock>
+        </StackPanel>
         <TextBlock Text="Strategy:" Margin="5" Grid.Row="2"/>
         <ComboBox Grid.Row="2" Grid.Column="1" Margin="5" 
                   Name="cb_strategy"

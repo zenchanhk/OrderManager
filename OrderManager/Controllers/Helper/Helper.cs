@@ -122,7 +122,7 @@ namespace AmiBroker.Controllers
                     for (int i = 0; i < propertyInfos.Length; i++)
                     {
                         
-                        sb.Append(propertyInfos[i].GetValue(it).ToString() + ",");                        
+                        sb.Append(propertyInfos[i].GetValue(it)?.ToString() + ",");                        
                     }
                     lines.Add(sb.ToString());
                     sb.Clear();
@@ -319,12 +319,22 @@ namespace AmiBroker.Controllers
         public static object GetInstance(string strFullyQualifiedName)
         {
             Type t = typeof(Helper);
+            Type t1 = typeof(AmiBroker.OrderManager.BaseOrderType);
+            string fullName1 = t1.Namespace + "." + strFullyQualifiedName;
+
             string ns = t.Namespace;
             strFullyQualifiedName = ns + "." + strFullyQualifiedName;
+            
 
             Type type = Type.GetType(strFullyQualifiedName);
             if (type != null)
                 return Activator.CreateInstance(type);
+            else
+            {
+                type = Type.GetType(fullName1);
+                if (type != null)
+                    return Activator.CreateInstance(type);
+            }
                                    
             object obj = Assembly.GetExecutingAssembly().CreateInstance(strFullyQualifiedName);
             if (obj != null)

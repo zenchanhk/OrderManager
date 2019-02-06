@@ -120,8 +120,8 @@ namespace AmiBroker.Controllers
                     if (script.AccountStat.ContainsKey(((dynamic)parameter).Account))
                     {
                         if (pos != 0)
-                            pos -= pos > 0 ? script.AccountStat[((dynamic)parameter).Account].LongPosition * roundLotSize :
-                                        script.AccountStat[((dynamic)parameter).Account].ShortPosition * roundLotSize;
+                            pos = pos > 0 ? pos - script.AccountStat[((dynamic)parameter).Account].LongPosition * roundLotSize :
+                                        pos + script.AccountStat[((dynamic)parameter).Account].ShortPosition * roundLotSize;
                         foreach (Strategy strategy in script.Strategies)
                         {
                             if (strategy.AccountStat.ContainsKey(((dynamic)parameter).Account) && (
@@ -154,10 +154,25 @@ namespace AmiBroker.Controllers
             assignToStrategy.DataContext = assignToStrategyVM;
             assignToStrategy.ShowDialog();
 
-            if ((bool)assignToStrategy.DialogResult)
+            if ((bool)assignToStrategy.DialogResult && 
+                assignToStrategyVM.AssignedPosition > 0 &&
+                assignToStrategyVM.SelectedItem != null)
             {
-                ((Strategy)assignToStrategyVM.SelectedItem).AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategyVM.AssignedPosition;
-                ((Strategy)assignToStrategyVM.SelectedItem).Script.AccountStat[((dynamic)parameter).Account].LongPosition += assignToStrategyVM.AssignedPosition;
+                Strategy strategy = (Strategy)assignToStrategyVM.SelectedItem;
+                BaseStat strategyStat = strategy.AccountStat[((SymbolInMkt)parameter).Account];
+                BaseStat scriptStat = strategy.Script.AccountStat[((SymbolInMkt)parameter).Account];
+                if (assignToStrategyVM.AssignedPosition > 0)
+                {
+                    strategyStat.LongPosition += assignToStrategyVM.AssignedPosition;
+                    scriptStat.LongPosition += assignToStrategyVM.AssignedPosition;
+                    AccountStatusOp.SetPositionStatus(ref strategyStat, OrderAction.Buy);
+                }
+                else
+                {
+                    strategyStat.ShortPosition += -assignToStrategyVM.AssignedPosition;
+                    scriptStat.ShortPosition += -assignToStrategyVM.AssignedPosition;
+                    AccountStatusOp.SetPositionStatus(ref strategyStat, OrderAction.Sell);
+                }
             }
         }
     }

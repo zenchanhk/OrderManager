@@ -36,6 +36,9 @@ namespace AmiBroker.OrderManager
     public class OrderInfo
     {
         public int OrderId { get; set; }
+
+        public double PosSize { get; set; }
+        public double Filled { get; set; }
         public Strategy Strategy { get; set; }
         public AccountInfo Account { get; set; }
         //public List<OrderStatus> Status { get; set; } = new List<OrderStatus>();
@@ -369,7 +372,7 @@ namespace AmiBroker.OrderManager
                     if (GetType() == typeof(Strategy))
                     {
                         ((Strategy)this).AccountsDic.Add(OrderAction.Buy, _longAccounts);
-                        ((Strategy)this).AccountsDic.Add(OrderAction.Cover, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Sell, _longAccounts);
                     }                        
                 }
                 return _longAccounts;
@@ -382,7 +385,7 @@ namespace AmiBroker.OrderManager
                     if (GetType() == typeof(Strategy))
                     {
                         ((Strategy)this).AccountsDic[OrderAction.Buy] = _longAccounts;
-                        ((Strategy)this).AccountsDic[OrderAction.Cover] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.Sell] = _longAccounts;
                     }                        
                 }
             }
@@ -399,7 +402,7 @@ namespace AmiBroker.OrderManager
                     if (GetType() == typeof(Strategy))
                     {
                         ((Strategy)this).AccountsDic.Add(OrderAction.Short, _shortAccounts);
-                        ((Strategy)this).AccountsDic.Add(OrderAction.Sell, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.Cover, _shortAccounts);
                     }
                 }
                 return _shortAccounts;
@@ -412,7 +415,7 @@ namespace AmiBroker.OrderManager
                     if (GetType() == typeof(Strategy))
                     {
                         ((Strategy)this).AccountsDic[OrderAction.Short] = _shortAccounts;
-                        ((Strategy)this).AccountsDic[OrderAction.Sell] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.Cover] = _shortAccounts;
                     }
                 }
             }
@@ -571,7 +574,10 @@ namespace AmiBroker.OrderManager
         public ATAfl CoverSignal { get; set; }
         [JsonIgnore]
         public List<string> Prices { get; set; } = new List<string>();
-
+        [JsonIgnore]
+        public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();
+        [JsonIgnore]
+        public Dictionary<string, double> CurrentPrices { get; } = new Dictionary<string, double>();
         public async void CloseAllPositions()
         {
             foreach (var item in AccountStat)
@@ -675,7 +681,21 @@ namespace AmiBroker.OrderManager
             Name = scriptName;
             Symbol = symbol;
         }
-        
+
+        private int _pBarsHandled;
+        public int BarsHandled
+        {
+            get { return _pBarsHandled; }
+            set { _UpdateField(ref _pBarsHandled, value); }
+        }
+
+        private DateTime _pLastBarTime;
+        public DateTime LastBarTime
+        {
+            get { return _pLastBarTime; }
+            set { _UpdateField(ref _pLastBarTime, value); }
+        }
+
         public ObservableCollection<Strategy> Strategies { get; set; } = new ObservableCollection<Strategy>();
 
         private bool _pIsEnabled;

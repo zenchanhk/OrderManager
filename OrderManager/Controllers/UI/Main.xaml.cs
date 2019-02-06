@@ -521,9 +521,10 @@ namespace AmiBroker.Controllers
         private void LayoutDocument_IsSelectedChanged(object sender, EventArgs e)
         {
             LayoutDocument doc = sender as LayoutDocument;
-            if (doc.IsSelected && doc.ContentId == "script")
-            {
+            if (doc.IsSelected)
                 SelectedTab = doc;
+            if (doc.IsSelected && doc.ContentId == "script")
+            {                
                 RefreshCachedControl(doc);
             }                
         }

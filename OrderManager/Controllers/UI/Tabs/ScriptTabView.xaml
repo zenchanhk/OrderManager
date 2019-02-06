@@ -341,7 +341,7 @@
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxOpenPosition$30}" />
+                                    ConverterParameter=MaxOpenPosition$3000}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Max. entries per day: " />
@@ -365,7 +365,7 @@
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxLongOpen$20}" />
+                                    ConverterParameter=MaxLongOpen$3000}" />
                         </StackPanel>
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3"
@@ -382,7 +382,7 @@
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxShortOpen$10}" />
+                                    ConverterParameter=MaxShortOpen$3000}" />
                         </StackPanel>
                     </StackPanel>
                     <!--
@@ -423,7 +423,7 @@
                         <TextBlock VerticalAlignment="Center" Text="PositionSize"/>
                         <controls:NumericUpDown Value="{Binding PositionSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
-                                    MaxValue="100" />
+                                    MaxValue="1000" />
                     </StackPanel>
 
                     <StackPanel HorizontalAlignment="Stretch" Margin="3" Background="LightGray">

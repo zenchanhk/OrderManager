@@ -22,8 +22,10 @@ bs1=high > ref(high, -1);
 ss1=low < ref(low, -1);
 bs2 = cross(high, MA(close, 5));
 ss2 = cross(MA(close, 5), low); 
-bp1=bp2=high;
-sp1=sp2=low;
+bp1=ref(high, -1);
+bp2=ref(high, -1);
+sp1=ref(high, -1);
+sp2=ref(high, -1);
 
 bs1 = ExRem(bs1, ss1);
 ss1 = ExRem(ss1, bs1);
@@ -34,8 +36,10 @@ short1 = cross(MA(close, 3), low);
 short2 = cross(MA(close, 10), low);
 cs1 = cross(high, MA(close, 3));
 cs2 = cross(high, MA(close, 10));
-shortp1=shortp2=low;
-cp1=cp2=high;
+shortp1=low;
+shortp2=low;
+cp1=high;
+cp2=high;
 
 short1 = ExRem(short1, cs1);
 short2 = ExRem(short2, cs2);

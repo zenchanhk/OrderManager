@@ -177,7 +177,7 @@ namespace AmiBroker.Controllers
         {
             SSBase b = value as SSBase;
             string[] ps = parameter.ToString().Split(new char[] { '$' });
-            double orgMax = 100;
+            double orgMax = 2000;
             double.TryParse(ps[1], out orgMax);
             if (b != null && b.GetType() == typeof(Strategy))
             {
@@ -811,7 +811,7 @@ namespace AmiBroker.Controllers
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return value.GetType().Name == "Script" ? Visibility.Collapsed : Visibility.Visible;
+            return value?.GetType().Name == "Script" ? Visibility.Collapsed : Visibility.Visible;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

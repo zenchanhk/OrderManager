@@ -183,7 +183,7 @@ namespace ControlLib
         private static bool validateValueCallback(object value)
         {
             double val = (double)value;
-            if (val > double.MinValue && val < double.MaxValue)
+            if (val >= double.MinValue && val <= double.MaxValue)
                 return true;
             else
                 return false;
@@ -191,13 +191,20 @@ namespace ControlLib
         private static object coerceValueCallback(DependencyObject d, object value)
         {
             double val = (double)value;
+            NumericUpDown ud = d as NumericUpDown;
             double minValue = ((NumericUpDown)d).MinValue;
             double maxValue = ((NumericUpDown)d).MaxValue;
             double result;
             if (val < minValue)
+            {
                 result = minValue;
+                ud.Value = minValue;
+            }                
             else if (val > maxValue)
+            {
                 result = maxValue;
+                ud.Value = maxValue;
+            }                
             else
                 result = (double)value;
 
@@ -261,7 +268,7 @@ namespace ControlLib
                 PART_TextBox.Text = PART_TextBox.Text.Remove(changes.Offset, changes.AddedLength);
                 PART_TextBox.CaretIndex = index > 0 ? index - changes.AddedLength : 0;
             }
-            else if (result < MaxValue && result > MinValue)
+            else if (result <= MaxValue && result >= MinValue)
                 Value = result;
             else
             {

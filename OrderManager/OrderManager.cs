@@ -24,6 +24,7 @@ namespace AmiBroker.Controllers
         public int OrderId { get; set; }
         public double OrgPrice { get; set; }
         public double LmtPrice { get; set; }
+        public int PosSize { get; set; }
         public string Message { get; set; }
         public string Error { get; set; }
     }
@@ -96,7 +97,7 @@ namespace AmiBroker.Controllers
         {
             //System.Diagnostics.Debug.WriteLine("Current Thread: " + Thread.CurrentThread.ManagedThreadId);
         }*/
-
+        
         private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>(); 
         [ABMethod]
         public void IBC(string scriptName)
@@ -134,6 +135,9 @@ namespace AmiBroker.Controllers
             Script script = symbol.Scripts.FirstOrDefault(x => x.Name == scriptName);
             if (script != null)
             {
+                script.LastBarTime = DateTime.Now;
+                script.BarsHandled++;
+
                 if (!script.IsEnabled) return;
                 // reset entries count and positions for new day
                 if (newDay)
@@ -146,6 +150,12 @@ namespace AmiBroker.Controllers
                 foreach (Strategy strategy in script.Strategies)
                 {
                     if (!strategy.IsEnabled) continue;
+
+                    strategy.CurrentPrices.Clear();
+                    foreach (var p in strategy.PricesATAfl)
+                    {
+                        strategy.CurrentPrices.Add(p.Key, p.Value.GetArray()[BarCount - 1]);
+                    }
 
                     bool signal = false;
                     if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
@@ -212,14 +222,15 @@ namespace AmiBroker.Controllers
                             {
                                 Dispatcher.FromThread(UIThread).Invoke(() =>
                                 {
-                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc, OrderAction = orderAction };           
+                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc,
+                                        OrderAction = orderAction, PosSize = orderLog.PosSize };           
                                     MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
                                 });
                                 // log order place details
                                 MainViewModel.Instance.Log(new Log
                                 {
                                     Time = DateTime.Now,
-                                    Text = "Order sent (OrderId:" + orderLog.OrderId.ToString() + ", OrgPrice:" + orderLog.OrgPrice.ToString() +
+                                    Text = orderAction.ToString() + " order sent (OrderId:" + orderLog.OrderId.ToString() + ", OrgPrice:" + orderLog.OrgPrice.ToString() +
                                         ", LmtPrice:" + orderLog.LmtPrice.ToString() + ")",
                                     Source = script.Symbol.Name + "." + strategy.Name
                                 });
@@ -345,7 +356,7 @@ namespace AmiBroker.Controllers
             {
                 ATAfl afl = new ATAfl();
                 Script script = new Script(scriptName, symbol);
-                script.IsEnabled = true;
+                //script.IsEnabled = true;
                 Dispatcher.FromThread(UIThread).Invoke(() =>
                 {
                     symbol.Scripts.Add(script);
@@ -381,6 +392,14 @@ namespace AmiBroker.Controllers
                         s.CoverSignal = new ATAfl(coverSignals[i]);
                     }
                     script.Strategies.Add(s);
+                    // initialize prices
+                    Dictionary<string, ATAfl> strategyPrices = new Dictionary<string, ATAfl>();
+                    foreach (var p in s.Prices)
+                    {
+                        // in case of refreshing strategy parameters
+                        if (!s.PricesATAfl.ContainsKey(p))
+                            s.PricesATAfl.Add(p, new ATAfl(p));
+                    }
                 }
             }
             return symbol;
