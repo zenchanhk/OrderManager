@@ -88,6 +88,58 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    class SelectedItemToDataContextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value != null && value.GetType().Name == (string)parameter)
+                return value;
+            else
+                return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class SelectedItemToIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {            
+            if (value != null)
+            {
+                MainWindow window = OrderManager.MainWin;
+                if (value.GetType() == typeof(Script))
+                    return window.FindResource("scriptDrawingImage");
+                else if (value.GetType() == typeof(SymbolInAction))
+                    return window.FindResource("stockDrawingImage");
+                else if (value.GetType() == typeof(Strategy))
+                    return window.FindResource("StrategyDrawingImage");
+                else
+                    return null;
+            }            
+            else
+                return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class DataContextToVisConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return value != null ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
     class DummyConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -510,11 +562,15 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("timerDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "UtcOffset") != null)
                     return oit.FindResource("timezoneDrawingImage");
+                if (item.Children.FirstOrDefault(x => x.Name == "AccountStatus") != null)
+                    return oit.FindResource("accountDrawingImage");
             }
             if (item.Type.Name.ToLower().Contains("dictionary"))
             {
                 if (item.Children.FirstOrDefault(x => x.Name == "DisplayName") != null)
                     return oit.FindResource("vendorDrawingImage");
+                if (item.Name == "AccountStat")
+                    return oit.FindResource("statusDrawingImage");
             }
                 return drawingImage;
         }
@@ -812,6 +868,28 @@ namespace AmiBroker.Controllers
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             return value?.GetType().Name == "Script" ? Visibility.Collapsed : Visibility.Visible;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    public class IsDirtyToIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return (bool)value ? "HelpRhombusOutline" : "Check";
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    public class IsDirtyToColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return (bool)value ? Util.Color.Red : Util.Color.Green;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

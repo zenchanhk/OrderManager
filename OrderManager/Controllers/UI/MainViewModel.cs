@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Collections.Specialized;
 using System.Windows.Threading;
+using System.Windows;
 
 namespace AmiBroker.Controllers
 {
@@ -66,6 +67,7 @@ namespace AmiBroker.Controllers
         // Lists for displaying
         public ObservableCollection<Message> MessageList { set; get; }
         public ObservableCollection<Log> LogList { set; get; }
+        public ObservableCollection<Log> MinorLogList { set; private get; } = new ObservableCollection<Log>();
         public ObservableCollectionEx<DisplayedOrder> Orders { set; get; }
         public ObservableCollection<SymbolInMkt> Portfolio { set; get; } = new ObservableCollection<SymbolInMkt>();
         public SymbolInMkt SelectedPortfolio { get; set; }
@@ -263,9 +265,16 @@ namespace AmiBroker.Controllers
             symbol = SymbolInActions.FirstOrDefault(x => x.Name == name && x.TimeFrame == timeframe);
             if (symbol == null || (symbol != null && symbol.IsDirty))
             {
-                if (symbol != null) SymbolInActions.Remove(symbol);
-                symbol = new SymbolInAction(name, timeframe);
-                SymbolInActions.Add(symbol);
+                if (symbol != null)
+                {
+                    symbol.RefreshScripts();
+                    symbol.IsDirty = false;
+                }
+                else
+                {
+                    symbol = new SymbolInAction(name, timeframe);
+                    SymbolInActions.Add(symbol);
+                }                
                 return true;
             }
             return false;
@@ -275,6 +284,13 @@ namespace AmiBroker.Controllers
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 LogList.Insert(0, log);
+            });
+        }
+        public void MinorLog(Log log)
+        {
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                MinorLogList.Insert(0, log);
             });
         }
         private void Orders_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)

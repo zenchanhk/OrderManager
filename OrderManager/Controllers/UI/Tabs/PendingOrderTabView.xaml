@@ -37,8 +37,8 @@
                     <GridViewColumn Header="Limit Price" Width="60" DisplayMemberBinding="{Binding LmtPrice}" />
                     <GridViewColumn Header="Stop Price" Width="60" DisplayMemberBinding="{Binding StopPrice}" />
                     <GridViewColumn Header="TimeInForce" Width="70" DisplayMemberBinding="{Binding Tif}" />
-                    <GridViewColumn Header="Good After Time" Width="93" DisplayMemberBinding="{Binding GAT}" />
-                    <GridViewColumn Header="Good Till Date" Width="80" DisplayMemberBinding="{Binding GTD}" />
+                    <GridViewColumn Header="Good After Time" Width="130" DisplayMemberBinding="{Binding GAT}" />
+                    <GridViewColumn Header="Good Till Date" Width="130" DisplayMemberBinding="{Binding GTD}" />
                     <GridViewColumn Header="Destination" Width="80" DisplayMemberBinding="{Binding Exchange}" />
                     <GridViewColumn Header="Parent ID" Width="60" DisplayMemberBinding="{Binding ParentId}" />
                     <GridViewColumn Header="OCAGroup" Width="65" DisplayMemberBinding="{Binding OcaGroup}" />
@@ -46,7 +46,7 @@
                     <GridViewColumn Header="Account" Width="80" DisplayMemberBinding="{Binding Account}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
                     <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
-                    <GridViewColumn Header="Strategy" Width="200" DisplayMemberBinding="{Binding Strategy}" />
+                    <GridViewColumn Header="Strategy" Width="250" DisplayMemberBinding="{Binding Strategy}" />
                 </GridView>
             </ListView.View>
         </ListView>

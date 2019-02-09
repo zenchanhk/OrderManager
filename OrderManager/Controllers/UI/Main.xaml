@@ -71,8 +71,8 @@
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
-                <MenuItem Header="_Refresh Strategy Parameters" Icon="{Binding ImageRefresh}"
-                          Command="{Binding Commands.RefreshStrategyParameters}" CommandParameter="{Binding}"/>
+                <MenuItem Header="_Refresh All Parameters" Icon="{Binding ImageRefresh}"
+                          Command="{Binding Commands.RefreshParameters}" />
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="Appearance" >
@@ -171,8 +171,8 @@
                     </StackPanel>
                 </ToggleButton>
                 <Separator />
-                <Button Background="Transparent" ToolTip="Refresh strategy parameters" 
-                        Command="{Binding Commands.Test}" CommandParameter="{Binding Path=., ElementName=mainWin}"  >
+                <Button Background="Transparent" ToolTip="Refresh all parameters" 
+                        Command="{Binding Commands.RefreshParameters}">
                     <StackPanel Orientation="Horizontal" >
                         <local:IconBlock FontSize="17"
                             Icon="Refresh" Foreground="Green"
@@ -200,6 +200,7 @@
                         <Image Source="{StaticResource clearTemplatesDrawingImage}" Margin="0, 0, 2, 0" Width="18"/>
                     </StackPanel>
                 </Button>
+                <Separator/>
                 <Button Background="Transparent" ToolTip="Export to CSV file" 
                         Command="{Binding Commands.Export}"
                         CommandParameter="{Binding ElementName=mainWin}">
@@ -207,8 +208,15 @@
                     <local:IconBlock FontSize="17"
                             Icon="FileExport"
                             Margin="0, 0, 2, 0"/>
-                        <!--TextBlock Text="Export" /-->
                 </StackPanel>
+                </Button>
+                <Button Name="btnClear" Background="Transparent" ToolTip="Clear list" 
+                        Command="{Binding Commands.ClearListView}"
+                        CommandParameter="{Binding ElementName=mainWin}">
+                    <StackPanel Orientation="Horizontal" >
+                        <controls:AutoGreyableImage IsEnabled="{Binding IsEnabled, ElementName=btnClear}"
+                                                    Source="{StaticResource clearDrawingImage}" Margin="0, 0, 2, 0" Width="18"/>
+                    </StackPanel>
                 </Button>
             </ToolBar>
         </ToolBarTray>
@@ -237,6 +245,7 @@
                         AllowMixedOrientation="True"
                         BorderBrush="Black"
                         BorderThickness="1"
+                             DragEnter="DockingManager_Drop"
                         Theme="{Binding ElementName=_themeCombo, Path=SelectedItem.Tag}" >
             <xcad:DockingManager.DocumentHeaderTemplate>
                 <DataTemplate>
@@ -311,6 +320,10 @@
                                                  IsSelectedChanged="LayoutDocument_IsSelectedChanged" >
                                 <local:LogTabView DataContext="{Binding MainVM, ElementName=mainWin}"/>
                             </xcad:LayoutDocument>
+                            <xcad:LayoutDocument ContentId="minorlog" Title="Minor Log" CanClose="False" 
+                                                 IsSelectedChanged="LayoutDocument_IsSelectedChanged" >
+                                <local:MinorLogTabView DataContext="{Binding MainVM, ElementName=mainWin}"/>
+                            </xcad:LayoutDocument>
                             <xcad:LayoutDocument ContentId="message" Title="Message" CanClose="False" 
                                                  IsSelectedChanged="LayoutDocument_IsSelectedChanged" >
                                 <local:MessageTabView DataContext="{Binding MainVM, ElementName=mainWin}"/>
@@ -327,7 +340,22 @@
             
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
-                    <Separator/>
+                    <StackPanel Orientation="Horizontal" DataContext="{Binding SelectedItem, 
+                                Converter={StaticResource SelectedItemToDataContextConverter},
+                                ConverterParameter=Script}"
+                                Visibility="{Binding DataContext, RelativeSource={x:Static RelativeSource.Self},
+                                Converter={StaticResource DataContextToVisConverter}}">
+                        <Separator Width="1"/>
+                        <TextBlock VerticalAlignment="Center">                            
+                            <Run Text="{Binding BarsHandled}"/>
+                            <Run Text=" bars handled on "/>
+                            <Run Text="{Binding LastBarTime, StringFormat=HH:mm:ss}"/>
+                            <Run Text="["/>
+                            <Run Text="{Binding Name}"/>
+                            <Run Text="]"/>
+                        </TextBlock>
+                    </StackPanel>                    
+                    <Separator Width="1"/>
                     <StatusBarItem  Content="{Binding ScalingFactor, ElementName=mainWin, Converter={StaticResource NumToPercentageConverter}}" />
                     <Separator/>
                     <StatusBarItem >

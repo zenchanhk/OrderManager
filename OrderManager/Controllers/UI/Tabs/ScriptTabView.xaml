@@ -811,103 +811,78 @@
                 </Style>
             </TreeView.ItemContainerStyle>
             <TreeView.Resources>
-                <HierarchicalDataTemplate ItemsSource="{Binding Scripts}" DataType="{x:Type om:SymbolInAction}">
+                <ContextMenu x:Key="tv_Menu">
+                    <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"
+                            Icon="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"
+                            Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
+                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
+                            />
+                    <MenuItem Header="Close Positions"
+                            Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
+                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Refresh parameters"
+                            Icon="{Binding Data.ImageRefresh, Source={StaticResource Proxy}}"
+                            Command="{Binding Data.Commands.RefreshParameters, Source={StaticResource Proxy}}"
+                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"/>
+                </ContextMenu>
+                <DataTemplate x:Key="tvItemBase">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="auto" />
                             <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
                         </Grid.ColumnDefinitions>
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"
-                                          Icon="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"
-                                          Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
-                                          />
-                                <MenuItem Header="Close Positions"
-                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
-                                    <MenuItem.Icon>
-                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
-                                    </MenuItem.Icon>
-                                </MenuItem>                                          
-                            </ContextMenu>
-                        </Grid.ContextMenu>
-                        <Image Source="{StaticResource stockDrawingImage}" Width="19" Margin="2" />
+                        <Image Source="{Binding Converter={StaticResource SelectedItemToIconConverter}}" 
+                               Width="19" Margin="2" />
                         <local:IconBlock Icon="Cancel" FontSize="19" Foreground="Red" Margin="0"
                                          Visibility="{Binding IsEnabled, Converter={StaticResource EnabledToVisConverter}}"/>
-                        <TextBlock VerticalAlignment="Center" 
-                                   Grid.Column="1" IsHitTestVisible="False"
+                        <StackPanel Orientation="Horizontal" Grid.Column="1"
+                                    Visibility="{Binding ShowSign, Converter={StaticResource BoolToVisbilityConverter}}">
+                            <local:IconBlock Icon="{Binding IsDirty, Converter={StaticResource IsDirtyToIconConverter}}" 
+                                             Foreground="{Binding IsDirty, Converter={StaticResource IsDirtyToColorConverter}}"
+                                            VerticalAlignment="Center" FontSize="16"
+                                            />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+                <HierarchicalDataTemplate ItemsSource="{Binding Scripts}" DataType="{x:Type om:SymbolInAction}">
+                    <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
+                        <ContentPresenter Content="{Binding}"
+                                          ContentTemplate="{StaticResource tvItemBase}"/>
+                        <Grid>
+                            <TextBlock VerticalAlignment="Center" 
+                                   Grid.Column="2" IsHitTestVisible="False"
                                    Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}">
                             <Run Text="{Binding Name}" />
                             <Run Text=" - "/>
                             <Run Text="{Binding TimeFrame}"/>
                             <Run Text="min"/>
-                        </TextBlock>
-                        <TextBlock Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
-                    </Grid>
+                            </TextBlock>
+                            <TextBlock Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent"/>
+                        </Grid>                        
+                    </StackPanel>                    
                 </HierarchicalDataTemplate>
                 <HierarchicalDataTemplate ItemsSource="{Binding Strategies}" DataType="{x:Type om:Script}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="auto" />
-                            <ColumnDefinition Width="auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"
-                                          Icon="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"
-                                          Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
-                                          />
-                                <MenuItem Header="Close Positions"
-                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
-                                    <MenuItem.Icon>
-                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                            </ContextMenu>
-                        </Grid.ContextMenu>
-                        <Image Source="{StaticResource scriptDrawingImage}" Width="19" Margin="2" />
-                        <local:IconBlock Icon="Cancel" FontSize="19" Foreground="Red" Margin="0"
-                                         Visibility="{Binding IsEnabled, Converter={StaticResource EnabledToVisConverter}}"/>
+                    <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
+                        <ContentPresenter Content="{Binding}"
+                                          ContentTemplate="{StaticResource tvItemBase}"/>
                         <TextBlock VerticalAlignment="Center" 
-                                   Grid.Column="1" 
                                    Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}"
                                    Text="{Binding Name, Mode=OneWay}" />
-                    </Grid>
+                    </StackPanel>
                 </HierarchicalDataTemplate>
                 <DataTemplate DataType="{x:Type om:Strategy}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="auto" />
-                            <ColumnDefinition Width="auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"
-                                          Icon="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"
-                                          Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
-                                          />
-                                <MenuItem Header="Close Positions"
-                                          Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
-                                          CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
-                                    <MenuItem.Icon>
-                                        <Image Source="{StaticResource closeCurrentDrawingImage}"/>
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                            </ContextMenu>
-                        </Grid.ContextMenu>
-                        <Image Source="{StaticResource StrategyDrawingImage}" Width="19" Margin="2"/>
-                        <local:IconBlock Icon="Cancel" FontSize="19" Foreground="Red" Margin="0"
-                                         Visibility="{Binding IsEnabled, Converter={StaticResource EnabledToVisConverter}}"/>
+                    <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
+                        <ContentPresenter Content="{Binding}"
+                                          ContentTemplate="{StaticResource tvItemBase}"/>
                         <TextBlock VerticalAlignment="Center" 
-                                   Grid.Column="1" 
                                    Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}"
                                    Text="{Binding Name, Mode=OneWay}" />
-                    </Grid>
+                    </StackPanel>
                 </DataTemplate>
             </TreeView.Resources>
         </TreeView>

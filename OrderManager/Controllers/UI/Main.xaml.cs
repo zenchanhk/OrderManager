@@ -616,6 +616,20 @@ namespace AmiBroker.Controllers
             if (scriptDocument != null && scriptDocument.IsSelected)
                 RefreshCachedControl(scriptDocument);
         }
+
+        private void DockingManager_Drop(object sender, DragEventArgs e)
+        {
+            LayoutDocument doc = sender as LayoutDocument;
+            if (doc != null && doc.ContentId == "script")
+            {
+                RefreshCachedControl(doc);
+            }
+        }
+
+        private void DockingManager_LayoutChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 
     #region Ticker

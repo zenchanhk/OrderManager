@@ -28,6 +28,10 @@ namespace AmiBroker.Controllers
     }
     public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
+        private readonly static object lockObj = new object();
+        private readonly static AsyncLock m_lock = new AsyncLock();
+        private static int OrderIdCount = 0;
+
         MessageHub _hub = MessageHub.Instance;
         public Type Type { get { return this.GetType(); } }
         public EClientSocket Client { get => ClientSocket; }
@@ -254,7 +258,7 @@ namespace AmiBroker.Controllers
             }
             catch (Exception ex)
             {
-                throw ex;
+                //throw ex;
                 return null;
             }            
         }
@@ -398,7 +402,7 @@ namespace AmiBroker.Controllers
         /// <param name="accountInfo"></param>
         /// <param name="symbol"></param>
         /// <returns>-1 means failure</returns>
-        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
+        public async Task<OrderLog> PlaceOrderAsync(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
         {         
             OrderLog orderLog = new OrderLog();
             string message = string.Empty;
@@ -453,7 +457,7 @@ namespace AmiBroker.Controllers
                         contract.Currency = parts[3];
                         break;
                 }
-                IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+                IBContract c = await reqContractDetailsAsync(contract);
                 contract = c.Contract;
             }
             else
@@ -461,10 +465,17 @@ namespace AmiBroker.Controllers
             
             if (contract != null)
             {
-                int orderId = NextValidOrderId;
-                ClientSocket.placeOrder(orderId, contract, order);
-                NextValidOrderId++;
-                orderLog.OrderId = orderId;
+                int? orderId = null;
+                using (await m_lock.LockAsync())
+                {
+                    orderId = OrderIdCount++;
+                }
+                if (orderId == null)
+                {
+                    return null;
+                }
+                ClientSocket.placeOrder((int)orderId, contract, order);
+                orderLog.OrderId = (int)orderId;
                 orderLog.PosSize = (int)Math.Round(order.TotalQuantity / strategy.Symbol.RoundLotSize);
                 return orderLog;
             }
@@ -547,6 +558,11 @@ namespace AmiBroker.Controllers
                         Contract = e.Contract,
                         Vendor = Vendor
                     };
+                    if (mainVM.OrderInfoList.ContainsKey(e.OrderId))
+                    {
+                        Strategy strategy = mainVM.OrderInfoList[e.OrderId].Strategy;
+                        dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name;
+                    }
                     mainVM.Orders.Insert(0, dOrder);
                 }                
             });
@@ -686,7 +702,7 @@ namespace AmiBroker.Controllers
             if (mainVM.OrderInfoList.ContainsKey(e.RequestId))
             {
                 OrderInfo oi = mainVM.OrderInfoList[e.RequestId];
-                if (oi.Strategy.AccountStat[oi.Account.Name].AccoutStatus.ToString().ToLower().Contains("pending"))
+                if (oi.Strategy.AccountStat[oi.Account.Name].AccountStatus.ToString().ToLower().Contains("pending"))
                 {
                     oi.Error = e.Message;
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
@@ -762,6 +778,7 @@ namespace AmiBroker.Controllers
                         Time = DateTime.Now,
                         Text = "Connected -- NextValidOrderID: " + e.NextValidOrderId
                     });
+                    OrderIdCount = e.NextValidOrderId;
                 });
 
                 // place an order impossible traded for JITed performance
@@ -780,15 +797,15 @@ namespace AmiBroker.Controllers
                 orderType.Slippage = 0;
                 strategy.BuyOrderTypes.Add(orderType);
 
-                OrderLog ol1 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                OrderLog ol1 = await PlaceOrderAsync(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
                 Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
                 mainVM.Log(log1);
 
-                OrderLog ol2 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                OrderLog ol2 = await PlaceOrderAsync(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
                 Log log2 = new Log { Time = DateTime.Now, Text = "Faked order2 placed." };
                 mainVM.Log(log2);
 
-                OrderLog ol3 = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+                OrderLog ol3 = await PlaceOrderAsync(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
                 Log log3 = new Log { Time = DateTime.Now, Text = "Faked order3 placed." };
                 mainVM.Log(log3);
                 ClientSocket.cancelOrder(ol1.OrderId);

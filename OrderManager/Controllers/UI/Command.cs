@@ -24,7 +24,7 @@ namespace AmiBroker.Controllers
         public ICommand CloseCurrentOpenOrders { get; set; } = new CloseCurrentOpenOrders();
         public ICommand ShowConfigDialog { get; set; } = new DisplayConfigDialog();
         public ICommand ConnectByContextMenu { get; set; } = new ConnectByContextMenu();
-        public ICommand RefreshStrategyParameters { get; set; } = new RefreshStrategyParameters();
+        public ICommand RefreshParameters { get; set; } = new RefreshParameters();
         public ICommand EnableScriptExecution { get; set; } = new EnableScriptExecution();
         public ICommand ApplySettingsToStrategy { get; set; } = new ApplySettingsToStrategy();
         public ICommand ClearSettings { get; set; } = new ClearSettings();
@@ -41,6 +41,7 @@ namespace AmiBroker.Controllers
         public ICommand CancelEditTemplateOnSite { get; set; } = new CancelEditTemplateOnSite();
         public ICommand CopyOrderSetup { get; set; } = new CopyOrderSetup();
         public ICommand Export { get; set; } = new Export();
+        public ICommand ClearListView { get; set; } = new ClearListView();
         public ICommand AssignStrategy { get; set; } = new AssignStrategy();
         public ICommand Test { get; set; } = new Test();
     }
@@ -751,7 +752,7 @@ namespace AmiBroker.Controllers
             }
         }
     }
-    public class RefreshStrategyParameters : ICommand
+    public class RefreshParameters : ICommand
     {
         public bool CanExecute(object parameter)
         {
@@ -764,9 +765,20 @@ namespace AmiBroker.Controllers
             remove { CommandManager.RequerySuggested -= value; }
         }
 
-        public void Execute(object VM)
+        public void Execute(object parameter)
         {
-                        
+            MainViewModel mainVM = MainViewModel.Instance;
+            if (parameter == null)
+            {
+                foreach (var symbol in mainVM.SymbolInActions)
+                {
+                    symbol.IsDirty = true;
+                }
+            }
+            else
+            {
+                ((dynamic)parameter).IsDirty = true;
+            }
         }
     }
     public class ConnectByContextMenu : ICommand
@@ -848,7 +860,7 @@ namespace AmiBroker.Controllers
                     if (symbol.Position == 0) continue;
                     if (symbol.Position > 0) orderAction = OrderAction.Sell;
                     if (symbol.Position < 0) orderAction = OrderAction.Cover;
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
+                    controller.PlaceOrderAsync(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
                 }
                 foreach (SymbolInAction symbol in mainVM.SymbolInActions)
                 {
@@ -978,4 +990,40 @@ namespace AmiBroker.Controllers
         }
     }
 
+    public class ClearListView : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            MainWindow mainWin = parameter as MainWindow;
+            if (mainWin != null && mainWin.ActivateListView != null)
+                return true;
+            else
+                return false;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            MainWindow mainWin = parameter as MainWindow;
+
+            MessageBoxResult result = MessageBox.Show("Are your sure to delete all content?",
+                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+
+            if (result == MessageBoxResult.Yes)
+            {                
+                var lv = mainWin.ActivateListView;
+                if (lv?.ItemsSource != null)
+                {
+                    MethodInfo mi = lv.ItemsSource.GetType().GetMethod("Clear");
+                    if (mi != null)
+                        mi.Invoke(lv.ItemsSource, null);
+                }
+            }
+        }
+    }
 }

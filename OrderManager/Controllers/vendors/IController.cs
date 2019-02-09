@@ -32,57 +32,57 @@ namespace AmiBroker.Controllers
         {
             if (orderAction == OrderAction.Buy)
             {
-                stat.AccoutStatus &= ~AccountStatus.BuyPending;
+                stat.AccountStatus &= ~AccountStatus.BuyPending;
             }
             else if (orderAction == OrderAction.Short)
             {
-                stat.AccoutStatus &= ~AccountStatus.ShortPending;
+                stat.AccountStatus &= ~AccountStatus.ShortPending;
             }
             else if (orderAction == OrderAction.Sell)
             {
-                stat.AccoutStatus &= ~AccountStatus.SellPending;
+                stat.AccountStatus &= ~AccountStatus.SellPending;
             }
             else if (orderAction == OrderAction.Cover)
             {
-                stat.AccoutStatus &= ~AccountStatus.CoverPending;
+                stat.AccountStatus &= ~AccountStatus.CoverPending;
             }
         }
         public static void SetActionStatus(ref BaseStat stat, OrderAction orderAction)
         {
             if (orderAction == OrderAction.Buy)
             {
-                stat.AccoutStatus |= AccountStatus.BuyPending;
+                stat.AccountStatus |= AccountStatus.BuyPending;
             }
             else if (orderAction == OrderAction.Short)
             {
-                stat.AccoutStatus |= AccountStatus.ShortPending;
+                stat.AccountStatus |= AccountStatus.ShortPending;
             }
             else if (orderAction == OrderAction.Sell)
             {
-                stat.AccoutStatus |= AccountStatus.SellPending;
+                stat.AccountStatus |= AccountStatus.SellPending;
             }
             else if (orderAction == OrderAction.Cover)
             {
-                stat.AccoutStatus |= AccountStatus.CoverPending;
+                stat.AccountStatus |= AccountStatus.CoverPending;
             }
         }
         public static void SetPositionStatus(ref BaseStat stat, OrderAction orderAction)
         {
             if (orderAction == OrderAction.Buy)
             {
-                stat.AccoutStatus |= AccountStatus.Long;
+                stat.AccountStatus |= AccountStatus.Long;
             }
             else if (orderAction == OrderAction.Short)
             {
-                stat.AccoutStatus |= AccountStatus.Short;
+                stat.AccountStatus |= AccountStatus.Short;
             }
             else if (orderAction == OrderAction.Sell && stat.LongPosition == 0)
             {
-                stat.AccoutStatus &= ~AccountStatus.Long;
+                stat.AccountStatus &= ~AccountStatus.Long;
             }
             else if (orderAction == OrderAction.Cover && stat.ShortPosition == 0)
             {
-                stat.AccoutStatus &= ~AccountStatus.Short;
+                stat.AccountStatus &= ~AccountStatus.Short;
             }
         }
     }
@@ -204,6 +204,6 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppress = false);
+        Task<OrderLog> PlaceOrderAsync(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppress = false);
     }
 }
