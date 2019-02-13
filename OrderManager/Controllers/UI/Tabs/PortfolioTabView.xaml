@@ -23,6 +23,12 @@
                             <Image Source="{StaticResource assignDrawingImage}"/>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem Header="Close current positions" Command="{Binding Path=DataContext.Commands.CloseSymbolOpenOrders, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke"
+                              CommandParameter="{Binding Path=DataContext.SelectedPortfolio, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
+                        <MenuItem.Icon>
+                            <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </ContextMenu>                
             </ListView.Resources>
             <ListView.ItemContainerStyle>

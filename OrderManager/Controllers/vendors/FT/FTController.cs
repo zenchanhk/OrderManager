@@ -137,5 +137,14 @@ namespace AmiBroker.Controllers
         {
             return null;
         }
+
+        public void CancelOrder(int orderId)
+        {
+
+        }
+        public async Task<bool> CancelOrderAsync(int orderId)
+        {
+            return false;
+        }
     }
 }

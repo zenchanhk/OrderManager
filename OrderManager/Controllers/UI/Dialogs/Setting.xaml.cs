@@ -27,6 +27,7 @@ namespace AmiBroker.Controllers
         public int Port { get; set; }
         public int ClientId { get; set; }
         public bool IsActivate { get; set; }
+        public bool IsMulti { get; set; }
         // used to enable/disable list item selection
         public bool ReadOnly { get; set; } = false;
     }
@@ -236,6 +237,7 @@ namespace AmiBroker.Controllers
                 ao.Port = ac.Port;
                 ao.ClientId = ac.ClientId; 
                 ao.IsActivate = ac.IsActivate;
+                ao.IsMulti = ac.IsMulti;
                 accOpt.Accounts.Add(ao);
                 if (accOpt.IsExclusive && ac.IsActivate)
                 {
@@ -314,7 +316,9 @@ namespace AmiBroker.Controllers
 
         private void ListView_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            EditAccountConfig(((ListView)sender).Name.Substring(3, 2));
+            ListView lv = sender as ListView;
+            if (lv.SelectedItem != null && !((dynamic)lv.SelectedItem).ReadOnly)
+                EditAccountConfig(((ListView)sender).Name.Substring(3, 2));
         }
 
         private void EditAccountConfig(string vendor)
@@ -335,6 +339,7 @@ namespace AmiBroker.Controllers
                 ac.Port = ao.Port;
                 ac.ClientId = ao.ClientId;
                 ac.IsActivate = ao.IsActivate;
+                ac.IsMulti = ao.IsMulti;
                 ac.ShowDialog();
                 if ((bool)ac.DialogResult)
                 {
@@ -343,6 +348,7 @@ namespace AmiBroker.Controllers
                     ao.Port = ac.Port;
                     ao.ClientId = ac.ClientId;
                     ao.IsActivate = ac.IsActivate;
+                    ao.IsMulti = ac.IsMulti;
                     if (accOpt.IsExclusive && ac.IsActivate)
                     {
                         foreach (ConnectionParam cp in accOpt.Accounts)

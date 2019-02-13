@@ -28,6 +28,11 @@ namespace AmiBroker.Controllers
     }
     public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
+        //private readonly object lockObj = new object();
+        // there is one instance for one account, so lock should not be static
+        private readonly AsyncLock m_lock = new AsyncLock();
+        private int OrderIdCount = 0;
+
         MessageHub _hub = MessageHub.Instance;
         public Type Type { get { return this.GetType(); } }
         public EClientSocket Client { get => ClientSocket; }
@@ -254,11 +259,33 @@ namespace AmiBroker.Controllers
             }
             catch (Exception ex)
             {
-                throw ex;
+                //throw ex;
                 return null;
             }            
         }
-
+        public async Task<int> reqIdsAsync()
+        {
+            try
+            {
+                var c = await IBTaskExt.FromEventToAsync<ConnectionStatusEventArgs>(
+                handler =>
+                {
+                    EventDispatcher.ConnectionStatus += new EventHandler<ConnectionStatusEventArgs>(handler);
+                },
+                () => ClientSocket.reqIds(1),
+                handler =>
+                {
+                    EventDispatcher.ConnectionStatus -= new EventHandler<ConnectionStatusEventArgs>(handler);
+                },
+                CancellationToken.None);
+                return c.NextValidOrderId;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+                return -1;
+            }
+        }
         private void Request()
         { 
             ClientSocket.reqManagedAccts();            
@@ -406,6 +433,7 @@ namespace AmiBroker.Controllers
             orderLog.Error = message;
             if (message != string.Empty && !errorSuppressed)
             {
+                orderLog.OrderId = -1;
                 return orderLog;
             }            
             orderLog.OrgPrice = order.LmtPrice;
@@ -461,15 +489,56 @@ namespace AmiBroker.Controllers
             
             if (contract != null)
             {
-                int orderId = NextValidOrderId;
-                ClientSocket.placeOrder(orderId, contract, order);
-                NextValidOrderId++;
+                int orderId = 0;
+                if (!ConnParam.IsMulti)
+                {
+                    using (await m_lock.LockAsync())
+                    {
+                        orderId = OrderIdCount++;
+                        ClientSocket.placeOrder(orderId, contract, order);
+                    }
+                }
+                else
+                {
+                    // if multi instances are running, valid order id must be obtained from IB server
+                    // this will degrade the performance seriously
+                    orderId = await reqIdsAsync();
+                    ClientSocket.placeOrder(orderId, contract, order);
+                }
                 orderLog.OrderId = orderId;
                 orderLog.PosSize = (int)Math.Round(order.TotalQuantity / strategy.Symbol.RoundLotSize);
                 return orderLog;
             }
             orderLog.OrderId = -1;
             return orderLog;
+        }
+        public void CancelOrder(int orderId)
+        {
+            ClientSocket.cancelOrder(orderId);
+        }
+        public async Task<bool> CancelOrderAsync(int orderId)
+        {
+            try
+            {
+                bool c = await IBTaskExt.FromEvent<EventArgs, bool>(
+                handler =>
+                {
+                    EventDispatcher.OrderStatus += new EventHandler<OrderStatusEventArgs>(handler);
+                    EventDispatcher.Error += new EventHandler<ErrorEventArgs>(handler);
+                },
+                (reqId) => ClientSocket.cancelOrder(orderId),
+                handler =>
+                {
+                    EventDispatcher.OrderStatus -= new EventHandler<OrderStatusEventArgs>(handler);
+                    EventDispatcher.Error -= new EventHandler<ErrorEventArgs>(handler);
+                },
+                CancellationToken.None, orderId);
+                return c;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
         }
         public async void Connect()
         {
@@ -547,6 +616,11 @@ namespace AmiBroker.Controllers
                         Contract = e.Contract,
                         Vendor = Vendor
                     };
+                    if (mainVM.OrderInfoList.ContainsKey(e.OrderId))
+                    {
+                        Strategy strategy = mainVM.OrderInfoList[e.OrderId].Strategy;
+                        dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name;
+                    }
                     mainVM.Orders.Insert(0, dOrder);
                 }                
             });
@@ -685,26 +759,33 @@ namespace AmiBroker.Controllers
             string msg = e.Exception != null ? e.Exception.Message : e.Message;
             if (mainVM.OrderInfoList.ContainsKey(e.RequestId))
             {
-                OrderInfo oi = mainVM.OrderInfoList[e.RequestId];
-                if (oi.Strategy.AccountStat[oi.Account.Name].AccoutStatus.ToString().ToLower().Contains("pending"))
+                OrderInfo oi = mainVM.OrderInfoList[e.RequestId];                
+                oi.Error = e.Message;
+                BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
+                string prevStatus = strategyStat.AccountStatus.ToString();
+                AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
+                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
-                    oi.Error = e.Message;
-                    BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
-                    AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
-                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    mainVM.Log(new Log()
                     {
-                        mainVM.Log(new Log()
-                        {
-                            Time = DateTime.Now,
-                            Text = e.Message,
-                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name
-                        });
+                        Time = DateTime.Now,
+                        Text = e.Message + "(previous status: " + prevStatus +")",
+                        Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name
                     });
-                }                
+                });      
             }
             else if (e.RequestId > 0)
             {
                 int i = 0;
+                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                {
+                    mainVM.Log(new Log()
+                    {
+                        Time = DateTime.Now,
+                        Text = "(orderId not found)" + e.Message,
+                        Source = e.RequestId.ToString()
+                    });
+                });
             }
             if (e.Message != null && (e.Message.Contains("Connectivity between IB and Trader Workstation has been lost")
                 || e.Message.Contains("Connectivity between Trader Workstation and server is broken")))
@@ -723,13 +804,13 @@ namespace AmiBroker.Controllers
             {
                 ConnectionStatus = "Disconnected";
             }
-            System.Windows.Threading.Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 mainVM.MessageList.Insert(0, new Message()
                 {
                     Time = DateTime.Now,
                     Code = e.ErrorCode,
-                    Text = msg,
+                    Text = e.RequestId != -1 ? "Request ID:" + e.RequestId + ", msg:" + msg : msg,
                     Source = DisplayName
                 });
             });
@@ -749,8 +830,9 @@ namespace AmiBroker.Controllers
             ConnectionStatus = "Disconnected";
         }
 
-        private async void eh_ConnectionStatus(object sender, IB.CSharpApiClient.Events.ConnectionStatusEventArgs e)
+        private async void eh_ConnectionStatus(object sender, ConnectionStatusEventArgs e)
         {
+            EventDispatcher.ConnectionStatus -= eh_ConnectionStatus;
             if (e.IsConnected)
             {
                 ConnectionStatus = "Connected";
@@ -762,6 +844,7 @@ namespace AmiBroker.Controllers
                         Time = DateTime.Now,
                         Text = "Connected -- NextValidOrderID: " + e.NextValidOrderId
                     });
+                    OrderIdCount = e.NextValidOrderId;
                 });
 
                 // place an order impossible traded for JITed performance
@@ -839,7 +922,7 @@ namespace AmiBroker.Controllers
             System.Action<int> action,
             Action<EventHandler<TEventArgs>> unregisterEvent,
             CancellationToken token,
-            object controller = null)
+            object parameter = null)
         {
             int reqId = reqIdCount++;
             if (reqIdCount >= int.MaxValue)
@@ -849,14 +932,15 @@ namespace AmiBroker.Controllers
             Contract contract = new Contract();
             EventHandler<TEventArgs> handler = (sender, args) =>
             {
-                if (args.GetType() == typeof(IB.CSharpApiClient.Events.ErrorEventArgs))
+                if (args.GetType() == typeof(ErrorEventArgs))
                 {
-                    IB.CSharpApiClient.Events.ErrorEventArgs arg = args as IB.CSharpApiClient.Events.ErrorEventArgs;
+                    ErrorEventArgs arg = args as ErrorEventArgs;
                     if (arg.RequestId == reqId)
                     {
                         Exception ex = new Exception(arg.Message);
                         ex.Data.Add("RequestId", arg.RequestId);
                         ex.Data.Add("ErrorCode", arg.ErrorCode);
+                        ex.Data.Add("Message", arg.Message);
                         ex.Source = "IBTaskExt.FromEvent";
                         tcs.TrySetException(ex);
                     }
@@ -873,25 +957,28 @@ namespace AmiBroker.Controllers
                     contract.Currency = arg.ContractDetails.Summary.Currency;
                     IBContract ibContract = new IBContract { Contract = contract };
                     ibContract.MinTick = arg.ContractDetails.MinTick;
-                    try
-                    {
-                        tcs.SetResult((T)(object)ibContract);
-                    }
-                    catch (Exception)
-                    {
-                        int i = 0;
-                    }
-                    //tcs.TrySetResult((T)(object)ibContract);
+                    tcs.TrySetResult((T)(object)ibContract);
                     /*
                     string[] ruleIds = arg.ContractDetails.MarketRuleIds.Split(new char[] { ',' });
-                    if (controller != null)
+                    if (parameter != null)
                     {
                         for (int i = 0; i < ruleIds.Length; i++)
                         {
-                            ((IBController)controller).Client.reqMarketRule(int.Parse(ruleIds[i]));
+                            ((IBController)parameter).Client.reqMarketRule(int.Parse(ruleIds[i]));
                         }
                     }
                       */  
+                }
+                else if (args.GetType() == typeof(OrderStatusEventArgs))
+                {
+                    OrderStatusEventArgs arg = args as OrderStatusEventArgs;
+                    if (arg.OrderId == (int)parameter)
+                    {
+                        if (arg.Status == "ApiCancelled" || arg.Status == "Cancelled")
+                            tcs.TrySetResult((T)(object)true);
+                        else
+                            tcs.TrySetResult((T)(object)false);
+                    }
                 }
                 // get min price increment for each exchange
                 else if (args.GetType() == typeof(MarketRuleEventArgs))
@@ -910,6 +997,30 @@ namespace AmiBroker.Controllers
                 using (token.Register(() => tcs.SetCanceled()))
                 {
                     action(reqId);
+                    return await tcs.Task;
+                }
+            }
+            finally
+            {
+                unregisterEvent(handler);
+            }
+        }
+
+        public static async Task<TEventArgs> FromEventToAsync<TEventArgs>(
+            Action<EventHandler<TEventArgs>> registerEvent,
+            System.Action action,
+            Action<EventHandler<TEventArgs>> unregisterEvent,
+            CancellationToken token)
+        {
+            var tcs = new TaskCompletionSource<TEventArgs>();
+            EventHandler<TEventArgs> handler = (sender, args) => tcs.TrySetResult(args);
+            registerEvent(handler);
+
+            try
+            {
+                using (token.Register(() => tcs.SetCanceled()))
+                {
+                    action();
                     return await tcs.Task;
                 }
             }

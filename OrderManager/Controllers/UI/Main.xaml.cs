@@ -306,8 +306,22 @@ namespace AmiBroker.Controllers
                     OnPropertyChanged("AlwaysOnTop");
                 }
             }
-        }                
-        
+        }
+
+        private bool _pMinorLogPause;
+        public bool MinorLogPause
+        {
+            get { return _pMinorLogPause; }
+            set
+            {
+                if (_pMinorLogPause != value)
+                {
+                    _pMinorLogPause = value;
+                    OnPropertyChanged("MinorLogPause");
+                }
+            }
+        }
+
         public MainViewModel MainVM { get; private set; } = MainViewModel.Instance;
 
         private static int id = 0;
@@ -369,7 +383,7 @@ namespace AmiBroker.Controllers
             this.Icon = bi;
 
             ScalingFactor = 1;
-
+            MinorLogPause = true;
             // prevent Alt+F4 from shutting down windows
             this.KeyDown += MainWindow_KeyDown;
             MainVM.MessageList.CollectionChanged += MessageList_CollectionChanged;
@@ -615,6 +629,20 @@ namespace AmiBroker.Controllers
                 FindDocument();
             if (scriptDocument != null && scriptDocument.IsSelected)
                 RefreshCachedControl(scriptDocument);
+        }
+
+        private void DockingManager_Drop(object sender, DragEventArgs e)
+        {
+            LayoutDocument doc = sender as LayoutDocument;
+            if (doc != null && doc.ContentId == "script")
+            {
+                RefreshCachedControl(doc);
+            }
+        }
+
+        private void DockingManager_LayoutChanged(object sender, EventArgs e)
+        {
+
         }
     }
 

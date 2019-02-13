@@ -8,7 +8,14 @@
             ResizeMode="NoResize"
         Closing="Window_Closing"
         Title="Configuration"
-            Height="450" Width="500">
+            Height="450" Width="550">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../Resource.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
     <Grid Margin="5,5,5,5">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="150" />
@@ -47,8 +54,12 @@
                                 </Grid.RowDefinitions>
                                 <DockPanel HorizontalAlignment="Stretch"  Grid.Row="0" >
                                     <Button Name="btn_ib_add" Content="Add" Width="60" Margin="0,5" Click="AddBtn_Click" />
-                                    <Button Name="btn_ib_edit" Content="Edit" Width="60" Margin="5" Click="EditBtn_Click" />
-                                    <Button Name="btn_ib_del" Content="Delete" Width="60" Margin="5" Click="DeleteBtn_Click" />
+                                    <Button Name="btn_ib_edit" Content="Edit" Width="60" Margin="5" Click="EditBtn_Click"
+                                            IsEnabled="{Binding SelectedItem.ReadOnly, ElementName=lv_ib_acc,
+                                                Converter={StaticResource BoolRevConverter}}"/>
+                                    <Button Name="btn_ib_del" Content="Delete" Width="60" Margin="5" Click="DeleteBtn_Click"
+                                            IsEnabled="{Binding SelectedItem.ReadOnly, ElementName=lv_ib_acc,
+                                                Converter={StaticResource BoolRevConverter}}"/>
                                     <CheckBox Name="chk_ib_ex" HorizontalAlignment="Right" VerticalAlignment="Center"
                                               IsChecked="{Binding Path=IBAccount.IsExclusive}" >
                                         <TextBlock Text="Exclusive" />
@@ -61,7 +72,7 @@
                                         <Style TargetType="ListViewItem">
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding ReadOnly}" Value="True">
-                                                    <Setter Property="IsHitTestVisible" Value="False"/>
+                                                    <!--Setter Property="IsHitTestVisible" Value="False"/-->
                                                     <Setter Property="Foreground" Value="DarkGray" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -74,6 +85,13 @@
                                             <GridViewColumn Header="Port" Width="50" DisplayMemberBinding="{Binding Port}" />
                                             <GridViewColumn Header="ClientID" Width="50" DisplayMemberBinding="{Binding ClientId}" />
                                             <GridViewColumn Header="Active" Width="40" DisplayMemberBinding="{Binding IsActivate}" />
+                                            <GridViewColumn Header="Multiple" Width="50" >
+                                                <GridViewColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <CheckBox HorizontalAlignment="Center" IsChecked="{Binding IsMulti}"/>
+                                                    </DataTemplate>
+                                                </GridViewColumn.CellTemplate>
+                                            </GridViewColumn>
                                         </GridView>
                                     </ListView.View>
                                 </ListView>

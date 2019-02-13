@@ -22,9 +22,11 @@ namespace AmiBroker.Controllers
         public ICommand DisconnectAll { get; set; } = new DisconnectAll();
         public ICommand CloseAllOpenOrders { get; set; } = new CloseAllOpenOrders();
         public ICommand CloseCurrentOpenOrders { get; set; } = new CloseCurrentOpenOrders();
+        public ICommand CloseSymbolOpenOrders { get; set; } = new CloseSymbolOpenOrders();
+        public ICommand CancelPendingOrder { get; set; } = new CancelPendingOrder();
         public ICommand ShowConfigDialog { get; set; } = new DisplayConfigDialog();
         public ICommand ConnectByContextMenu { get; set; } = new ConnectByContextMenu();
-        public ICommand RefreshStrategyParameters { get; set; } = new RefreshStrategyParameters();
+        public ICommand RefreshParameters { get; set; } = new RefreshParameters();
         public ICommand EnableScriptExecution { get; set; } = new EnableScriptExecution();
         public ICommand ApplySettingsToStrategy { get; set; } = new ApplySettingsToStrategy();
         public ICommand ClearSettings { get; set; } = new ClearSettings();
@@ -41,6 +43,7 @@ namespace AmiBroker.Controllers
         public ICommand CancelEditTemplateOnSite { get; set; } = new CancelEditTemplateOnSite();
         public ICommand CopyOrderSetup { get; set; } = new CopyOrderSetup();
         public ICommand Export { get; set; } = new Export();
+        public ICommand ClearListView { get; set; } = new ClearListView();
         public ICommand AssignStrategy { get; set; } = new AssignStrategy();
         public ICommand Test { get; set; } = new Test();
     }
@@ -75,7 +78,11 @@ namespace AmiBroker.Controllers
                 MainViewModel mainVM = MainViewModel.Instance;
                 DisplayedOrder order = parameter as DisplayedOrder;
                 if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
-                    return false;
+                {
+                    OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
+                    if (oi.Filled == oi.PosSize)
+                        return false;
+                }                    
             }
             return true;
         }
@@ -103,9 +110,10 @@ namespace AmiBroker.Controllers
                 {
                     symbolName = sd.ContractId;
                     string ex1 = sd?.Contract?.Exchange != null ? sd?.Contract?.Exchange : sd?.Contract?.PrimaryExch;
-                    string ex2 = ((dynamic)parameter).Contract?.Exchange != null ? ((dynamic)parameter).Contract?.Exchange : ((dynamic)parameter).Contract?.PrimaryExch;
-                    return sd.Contract != null && sd?.Contract?.ConId == ((dynamic)parameter).Contract?.ConId
-                        && ex1 == ex2;
+                    symbolName += " - " + ex1;
+                    //string ex2 = ((dynamic)parameter).Contract?.Exchange != null ? ((dynamic)parameter).Contract?.Exchange : ((dynamic)parameter).Contract?.PrimaryExch;
+                    return sd.Contract != null && sd?.Contract?.ConId == ((dynamic)parameter).Contract?.ConId;
+                        //&& ex1 == ex2;
                 }                    
                 else
                     return false;
@@ -751,7 +759,7 @@ namespace AmiBroker.Controllers
             }
         }
     }
-    public class RefreshStrategyParameters : ICommand
+    public class RefreshParameters : ICommand
     {
         public bool CanExecute(object parameter)
         {
@@ -764,9 +772,20 @@ namespace AmiBroker.Controllers
             remove { CommandManager.RequerySuggested -= value; }
         }
 
-        public void Execute(object VM)
+        public void Execute(object parameter)
         {
-                        
+            MainViewModel mainVM = MainViewModel.Instance;
+            if (parameter == null)
+            {
+                foreach (var symbol in mainVM.SymbolInActions)
+                {
+                    symbol.IsDirty = true;
+                }
+            }
+            else
+            {
+                ((dynamic)parameter).IsDirty = true;
+            }
         }
     }
     public class ConnectByContextMenu : ICommand
@@ -810,6 +829,139 @@ namespace AmiBroker.Controllers
             foreach (var ctrl in ((MainViewModel)VM).Controllers)
             {
                 ctrl.Disconnect();
+            }
+        }
+    }
+    public class CancelPendingOrder : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            MainViewModel mainVM = MainViewModel.Instance;
+            DisplayedOrder order = mainVM.SelectedPendingOrder;
+
+            if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
+            {
+                OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
+                if (oi.Filled < oi.PosSize)
+                    return true;
+                else
+                    return false;
+            }
+            else
+                return false;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public async void Execute(object VM)
+        {
+            MainViewModel mainVM = MainViewModel.Instance;
+            DisplayedOrder order = mainVM.SelectedPendingOrder;
+            MessageBoxResult msgResult = MessageBoxResult.No;
+            if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
+                msgResult = MessageBox.Show("Are you sure to close selected pending order?",
+                                          "Warning",
+                                          MessageBoxButton.YesNo,
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
+            else
+            {
+                MessageBox.Show("This pending order is not generated by this program, failed to cancel.",
+                                          "Error",
+                                          MessageBoxButton.OK,
+                                          MessageBoxImage.Error);
+            }                
+
+            if (msgResult == MessageBoxResult.No)
+            {
+                return;
+            }
+            else
+            {
+                OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
+                IController controller = oi.Account.Controller;
+                if (oi.Filled == oi.PosSize) return;
+                try
+                {
+                    bool result = await controller.CancelOrderAsync(oi.OrderId);
+                    if (!result)
+                        MessageBox.Show("Cancel order failed", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                catch (Exception ex)
+                {
+                    GlobalExceptionHandler.HandleException(null, ex, null, "Exception occurred during cancelling order");
+                }
+                
+            }
+        }
+    }
+    public class CloseSymbolOpenOrders : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            MainViewModel mainVM = MainViewModel.Instance;
+            SymbolInMkt symbol = mainVM.SelectedPortfolio;
+            if (symbol.Position != 0)
+                return true;
+            else
+                return false;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object VM)
+        {
+            MessageBoxResult msgResult = MessageBox.Show("Are you sure to close all open positions for selected symbols?",
+                                          "Warning",
+                                          MessageBoxButton.YesNo,
+                                          MessageBoxImage.Warning, MessageBoxResult.No);
+            if (msgResult == MessageBoxResult.No)
+            {
+                return;
+            }
+            else
+            {
+                MainViewModel mainVM = MainViewModel.Instance;
+                SymbolInMkt symbol = mainVM.SelectedPortfolio;
+                IController controller = mainVM.Controllers.FirstOrDefault(x => x.Accounts.FirstOrDefault(y => y.Name == symbol.Account) != null);
+                AccountInfo accountInfo = controller.Accounts.FirstOrDefault(x => x.Name == symbol.Account);
+                BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(symbol.Vendor + "MarketOrder");
+                OrderAction orderAction = OrderAction.Buy;
+                if (symbol.Position == 0) return;
+                if (symbol.Position > 0) orderAction = OrderAction.Sell;
+                if (symbol.Position < 0) orderAction = OrderAction.Cover;
+                controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
+                
+                foreach (SymbolInAction contract in mainVM.SymbolInActions)
+                {
+                    SymbolDefinition sd = contract.SymbolDefinition.FirstOrDefault(x => x.Vendor == controller.Vendor + "Controller" && x.Contract.ConId == symbol.Contract.ConId);
+                    if (sd != null)
+                    {
+                        foreach (Script script in contract.Scripts)
+                        {
+                            foreach (var status in script.AccountStat)
+                            {
+                                status.Value.LongPosition = 0;
+                                status.Value.ShortPosition = 0;
+                            }
+                            foreach (Strategy strategy in script.Strategies)
+                            {
+                                foreach (var status in strategy.AccountStat)
+                                {
+                                    status.Value.LongPosition = 0;
+                                    status.Value.ShortPosition = 0;
+                                }
+                            }
+                        }
+                    }                    
+                }
             }
         }
     }
@@ -978,4 +1130,40 @@ namespace AmiBroker.Controllers
         }
     }
 
+    public class ClearListView : ICommand
+    {
+        public bool CanExecute(object parameter)
+        {
+            MainWindow mainWin = parameter as MainWindow;
+            if (mainWin != null && mainWin.ActivateListView != null)
+                return true;
+            else
+                return false;
+        }
+
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+
+        public void Execute(object parameter)
+        {
+            MainWindow mainWin = parameter as MainWindow;
+
+            MessageBoxResult result = MessageBox.Show("Are your sure to delete all content?",
+                "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Information, MessageBoxResult.No);
+
+            if (result == MessageBoxResult.Yes)
+            {                
+                var lv = mainWin.ActivateListView;
+                if (lv?.ItemsSource != null)
+                {
+                    MethodInfo mi = lv.ItemsSource.GetType().GetMethod("Clear");
+                    if (mi != null)
+                        mi.Invoke(lv.ItemsSource, null);
+                }
+            }
+        }
+    }
 }

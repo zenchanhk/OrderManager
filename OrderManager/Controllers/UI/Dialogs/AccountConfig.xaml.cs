@@ -14,6 +14,7 @@ namespace AmiBroker.Controllers
         public int Port;
         public int ClientId;
         public bool IsActivate;
+        public bool IsMulti;
         public AccountConfig()
         {
             InitializeComponent();
@@ -29,6 +30,7 @@ namespace AmiBroker.Controllers
             Port = int.Parse(txtPort.Text);
             ClientId = int.Parse(txtClientID.Text);
             IsActivate = (bool)chkIsEnabled.IsChecked;
+            IsMulti = (bool)chkIsMulti.IsChecked;
             this.DialogResult = true;
             this.Close();
         }
@@ -46,6 +48,7 @@ namespace AmiBroker.Controllers
             txtPort.Text = Port > 0 ? Port.ToString() : "";
             txtClientID.Text = ClientId.ToString();
             chkIsEnabled.IsChecked = IsActivate;
+            chkIsMulti.IsChecked = IsMulti;
         }
     }
     

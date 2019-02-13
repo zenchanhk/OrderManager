@@ -53,6 +53,9 @@
     <Reference Include="FontAwesome.Sharp, Version=5.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\FontAwesome.Sharp.5.2.0\lib\net40\FontAwesome.Sharp.dll</HintPath>
     </Reference>
+    <Reference Include="GrayscaleEffect">
+      <HintPath>..\packages\GrayscaleEffect.dll</HintPath>
+    </Reference>
     <Reference Include="IB.CSharpApi, Version=9.73.7.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
     </Reference>
@@ -114,6 +117,7 @@
     <Compile Include="Controllers\Helper\UITreeHelper.cs" />
     <Compile Include="Controllers\UI\Command.cs" />
     <Compile Include="Controllers\UI\Controls\CachedContentControl.cs" />
+    <Compile Include="Controllers\UI\Controls\DateTimeUpDown\AutoGreyImage.cs" />
     <Compile Include="Controllers\UI\Controls\DateTimeUpDown\DateTimeUpDown.cs" />
     <Compile Include="Controllers\UI\Controls\DropDownButton.cs" />
     <Compile Include="Controllers\UI\Controls\NumericUpDown.cs" />
@@ -140,6 +144,9 @@
     </Compile>
     <Compile Include="Controllers\UI\Tabs\MessageTabView.xaml.cs">
       <DependentUpon>MessageTabView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Controllers\UI\Tabs\MinorLogTabView.xaml.cs">
+      <DependentUpon>MinorLogTabView.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controllers\UI\Tabs\PendingOrderTabView.xaml.cs">
       <DependentUpon>PendingOrderTabView.xaml</DependentUpon>
@@ -269,6 +276,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Controllers\UI\Tabs\MessageTabView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Controllers\UI\Tabs\MinorLogTabView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

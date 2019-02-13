@@ -50,11 +50,11 @@ namespace AmiBroker.OrderManager
     {
         public AccountInfo Account { get; set; }
 
-        private AccountStatus _pAccoutStatus = AccountStatus.None;
-        public AccountStatus AccoutStatus
+        private AccountStatus _pAccountStatus = AccountStatus.None;
+        public AccountStatus AccountStatus
         {
-            get { return _pAccoutStatus; }
-            set { _UpdateField(ref _pAccoutStatus, value); }
+            get { return _pAccountStatus; }
+            set { _UpdateField(ref _pAccountStatus, value); }
         }
 
         private double _pLongPosition;
@@ -146,6 +146,36 @@ namespace AmiBroker.OrderManager
                     ShortAccounts.Remove(account);
                 }
             }            
+        }
+
+        private DebounceDispatcher debounceTimer = new DebounceDispatcher();
+        private bool _pIsDirty;
+        [JsonIgnore]
+        public bool IsDirty
+        {
+            get { return _pIsDirty; }
+            set {
+                if (_pIsDirty != value && value == false)
+                {
+                    debounceTimer.Debounce(2000, parm =>
+                    {
+                        ShowSign = false;
+                    });
+                }
+                else if (_pIsDirty != value && value)
+                {
+                    ShowSign = true;
+                }
+                _UpdateField(ref _pIsDirty, value);
+            }
+        }
+
+        private bool _pShowSign;
+        [JsonIgnore]
+        public bool ShowSign
+        {
+            get { return _pShowSign; }
+            set { _UpdateField(ref _pShowSign, value); }
         }
 
         public string Name { get; set; }
@@ -575,7 +605,7 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public List<string> Prices { get; set; } = new List<string>();
         [JsonIgnore]
-        public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();
+        public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();        
         [JsonIgnore]
         public Dictionary<string, double> CurrentPrices { get; } = new Dictionary<string, double>();
         public async void CloseAllPositions()
@@ -602,7 +632,7 @@ namespace AmiBroker.OrderManager
                     await controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, 0, posSize);
                     item.Value.LongPosition = 0;
                     item.Value.ShortPosition = 0;
-                    item.Value.AccoutStatus = AccountStatus.None;
+                    item.Value.AccountStatus = AccountStatus.None;
                 }
             }
         }
@@ -743,9 +773,16 @@ namespace AmiBroker.OrderManager
                 {
                     stat.Value.LongPosition = 0;
                     stat.Value.ShortPosition = 0;
-                    stat.Value.AccoutStatus = AccountStatus.None;
+                    stat.Value.AccountStatus = AccountStatus.None;
                 }
             }
+        }
+        public void RefreshStrategies()
+        {
+            foreach (var item in Strategies.ToArray())
+            {
+                Strategies.Remove(item);
+            }    
         }
         public void CopyFrom(Script script)
         {
@@ -952,12 +989,35 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pTimeFrame, value); }
         }
 
+        private static DebounceDispatcher debounceTimer = new DebounceDispatcher();
         private bool _pIsDirty;
         [JsonIgnore]
         public bool IsDirty
         {
             get { return _pIsDirty; }
-            set { _UpdateField(ref _pIsDirty, value); }
+            set
+            {
+                if (_pIsDirty != value && value == false)
+                {
+                    debounceTimer.Debounce(2000, parm =>
+                    {
+                        ShowSign = false;
+                    });
+                }
+                else if (_pIsDirty != value && value)
+                {
+                    ShowSign = true;
+                }
+                _UpdateField(ref _pIsDirty, value);
+            }
+        }
+
+        private bool _pShowSign;
+        [JsonIgnore]
+        public bool ShowSign
+        {
+            get { return _pShowSign; }
+            set { _UpdateField(ref _pShowSign, value); }
         }
 
         private AmiBroker.Controllers.TimeZone _pTimeZone;
@@ -992,12 +1052,18 @@ namespace AmiBroker.OrderManager
                     MainViewModel.Instance.Dummy = !MainViewModel.Instance.Dummy;
                     if (item.IsConnected)
                     {
-                        if (item.Vendor == "IB")
+                        // these must be placed before await statements
+                        foreach (AccountInfo account in item.Accounts)
                         {
-                            
+                            if (!AccountCandidates.Any(x => x.Name == account.Name))
+                                AccountCandidates.Add(account);
+                        }
+                        if (item.Vendor == "IB")
+                        {                            
                             SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor + "Controller");
                             if (sd != null && sd.Contract == null)
                             {
+                                // the following line will result in non-block execution
                                 IBContract c = await ((IBController)item).reqContractDetailsAsync(sd.ContractId);
                                 sd.Contract = c.Contract;
                                 MinTick = c.MinTick;
@@ -1010,11 +1076,7 @@ namespace AmiBroker.OrderManager
                             {
                                 // TODO:
                             }
-                        }
-                        foreach (AccountInfo account in item.Accounts)
-                        {
-                            AccountCandidates.Add(account);
-                        }
+                        }                        
                     }
                 }
             }
@@ -1051,8 +1113,15 @@ namespace AmiBroker.OrderManager
                 }
             }
         }
+        public void RefreshScripts()
+        {
+            foreach (var item in Scripts.ToArray())
+            {
+                Scripts.Remove(item);
+            }
+        }
 
-        public void Clear()
+        public void ClearAppliedControllers()
         {
             //AppliedControllers.Clear();
             foreach (var item in AppliedControllers.ToArray())
@@ -1070,7 +1139,7 @@ namespace AmiBroker.OrderManager
                 if (tmp != null)
                     tmp.ContractId = item.ContractId;
             }
-            Clear();    // clear ApplicedControllers
+            ClearAppliedControllers();    // clear ApplicedControllers
             foreach (var item in symbol.AppliedControllers)
             {               
                 var tmp = MainViewModel.Instance.Controllers.FirstOrDefault(x => x.DisplayName == item.DisplayName);

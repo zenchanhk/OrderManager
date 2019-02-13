@@ -5,7 +5,7 @@
         Loaded="Window_Loaded"
         ResizeMode="NoResize"
              Width="290"
-        Height="220"
+        Height="240"
              >
     <Grid Margin="5,5,5,5">
         <Grid.ColumnDefinitions>
@@ -17,6 +17,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -32,7 +33,9 @@
         <TextBox Name="txtClientID" Grid.Row="4" Grid.Column="1" Margin="5" />
         <TextBlock Text="Enabled:" Grid.Row="5" Grid.Column="0" Margin="5" />
         <CheckBox Name="chkIsEnabled" Grid.Row="5" Grid.Column="1" Margin="5" />
-        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Orientation="Horizontal" Grid.Row="6" Grid.ColumnSpan="2">
+        <TextBlock Text="Multiple Instance:" Grid.Row="6" Grid.Column="0" Margin="5" />
+        <CheckBox Name="chkIsMulti" Grid.Row="6" Grid.Column="1" Margin="5" />
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Orientation="Horizontal" Grid.Row="7" Grid.ColumnSpan="2">
             <Button Content="OK" Width="70" Margin="5" Click="OKBtn_Click" IsDefault="True" />
             <Button Content="Cancel" Width="70" Margin="5" Click="CancelBtn_Click" IsCancel="True" />
         </StackPanel>
