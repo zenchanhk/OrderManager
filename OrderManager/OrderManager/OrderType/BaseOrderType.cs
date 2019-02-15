@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Text;
@@ -26,6 +27,22 @@ namespace AmiBroker.OrderManager
         KWeek = 7,
         KMonth = 8,
         KYear = 9
+    }
+    public class CSlippage : NotifyPropertyChangedBase
+    {
+        private int _pSlippage;
+        public int Slippage
+        {
+            get { return _pSlippage; }
+            set { _UpdateField(ref _pSlippage, value); }
+        }
+
+        private int _pPosSize;
+        public int PosSize
+        {
+            get { return _pPosSize; }
+            set { _UpdateField(ref _pPosSize, value); }
+        }
     }
     public class BaseOrderType : INotifyPropertyChanged
     {
@@ -67,20 +84,7 @@ namespace AmiBroker.OrderManager
         }
         public GoodTime GoodTilDate { get; set; } = new GoodTime();
         public GoodTime GoodAfterTime { get; set; } = new GoodTime();  // yyyyMMdd HH:mm:ss
-
-        private float _pSlippage;
-        public float Slippage
-        {
-            get { return _pSlippage; }
-            set
-            {
-                if (_pSlippage != value)
-                {
-                    _pSlippage = value;
-                    OnPropertyChanged("Slippage");
-                }
-            }
-        }
+        public ObservableCollection<CSlippage> Slippages { get; set; }
         public BaseOrderType()
         {
             GoodAfterTime.DateTimeFormat = DateTimeFormat;
@@ -94,6 +98,5 @@ namespace AmiBroker.OrderManager
         }
 
         public virtual void CopyTo(BaseOrderType dest) { }
-        public virtual async Task<int> PlaceOrder(AccountInfo accountInfo, string  symbol) { return -1; }
     }
 }

@@ -13,6 +13,7 @@ using System.Windows.Media.Imaging;
 using System.Collections.Specialized;
 using System.Windows.Threading;
 using System.Windows;
+using Easy.MessageHub;
 
 namespace AmiBroker.Controllers
 {
@@ -37,7 +38,7 @@ namespace AmiBroker.Controllers
     }
     public class MainViewModel : NotifyPropertyChangedBase
     {
-
+        private readonly MessageHub _hub = MessageHub.Instance;
         private string _pStatusMsg;
         public string StatusMsg
         {
@@ -157,6 +158,19 @@ namespace AmiBroker.Controllers
             TimeZones.Add(new TimeZone { Id = "CST", UtcOffset = new TimeSpan(8,0,0), Description = "China Standard Time" });
             TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
 
+            //
+            _hub.Subscribe<IController>(OnControllerConnected);
+        }
+        private void OnControllerConnected(IController controller)
+        {
+            if (controller.IsConnected)
+            {
+                foreach (SymbolInAction symbol in SymbolInActions)
+                {
+                    symbol.FillInSymbolDefinition(controller);
+                    symbol.FillInContractDetails(controller);
+                }
+            }
         }
         public void test()
         {
@@ -274,6 +288,14 @@ namespace AmiBroker.Controllers
                 {
                     symbol = new SymbolInAction(name, timeframe);
                     SymbolInActions.Add(symbol);
+                    foreach (IController controller in Controllers)
+                    {
+                        if (controller.IsConnected)
+                        {
+                            symbol.FillInSymbolDefinition(controller);
+                            symbol.FillInContractDetails(controller);
+                        }                        
+                    }                    
                 }                
                 return true;
             }

@@ -43,8 +43,8 @@ namespace AmiBroker.Controllers
         public event PropertyChangedEventHandler PropertyChanged;
         public ObservableCollection<AccountInfo> Accounts { get; } = new ObservableCollection<AccountInfo>();
         public string Vendor { get; } = "FT";
+        public string VendorFullName { get; } = "FuTu NiuNiu";
         public static Dictionary<string, FTContract> Contracts { get; } = new Dictionary<string, FTContract>();
-        public static string VendorFullName { get; } = "FuTu NiuNiu";
 
         private ConnectionParam _pConnParam;
         public ConnectionParam ConnParam
@@ -133,7 +133,7 @@ namespace AmiBroker.Controllers
         public Task ConnectAsync() { return new Task(() => { }); }
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
 
-        public async Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
+        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
         {
             return null;
         }

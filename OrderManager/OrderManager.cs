@@ -22,11 +22,13 @@ namespace AmiBroker.Controllers
     public class OrderLog
     {
         public int OrderId { get; set; }
+        public int? Slippage { get; set; }
         public double OrgPrice { get; set; }
         public double LmtPrice { get; set; }
         public int PosSize { get; set; }
         public string Message { get; set; }
         public string Error { get; set; }
+        public DateTime OrderSentTime { get; set; }
     }
     public class OrderManager : IndicatorBase
     {
@@ -96,17 +98,20 @@ namespace AmiBroker.Controllers
         private static void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
         {
             GlobalExceptionHandler.HandleException(sender, e.Exception, e, null, true);
+            
         }
 
         private static void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             GlobalExceptionHandler.HandleException(sender, e.Exception, e, null, true);
+            
         }
 
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             Exception ex = new Exception("Uncaptured exception for current domain");
             GlobalExceptionHandler.HandleException(sender, ex, e, null, true);
+            
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
@@ -252,35 +257,48 @@ namespace AmiBroker.Controllers
                         {
                             BaseStat strategyStat = strategy.AccountStat[acc.Name];
                             AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
-                            OrderLog orderLog = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1).Result;
-                            if (orderLog.OrderId != -1)
+                            List<OrderLog> orderLogs = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1).Result;
+                            strategyStat.OrderInfos[orderAction].Clear();   // clear old order info
+                            foreach (OrderLog orderLog in orderLogs)
                             {
-                                Dispatcher.FromThread(UIThread).Invoke(() =>
+                                if (orderLog.OrderId != -1)
                                 {
-                                    OrderInfo oi = new OrderInfo { Strategy = strategy, Account = acc,
-                                        OrderAction = orderAction, PosSize = orderLog.PosSize };           
-                                    MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
-                                });
-                                // log order place details
-                                MainViewModel.Instance.Log(new Log
+                                    Dispatcher.FromThread(UIThread).Invoke(() =>
+                                    {
+                                        OrderInfo oi = new OrderInfo
+                                        {
+                                            Strategy = strategy,
+                                            Account = acc,
+                                            OrderAction = orderAction,
+                                            PosSize = orderLog.PosSize,
+                                            Slippage = (int)orderLog.Slippage
+                                        };
+                                        strategyStat.OrderInfos[orderAction].Add(oi);
+                                        MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
+                                    });
+                                    // log order place details
+                                    MainViewModel.Instance.Log(new Log
+                                    {
+                                        Time = orderLog.OrderSentTime,
+                                        Text = orderAction.ToString() + " order sent (OrderId:" + orderLog.OrderId.ToString() 
+                                        + (orderLog.OrgPrice > 0 ? ", OrgPrice:" + orderLog.OrgPrice.ToString() : "")
+                                        + (orderLog.LmtPrice > 0 ? ", LmtPrice:" + orderLog.LmtPrice.ToString() : "") + ")",
+                                        Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name + "." + orderLog.Slippage
+                                    });
+                                }
+                                else
                                 {
-                                    Time = DateTime.Now,
-                                    Text = orderAction.ToString() + " order sent (OrderId:" + orderLog.OrderId.ToString() + ", OrgPrice:" + orderLog.OrgPrice.ToString() +
-                                        ", LmtPrice:" + orderLog.LmtPrice.ToString() + ")",
-                                    Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
-                                });
-                            }
-                            else
-                            {
-                                strategyStat = strategy.AccountStat[acc.Name];
-                                AccountStatusOp.RevertActionStatus(ref strategyStat, orderAction);
-                                MainViewModel.Instance.Log(new Log
-                                {
-                                    Time = DateTime.Now,
-                                    Text = "Error: " + orderLog.Error,
-                                    Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
-                                });
-                            }
+                                    strategyStat = strategy.AccountStat[acc.Name];
+                                    AccountStatusOp.RevertActionStatus(ref strategyStat, orderAction);
+                                    MainViewModel.Instance.Log(new Log
+                                    {
+                                        Time = DateTime.Now,
+                                        Text = "Error: " + orderLog.Error,
+                                        Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
+                                            + (orderLog.Slippage != null ? "." + orderLog.Slippage : "")
+                                    });
+                                }
+                            }                            
                         }
                         else
                         {

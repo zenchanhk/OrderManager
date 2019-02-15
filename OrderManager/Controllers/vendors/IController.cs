@@ -28,7 +28,8 @@ namespace AmiBroker.Controllers
     }
     public class AccountStatusOp
     {
-        public static void RevertActionStatus(ref BaseStat stat, OrderAction orderAction)
+        //private readonly static List<string> PendingStatus = ["PreSubmitted"];
+        public static void RevertActionStatus(ref BaseStat stat, OrderAction orderAction, bool cancelled = false)
         {
             if (orderAction == OrderAction.Buy)
             {
@@ -40,11 +41,37 @@ namespace AmiBroker.Controllers
             }
             else if (orderAction == OrderAction.Sell)
             {
-                stat.AccountStatus &= ~AccountStatus.SellPending;
+                if (stat.LongPosition == 0)
+                    stat.AccountStatus &= ~AccountStatus.SellPending;
+                else
+                {
+                    foreach (OrderInfo orderInfo in stat.OrderInfos[orderAction])
+                    {
+                        // 1. remaining > 0
+                        // 2. no error
+                        // 3. not cancelled
+                        if (orderInfo.PosSize > orderInfo.Filled && string.IsNullOrEmpty(orderInfo.Error) && !cancelled)
+                            return;
+                    }
+                    stat.AccountStatus &= ~AccountStatus.SellPending;
+                }
             }
             else if (orderAction == OrderAction.Cover)
             {
-                stat.AccountStatus &= ~AccountStatus.CoverPending;
+                if (stat.ShortPosition == 0)
+                    stat.AccountStatus &= ~AccountStatus.CoverPending;
+                else
+                {
+                    foreach (OrderInfo orderInfo in stat.OrderInfos[orderAction])
+                    {
+                        // 1. remaining > 0
+                        // 2. no error
+                        // 3. not cancelled
+                        if (orderInfo.PosSize > orderInfo.Filled && string.IsNullOrEmpty(orderInfo.Error) && !cancelled)
+                            return;
+                    }
+                    stat.AccountStatus &= ~AccountStatus.CoverPending;
+                }
             }
         }
         public static void SetActionStatus(ref BaseStat stat, OrderAction orderAction)
@@ -194,6 +221,7 @@ namespace AmiBroker.Controllers
         // should be unique
         string DisplayName { get; }
         string Vendor { get; }  //short name
+        string VendorFullName { get; }
         ConnectionParam ConnParam { get; set; }
         bool IsConnected { get; }
         string ConnectionStatus { get; }
@@ -204,7 +232,7 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<OrderLog> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppress = false);
+        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppress = false);
         void CancelOrder(int orderId);
         Task<bool> CancelOrderAsync(int orderId);
     }

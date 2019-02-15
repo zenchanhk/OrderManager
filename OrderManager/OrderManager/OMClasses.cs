@@ -11,6 +11,8 @@ using System.Reflection;
 using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
 using IBApi;
 using System.Windows.Threading;
+using AmiBroker.Controllers;
+using System.Windows;
 
 namespace AmiBroker.OrderManager
 {   
@@ -40,6 +42,7 @@ namespace AmiBroker.OrderManager
         public double PosSize { get; set; }
         public double Filled { get; set; }
         public Strategy Strategy { get; set; }
+        public int Slippage { get; set; }
         public AccountInfo Account { get; set; }
         //public List<OrderStatus> Status { get; set; } = new List<OrderStatus>();
         public OrderAction OrderAction { get; set; }
@@ -84,7 +87,20 @@ namespace AmiBroker.OrderManager
             get { return _pShortEntry; }
             set { _UpdateField(ref _pShortEntry, value); }
         }
+
+        [JsonIgnore]
+        public Dictionary<OrderAction, List<OrderInfo>> OrderInfos { get; set; }
+
+        public BaseStat()
+        {
+            OrderInfos = new Dictionary<OrderAction, List<OrderInfo>>();
+            OrderInfos.Add(OrderAction.Buy, new List<OrderInfo>());
+            OrderInfos.Add(OrderAction.Sell, new List<OrderInfo>());
+            OrderInfos.Add(OrderAction.Short, new List<OrderInfo>());
+            OrderInfos.Add(OrderAction.Cover, new List<OrderInfo>());
+        }
     }
+    
     public class SSBase : NotifyPropertyChangedBase
     {
         public SSBase()
@@ -235,64 +251,6 @@ namespace AmiBroker.OrderManager
             get { return _pPositionSize; }
             set { _UpdateField(ref _pPositionSize, value); }
         }
-
-        /*
-        // allow re-entry after previous attemps failure in day trade
-        private bool _pAllowReEntry;
-        public bool AllowReEntry
-        {
-            get { return _pAllowReEntry; }
-            set
-            {
-                if (_pAllowReEntry != value)
-                {
-                    _pAllowReEntry = value;
-                    OnPropertyChanged("AllowReEntry");
-                }
-            }
-        }
-
-        private int _pMaxReEntry;
-        public int MaxReEntry
-        {
-            get { return _pMaxReEntry; }
-            set
-            {
-                if (_pMaxReEntry != value)
-                {
-                    _pMaxReEntry = value;
-                    OnPropertyChanged("MaxReEntry");
-                }
-            }
-        }
-
-        private DateTime? _pReEntryBefore;
-        public DateTime? ReEntryBefore
-        {
-            get { return _pReEntryBefore; }
-            set
-            {
-                if (_pReEntryBefore != value)
-                {
-                    _pReEntryBefore = value;
-                    OnPropertyChanged("ReEntryBefore");
-                }
-            }
-        }
-
-        private bool _pIsNextDay;
-        public bool IsNextDay
-        {
-            get { return _pIsNextDay; }
-            set
-            {
-                if (_pIsNextDay != value)
-                {
-                    _pIsNextDay = value;
-                    OnPropertyChanged("IsNextDay");
-                }
-            }
-        }*/
         // key is the name of account which is supposed to unique
         public Dictionary<string, BaseStat> AccountStat { get; set; } = new Dictionary<string, BaseStat>(); // statistics
 
@@ -888,7 +846,9 @@ namespace AmiBroker.OrderManager
     }
     public class SymbolDefinition : NotifyPropertyChangedBase
     {
-        public string Vendor { get; set; }
+        //public string Vendor { get; set; }
+        //public string VendorFullName { get; set; }
+        public IController Controller { get; set; }
 
         private Contract _pContract;
         [JsonIgnore]
@@ -931,11 +891,12 @@ namespace AmiBroker.OrderManager
             // fill in accouts available for selecting
             AppliedControllers.CollectionChanged += AppliedControllers_CollectionChanged;
             // fill in Vendors
+            /*
             var controllers = typeof(IController).Assembly.GetTypes().Where(type => type.GetInterface(typeof(IController).FullName) != null).ToList();
             for (int i = 0; i < controllers.Count(); i++)
             {
                 SymbolDefinition.Add(new SymbolDefinition { Vendor = controllers[i].Name, ContractId = Name });
-            }
+            }*/
             //
             AccountCandidates.CollectionChanged += AccountCandidates_CollectionChanged;
         }
@@ -975,6 +936,7 @@ namespace AmiBroker.OrderManager
         private double _pMinTick = 1;
         [Category("Details")]
         [DisplayName("Min. Tick Size")]
+        [ReadOnly(true)]
         public double MinTick
         {
             get { return _pMinTick; }
@@ -999,7 +961,7 @@ namespace AmiBroker.OrderManager
             {
                 if (_pIsDirty != value && value == false)
                 {
-                    debounceTimer.Debounce(2000, parm =>
+                    debounceTimer.Debounce(1000, parm =>
                     {
                         ShowSign = false;
                     });
@@ -1033,6 +995,40 @@ namespace AmiBroker.OrderManager
                 script.CloseAllPositions();
             }
         }
+        public async void FillInContractDetails(IController controller)
+        {
+            if (controller.Vendor == "IB")
+            {
+                SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == controller.Vendor);
+                if (sd != null && sd.Contract == null)
+                {
+                    // the following line will result in non-block execution
+                    IBContract c = await((IBController)controller).reqContractDetailsAsync(sd.ContractId);
+                    sd.Contract = c.Contract;
+                    MinTick = c.MinTick;
+                }
+            }
+            if (controller.Vendor == "FT")
+            {
+                SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == controller.Vendor);
+                if (sd != null && sd.Contract == null)
+                {
+                    // TODO:
+                }
+            }
+        }
+        public void FillInSymbolDefinition(IController controller)
+        {
+            // fillin symbol definitions
+            SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Controller.GetType() == controller.GetType());
+            if (sd == null)
+            {
+                Dispatcher.FromThread(Controllers.OrderManager.UIThread).Invoke(() =>
+                {
+                    SymbolDefinition.Add(new SymbolDefinition { Controller = controller, ContractId = Name });
+                });
+            }
+        }
         private void ChangeTimeZone(AmiBroker.Controllers.TimeZone tz)
         {
             foreach (var script in Scripts)
@@ -1040,12 +1036,15 @@ namespace AmiBroker.OrderManager
                 script.ChangeTimeZone(tz);
             }
         }
-        private async void AppliedControllers_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private void AppliedControllers_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action == NotifyCollectionChangedAction.Add)
             {
                 foreach (IController item in e.NewItems)
                 {
+                    //
+                    FillInSymbolDefinition(item);
+
                     item.Accounts.CollectionChanged += Accounts_CollectionChanged;
                     //item.Dummy = !item.Dummy;
                     // TODO: to be improved since this will cause whole list to be updated instead of selected item
@@ -1058,25 +1057,7 @@ namespace AmiBroker.OrderManager
                             if (!AccountCandidates.Any(x => x.Name == account.Name))
                                 AccountCandidates.Add(account);
                         }
-                        if (item.Vendor == "IB")
-                        {                            
-                            SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor + "Controller");
-                            if (sd != null && sd.Contract == null)
-                            {
-                                // the following line will result in non-block execution
-                                IBContract c = await ((IBController)item).reqContractDetailsAsync(sd.ContractId);
-                                sd.Contract = c.Contract;
-                                MinTick = c.MinTick;
-                            }                     
-                        }
-                        if (item.Vendor == "FT")
-                        {
-                            SymbolDefinition sd = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor);
-                            if (sd != null && sd.Contract == null)
-                            {
-                                // TODO:
-                            }
-                        }                        
+                        FillInContractDetails(item);                        
                     }
                 }
             }
@@ -1133,12 +1114,30 @@ namespace AmiBroker.OrderManager
 
         public void CopyFrom(SymbolInAction symbol)
         {
-            foreach (var item in symbol.SymbolDefinition)
+            // copy symbol details only when symbol names are the same
+            if (symbol.Name == Name)
             {
-                var tmp = SymbolDefinition.FirstOrDefault(x => x.Vendor == item.Vendor);
-                if (tmp != null)
-                    tmp.ContractId = item.ContractId;
+                foreach (var item in symbol.SymbolDefinition)
+                {
+                    var tmp = SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == item.Controller.Vendor);
+                    if (tmp != null)
+                        tmp.ContractId = item.ContractId;
+                }
+                TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
+                RoundLotSize = symbol.RoundLotSize;
+                MaxOrderSize = symbol.MaxOrderSize;
+                MinOrderSize = symbol.MinOrderSize;
             }
+            else
+            {
+                MessageBoxResult result = MessageBox.Show("Symbol name is not the same as loaded one."
+                    + "\nPress OK to continue but ignore copying symbol details;"
+                    + "\nPress Cancel to cancel the operation.", "Warning", MessageBoxButton.OKCancel, MessageBoxImage.Warning
+                    );
+                if (result == MessageBoxResult.Cancel) return;
+            }
+            
+
             ClearAppliedControllers();    // clear ApplicedControllers
             foreach (var item in symbol.AppliedControllers)
             {               
@@ -1151,12 +1150,7 @@ namespace AmiBroker.OrderManager
                 var tmp = Scripts.FirstOrDefault(x => x.Name == item.Name);
                 if (tmp != null)
                     tmp.CopyFrom(item);
-            }
-            TimeZone = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.Id == symbol.TimeZone.Id);
-            RoundLotSize = symbol.RoundLotSize;
-            MinTick = symbol.MinTick;
-            MaxOrderSize = symbol.MaxOrderSize;
-            MinOrderSize = symbol.MinOrderSize;
+            }            
         }
 
         public string Name { get; set; }
@@ -1165,7 +1159,7 @@ namespace AmiBroker.OrderManager
 
         [JsonIgnore]
         public ObservableCollection<AccountInfo> AccountCandidates { get; set; } = new ObservableCollection<AccountInfo>();
-        public List<SymbolDefinition> SymbolDefinition { get; private set; } = new List<SymbolDefinition>();
+        public ObservableCollection<SymbolDefinition> SymbolDefinition { get; private set; } = new ObservableCollection<SymbolDefinition>();
 
         private bool _pIsEnabled;
         [JsonIgnore]

@@ -8,6 +8,8 @@ using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
+using System.Collections.ObjectModel;
+using System.Reflection;
 
 namespace AmiBroker.OrderManager
 {
@@ -223,6 +225,19 @@ namespace AmiBroker.OrderManager
             IBOrderType ot = (IBOrderType)this.MemberwiseClone();
             ot.GoodAfterTime = Helper.CloneObject<GoodTime>(GoodAfterTime);
             ot.GoodTilDate = Helper.CloneObject<GoodTime>(GoodTilDate);
+            if (Slippages != null)
+            {
+                ot.Slippages = new ObservableCollection<CSlippage>();
+                foreach (CSlippage slippage in Slippages)
+                {
+                    ot.Slippages.Add(new CSlippage { Slippage = slippage.Slippage, PosSize = slippage.PosSize });
+                }
+            }
+            else
+            {
+                ot.Slippages = null;
+            }
+            
             return ot;
         }
         public override void CopyTo(BaseOrderType dest)
@@ -249,7 +264,23 @@ namespace AmiBroker.OrderManager
                 ((IBOrderType)dest).GoodTilDate.SelectedIndex = GoodTilDate.SelectedIndex;
                 ((IBOrderType)dest).GoodTilDate.BarInterval = GoodTilDate.BarInterval;
 
-                ((IBOrderType)dest).Slippage = Slippage;
+                if (Slippages != null)
+                {
+                    ((IBOrderType)dest).Slippages = new ObservableCollection<CSlippage>();
+                    foreach (CSlippage slippage in Slippages)
+                    {
+                        ((IBOrderType)dest).Slippages.Add(new CSlippage { Slippage = slippage.Slippage, PosSize = slippage.PosSize });
+                    }
+                }
+                else
+                {
+                    ((IBOrderType)dest).Slippages = null;
+                }
+
+                BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+                MethodInfo info = dest.GetType().GetMethod("OnPropertyChanged", flags);
+                if (info == null) info = dest.GetType().GetMethod("_RaisePropertyChanged", flags);
+                info.Invoke(dest, new object[] { "Slippages" });
             }
         }        
     }
@@ -368,6 +399,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "LMT";
             Name = "Limit Order";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -396,6 +428,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "LIT";
             Name = "Limit If Touched";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -415,6 +448,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "LOC";
             Name = "Limit On Close";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -435,6 +469,7 @@ namespace AmiBroker.OrderManager
             IBCode = "LMT";
             Tif = IBTifType.OPG;
             Name = "Limit On Open";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -451,6 +486,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "MTL";
             Name = "Market to Limit";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -513,6 +549,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "STP LMT";
             Name = "Stop Limit";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 
@@ -588,6 +625,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             IBCode = "TRAIL";
             Name = "Trailing Stop Limit";
+            Slippages = new ObservableCollection<CSlippage>();
         }
     }
 }

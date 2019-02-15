@@ -137,11 +137,9 @@
                             </Grid>
                         </GroupBox>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
+                    <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Slippage: " />
-                        <controls:NumericUpDown Value="{Binding Slippage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                                            MinValue="0" MaxValue="1000" Increment="1"
-                                                            Margin="5, 0" Width="70" Type="Double" />
+                        <controls:SlippageListView ItemsSource="{Binding Slippages}" Margin="0, 1"/>
                     </StackPanel>
                     <StackPanel Margin="10,3,3,3"
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
@@ -228,7 +226,8 @@
                                       ItemContainerStyle="{StaticResource GridLineStyle}">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="Vendor" Width="150" DisplayMemberBinding="{Binding Vendor, Converter={StaticResource TypeToStaticMemberConverter}, ConverterParameter=VendorFullName }" />
+                                    <!--GridViewColumn Header="Vendor" Width="150" DisplayMemberBinding="{Binding Controller.Vendor, Converter={StaticResource TypeToStaticMemberConverter}, ConverterParameter=VendorFullName }" /-->
+                                    <GridViewColumn Header="Vendor" Width="150" DisplayMemberBinding="{Binding Controller.VendorFullName}" />
                                     <GridViewColumn Header="Symbol Definition" Width="150">
                                         <GridViewColumn.CellTemplate>
                                             <DataTemplate>
@@ -808,6 +807,9 @@
                             <Setter Property="FontWeight" Value="Bold" />
                         </Trigger>
                     </Style.Triggers>
+                    <Style.Resources>
+                        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="{x:Static SystemColors.HighlightColor}" Opacity=".4" />
+                    </Style.Resources>
                 </Style>
             </TreeView.ItemContainerStyle>
             <TreeView.Resources>
@@ -884,6 +886,7 @@
                                    Text="{Binding Name, Mode=OneWay}" />
                     </StackPanel>
                 </DataTemplate>
+                
             </TreeView.Resources>
         </TreeView>
         <ScrollViewer Grid.Column="1" Grid.Row="0" Margin="5" Name="contentSV">

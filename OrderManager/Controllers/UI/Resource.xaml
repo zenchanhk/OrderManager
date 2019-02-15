@@ -64,6 +64,9 @@
     <local:IsDirtyToIconConverter x:Key="IsDirtyToIconConverter"/>
     <local:BoolRevConverter x:Key="BoolRevConverter"/>
     <local:BoolToRevVisConverter x:Key="BoolToRevVisConverter"/>
+    <local:SelectedItemToIsEnabledConverter x:Key="SelectedItemToIsEnabledConverter"/>
+    <local:ObjectToVisConverter x:Key="ObjectToVisConverter"/>
+    <local:ObjectToRevVisConverter x:Key="ObjectToRevVisConverter"/>
     <local:DummyConverter x:Key="Dummy" />
     
     <Style TargetType="RepeatButton" x:Key="TabButton">

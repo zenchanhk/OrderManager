@@ -30,12 +30,36 @@ namespace AmiBroker.Controllers
         public static void HandleException(object sender, Exception ex, EventArgs args = null, string message = null, bool slient = false)
         {
             if (!slient)
-                MessageBox.Show((message == null ? "Exception captured" : message) 
+                MessageBox.Show((message == null ? ex.Message : message) 
                     + "\nSource: " + ex.Source
                     + "\nSender: " + (sender != null ? sender.ToString() : "")
                     + "\nPlease see the log for details",
-                    "Exception Occured", MessageBoxButton.OK, MessageBoxImage.Error);
-            YTrace.Trace(message, YTrace.TraceLevel.Information);
+                    "Fatal error", MessageBoxButton.OK, MessageBoxImage.Error);
+            //YTrace.Trace(message, YTrace.TraceLevel.Information);
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine("Sender:" + sender.ToString());
+            if (ex != null)
+            {
+                sb.AppendLine("Exception Message: " + ex.Message);
+                if (ex.Source != null) sb.AppendLine("Source: " + ex.Source);
+                if (ex.StackTrace != null) sb.Append("StackTrace: " + ex.StackTrace);
+                if (ex.InnerException != null)
+                {
+                    sb.AppendLine("InnerException Message: " + ex.InnerException.Message);
+                    if (ex.InnerException.Source != null) sb.AppendLine("InnerException Source: " + ex.InnerException.Source);
+                    if (ex.InnerException.StackTrace != null) sb.Append("InnerException StackTrace: " + ex.InnerException.StackTrace);
+                }
+            }
+            Log(sb.ToString());
+
+            if (args.GetType() == typeof(UnobservedTaskExceptionEventArgs))
+            {
+                //((UnobservedTaskExceptionEventArgs)args).SetObserved();
+            }
+            if (args.GetType() == typeof(DispatcherUnhandledExceptionEventArgs))
+            {
+                //((DispatcherUnhandledExceptionEventArgs)args).Handled = true;
+            }
         }
 
         public static void LogMessage(string ticker, string message)
@@ -51,6 +75,19 @@ namespace AmiBroker.Controllers
             {
                 AFMisc.Trace("Could not log message for ticker " + ticker + ": " + message);
                 AFMisc.Trace(ex.ToString());
+            }
+        }
+        public static void Log(string lines)
+        {
+            try
+            {
+                StreamWriter sw = new StreamWriter(string.Format("error{0:yyyyMMdd}.log", DateTime.Now), true);
+                sw.WriteLine(DateTime.Now.ToShortTimeString() + ":" + lines);
+                sw.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to log message." + "\nException:" + ex.Message, "Log Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

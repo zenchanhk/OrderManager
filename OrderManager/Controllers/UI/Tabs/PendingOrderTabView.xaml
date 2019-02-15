@@ -17,12 +17,12 @@
         <ListView ItemsSource="{Binding PendingOrdersView}" SelectedItem="{Binding SelectedPendingOrder}" >
             <ListView.Resources>
                 <ContextMenu x:Key="ItemContextMenu">
-                    <MenuItem Header="Assign to strategy..." Command="{Binding Path=DataContext.Commands.AssignStrategy, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke" 
+                    <!--MenuItem Header="Assign to strategy..." Command="{Binding Path=DataContext.Commands.AssignStrategy, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke" 
                               CommandParameter="{Binding Path=DataContext.SelectedPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
                         <MenuItem.Icon>
                             <Image Source="{StaticResource assignDrawingImage}"/>
                         </MenuItem.Icon>
-                    </MenuItem>
+                    </MenuItem-->
                     <MenuItem Header="Cancel pending order" Command="{Binding Path=DataContext.Commands.CancelPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke" 
                               CommandParameter="{Binding Path=DataContext.SelectedPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
                         <MenuItem.Icon>

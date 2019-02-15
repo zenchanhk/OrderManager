@@ -60,6 +60,7 @@
       <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
     </Reference>
     <Reference Include="IB.CSharpApiClient, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\IB.CSharpApiClient.1.0.2\lib\net461\IB.CSharpApiClient.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
@@ -120,6 +121,9 @@
     <Compile Include="Controllers\UI\Controls\DateTimeUpDown\AutoGreyImage.cs" />
     <Compile Include="Controllers\UI\Controls\DateTimeUpDown\DateTimeUpDown.cs" />
     <Compile Include="Controllers\UI\Controls\DropDownButton.cs" />
+    <Compile Include="Controllers\UI\Controls\SlippageListView.xaml.cs">
+      <DependentUpon>SlippageListView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Controllers\UI\Controls\NumericUpDown.cs" />
     <Compile Include="Controllers\UI\Controls\ObjectInTreeView.xaml.cs">
       <DependentUpon>ObjectInTreeView.xaml</DependentUpon>
@@ -211,6 +215,10 @@
     <None Include="Scripts\Sample2 Indicator with return valueCS.afl" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="Controllers\UI\Controls\SlippageListView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Controllers\UI\Controls\ObjectInTreeView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

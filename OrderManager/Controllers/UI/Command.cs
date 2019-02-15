@@ -99,20 +99,22 @@ namespace AmiBroker.Controllers
             List<Strategy> strategies = new List<Strategy>();
 
             double pos = 0;
-            if (parameter.GetType() == typeof(SymbolInMkt))
-                pos = ((SymbolInMkt)parameter).Position;
-
             MainViewModel vm = MainViewModel.Instance;
+            SymbolInMkt selectedSymbol = (SymbolInMkt)vm.SelectedPortfolio;
+            if (parameter.GetType() == typeof(SymbolInMkt))
+                pos = selectedSymbol.Position;
+
+            
             var symbols = vm.SymbolInActions.Where(x => 
             {
-                SymbolDefinition sd = x.SymbolDefinition.FirstOrDefault(y => y.Vendor == ((dynamic)parameter).Vendor + "Controller");
+                SymbolDefinition sd = x.SymbolDefinition.FirstOrDefault(y => y.Controller.Vendor == selectedSymbol.Vendor);
                 if (sd != null)
                 {
                     symbolName = sd.ContractId;
                     string ex1 = sd?.Contract?.Exchange != null ? sd?.Contract?.Exchange : sd?.Contract?.PrimaryExch;
                     symbolName += " - " + ex1;
                     //string ex2 = ((dynamic)parameter).Contract?.Exchange != null ? ((dynamic)parameter).Contract?.Exchange : ((dynamic)parameter).Contract?.PrimaryExch;
-                    return sd.Contract != null && sd?.Contract?.ConId == ((dynamic)parameter).Contract?.ConId;
+                    return sd.Contract != null && sd?.Contract?.ConId == selectedSymbol.Contract?.ConId;
                         //&& ex1 == ex2;
                 }                    
                 else
@@ -231,7 +233,10 @@ namespace AmiBroker.Controllers
                 if (src_item != null && dest_item != null)
                 {
                     if (src_item.GetType() == dest_item.GetType())
+                    {
                         src_item.CopyTo(dest_item);
+                        //info.Invoke(ss, new object[] { dest + "OrderTypes" });
+                    }
                     else
                     {
                         destOrderTypes.Remove(dest_item);
@@ -941,7 +946,7 @@ namespace AmiBroker.Controllers
                 
                 foreach (SymbolInAction contract in mainVM.SymbolInActions)
                 {
-                    SymbolDefinition sd = contract.SymbolDefinition.FirstOrDefault(x => x.Vendor == controller.Vendor + "Controller" && x.Contract.ConId == symbol.Contract.ConId);
+                    SymbolDefinition sd = contract.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == controller.Vendor && x.Contract.ConId == symbol.Contract.ConId);
                     if (sd != null)
                     {
                         foreach (Script script in contract.Scripts)
