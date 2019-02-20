@@ -150,6 +150,7 @@ namespace AmiBroker.Controllers
         private void setHandler()
         {
             EventDispatcher.ConnectionStatus += eh_ConnectionStatus;
+            EventDispatcher.ConnectAck += EventDispatcher_ConnectAck;
             EventDispatcher.ConnectionClosed += eh_ConnectionClosed;
             EventDispatcher.Error += eh_Error;
             EventDispatcher.OrderStatus += eh_OrderStatus;
@@ -160,6 +161,17 @@ namespace AmiBroker.Controllers
             //EventDispatcher.AccountSummary += eh_AccountSummary;
             EventDispatcher.AccountValue += eh_AccountValue;
             EventDispatcher.ContractDetails += EventDispatcher_ContractDetails;
+            EventDispatcher.VerifyMessageApi += EventDispatcher_VerifyMessageApi;
+        }
+
+        private void EventDispatcher_VerifyMessageApi(object sender, VerifyMessageApiEventArgs e)
+        {
+            string s = e.ApiData;
+        }
+
+        private void EventDispatcher_ConnectAck(object sender, EventArgs e)
+        {
+            
         }
 
         private void EventDispatcher_ContractDetails(object sender, ContractDetailsEventArgs e)
@@ -714,8 +726,10 @@ namespace AmiBroker.Controllers
                     };
                     if (mainVM.OrderInfoList.ContainsKey(e.OrderId))
                     {
-                        Strategy strategy = mainVM.OrderInfoList[e.OrderId].Strategy;
-                        dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name;
+                        OrderInfo oi = mainVM.OrderInfoList[e.OrderId];
+                        Strategy strategy = oi.Strategy;
+                        dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
+                                            + "." + oi.Slippage;
                     }
                     mainVM.Orders.Insert(0, dOrder);
                 }                

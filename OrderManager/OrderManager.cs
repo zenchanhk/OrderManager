@@ -137,7 +137,7 @@ namespace AmiBroker.Controllers
                     {
                         Time = DateTime.Now,
                         Text = "DateTime data error",
-                        Source = scriptName
+                        Source = AFInfo.Name() + "." + scriptName
                     });
                     return;
                 }
@@ -149,8 +149,10 @@ namespace AmiBroker.Controllers
                     {
                         Time = DateTime.Now,
                         Text = "No current data",
-                        Source = scriptName
+                        Source = AFInfo.Name() + "." + scriptName
                     });
+                    // add symbol if non-exist
+                    Initialize(scriptName);
                     return;
                 }
 
