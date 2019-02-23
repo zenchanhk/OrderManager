@@ -5,7 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:AmiBroker.Controllers"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="450" d:DesignWidth="1200">
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -28,7 +28,10 @@
                     <GridViewColumn Header="Avg. Price" Width="60" DisplayMemberBinding="{Binding AvgPrice}" />
                     <GridViewColumn Header="Currency" Width="60" DisplayMemberBinding="{Binding Currency}" />
                     <GridViewColumn Header="Source" Width="80" DisplayMemberBinding="{Binding Source}" />
+                    <GridViewColumn Header="Lmt. Price" Width="60" DisplayMemberBinding="{Binding LmtPrice}" />
                     <GridViewColumn Header="Time" Width="100" DisplayMemberBinding="{Binding Time, StringFormat={}{0:dd HH:mm:ss.fff}}" />
+                    <GridViewColumn Header="Placed Time" Width="100" DisplayMemberBinding="{Binding PlacedTime, StringFormat={}{0:dd HH:mm:ss.fff}}" />
+                    <GridViewColumn Header="Duration" Width="55" DisplayMemberBinding="{Binding TransactionDuration}" />
                     <GridViewColumn Header="Strategy" Width="300" DisplayMemberBinding="{Binding Strategy}" />
                 </GridView>
             </ListView.View>

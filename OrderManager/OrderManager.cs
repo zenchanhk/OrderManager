@@ -273,7 +273,8 @@ namespace AmiBroker.Controllers
                                             Account = acc,
                                             OrderAction = orderAction,
                                             PosSize = orderLog.PosSize,
-                                            Slippage = (int)orderLog.Slippage
+                                            Slippage = (int)orderLog.Slippage,
+                                            PlacedTime = orderLog.OrderSentTime
                                         };
                                         strategyStat.OrderInfos[orderAction].Add(oi);
                                         MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);

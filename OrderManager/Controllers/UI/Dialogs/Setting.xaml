@@ -162,9 +162,14 @@
                 </TabItem>
                 <TabItem Name="ti_general" Visibility="Collapsed">
                     <GroupBox Header="General Settings">
-                        <CheckBox IsChecked="{Binding KeepTradeSteps}" Margin="5" >
-                            <TextBlock Text="Keep all track of orders" ToolTip="Check this will result in every step being kept in the list" />
-                        </CheckBox>
+                        <StackPanel>
+                            <CheckBox IsChecked="{Binding KeepTradeSteps}" Margin="5" >
+                                <TextBlock Text="Keep all track of orders" ToolTip="Check this will result in every step being kept in the list" />
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding IgnoreDuplicatedRecord}" Margin="5" >
+                                <TextBlock Text="Ignore duplated orders" ToolTip="Ignore duplated orders" />
+                            </CheckBox>
+                        </StackPanel>
                     </GroupBox>
                 </TabItem>
             </TabControl>

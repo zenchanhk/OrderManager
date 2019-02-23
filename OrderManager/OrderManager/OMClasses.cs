@@ -48,6 +48,7 @@ namespace AmiBroker.OrderManager
         public OrderAction OrderAction { get; set; }
         public DisplayedOrder OrderStatus { get; set; }
         public string Error { get; set; }
+        public DateTime PlacedTime { get; set; }
     }
     public class BaseStat : NotifyPropertyChangedBase
     {

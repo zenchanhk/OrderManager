@@ -133,6 +133,20 @@ namespace AmiBroker.Controllers
             }
         }
 
+        private bool _pIgnoreDuplicatedRecord;
+        public bool IgnoreDuplicatedRecord
+        {
+            get { return _pIgnoreDuplicatedRecord; }
+            set
+            {
+                if (_pIgnoreDuplicatedRecord != value)
+                {
+                    _pIgnoreDuplicatedRecord = value;
+                    OnPropertyChanged("IgnoreDuplicatedRecord");
+                }
+            }
+        }
+
         protected void OnPropertyChanged(string name)
         {
             PropertyChangedEventHandler handler = PropertyChanged;

@@ -715,6 +715,7 @@ namespace AmiBroker.Controllers
                         StopPrice = e.Order.TrailStopPrice,
                         LmtPrice = e.Order.LmtPrice,
                         Quantity = e.Order.TotalQuantity,
+                        Remaining = e.Order.TotalQuantity,
                         Exchange = e.Contract.Exchange,
                         ParentId = e.Order.ParentId,
                         OcaGroup = e.Order.OcaGroup,
@@ -730,6 +731,7 @@ namespace AmiBroker.Controllers
                         Strategy strategy = oi.Strategy;
                         dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
                                             + "." + oi.Slippage;
+
                     }
                     mainVM.Orders.Insert(0, dOrder);
                 }                
@@ -748,12 +750,23 @@ namespace AmiBroker.Controllers
                 // make a copy if every step needs keeping
                 if (mainVM.UserPreference.KeepTradeSteps)
                 {
-                    dOrder = dOrder.ShallowCopy();
-                    dOrder.Time = DateTime.Now;
-                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    DisplayedOrder tmp = null;
+                    if (mainVM.UserPreference.IgnoreDuplicatedRecord)
                     {
-                        mainVM.Orders.Insert(0, dOrder);
-                    });
+                        tmp = mainVM.Orders.FirstOrDefault<DisplayedOrder>(x => x.OrderId == e.OrderId &&
+                                                                    x.Remaining == e.Remaining && x.Status == e.Status);
+                        if (tmp != null)
+                            dOrder = tmp;   
+                    }
+                    if (tmp == null)
+                    {
+                        dOrder = dOrder.ShallowCopy();
+                        dOrder.Time = DateTime.Now;
+                        Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                        {
+                            mainVM.Orders.Insert(0, dOrder);
+                        });
+                    }
                 }
                 Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
@@ -772,6 +785,7 @@ namespace AmiBroker.Controllers
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     Script script = oi.Strategy.Script;
                     BaseStat scriptStat = script.AccountStat[oi.Account.Name];
+                    dOrder.PlacedTime = oi.PlacedTime;
                     switch (dOrder.Status)
                     {
                         case "PendingSubmit":
@@ -872,14 +886,15 @@ namespace AmiBroker.Controllers
                 OrderInfo oi = mainVM.OrderInfoList[e.RequestId];                
                 oi.Error = e.Message;
                 BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
-                string prevStatus = strategyStat.AccountStatus.ToString();
+                string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
                 AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
                 Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
                     mainVM.Log(new Log()
                     {
                         Time = DateTime.Now,
-                        Text = e.Message + "(previous status: " + prevStatus +")",
+                        Text = e.Message + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
+                        + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])",
                         Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
                     });
                 });      

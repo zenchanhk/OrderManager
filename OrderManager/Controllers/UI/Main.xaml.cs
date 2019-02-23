@@ -171,6 +171,8 @@ namespace AmiBroker.Controllers
                 {
                     _pTime = value;
                     OnPropertyChanged("Time");
+                    TimeSpan duration = Time - PlacedTime;
+                    TransactionDuration = duration.Milliseconds + duration.Seconds * 1000 + duration.Minutes * 6 * 1000;
                 }
             }
         }
@@ -241,6 +243,36 @@ namespace AmiBroker.Controllers
                 {
                     _pMktPricee = value;
                     OnPropertyChanged("MktPricee");
+                }
+            }
+        }
+
+        private DateTime _pPlacedTime;
+        public DateTime PlacedTime
+        {
+            get { return _pPlacedTime; }
+            set
+            {
+                if (_pPlacedTime != value)
+                {
+                    _pPlacedTime = value;
+                    OnPropertyChanged("PlacedTime");
+                    TimeSpan duration = Time - PlacedTime;
+                    TransactionDuration = duration.Milliseconds + duration.Seconds * 1000 + duration.Minutes * 6 * 1000;
+                }
+            }
+        }
+
+        private int _pTransactionDuration;
+        public int TransactionDuration
+        {
+            get { return _pTransactionDuration; }
+            set
+            {
+                if (_pTransactionDuration != value)
+                {
+                    _pTransactionDuration = value;
+                    OnPropertyChanged("TransactionDuration");
                 }
             }
         }

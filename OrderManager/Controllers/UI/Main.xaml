@@ -362,10 +362,12 @@
                         <Separator Width="1"/>
                         <TextBlock VerticalAlignment="Center">                            
                             <Run Text="{Binding BarsHandled}"/>
-                            <Run Text=" bars handled on "/>
+                            <Run Text=" ticks handled on "/>
                             <Run Text="{Binding LastBarTime, StringFormat=HH:mm:ss}"/>
                             <Run Text="["/>
                             <Run Text="{Binding Name}"/>
+                            <Run Text="@"/>
+                            <Run Text="{Binding Symbol.Name}"/>
                             <Run Text="]"/>
                         </TextBlock>
                     </StackPanel>                    

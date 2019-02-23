@@ -444,6 +444,16 @@ namespace AmiBroker.Controllers
     }
     public static class Helper
     {
+        public static List<string> TranslateAccountStatus(AccountStatus status)
+        {
+            List<string> sb = new List<string>();
+            foreach (AccountStatus acc in Enum.GetValues(typeof(AccountStatus)))
+            {
+                if ((status & acc) != 0)
+                    sb.Add(acc.ToString());
+            }
+            return sb;
+        }
         /// <summary>
         /// Clones a object via shallow copy
         /// </summary>
