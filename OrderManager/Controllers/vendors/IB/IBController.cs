@@ -1096,7 +1096,7 @@ namespace AmiBroker.Controllers
                         contract.Symbol = arg.ContractDetails.Summary.Symbol;
                         contract.Exchange = arg.ContractDetails.Summary.Exchange;
                         contract.PrimaryExch = arg.ContractDetails.Summary.PrimaryExch;
-                        contract.Currency = arg.ContractDetails.Summary.Currency;
+                        contract.Currency = arg.ContractDetails.Summary.Currency;                        
                         IBContract ibContract = new IBContract { Contract = contract };
                         ibContract.MinTick = arg.ContractDetails.MinTick;
                         tcs.TrySetResult((T)(object)ibContract);

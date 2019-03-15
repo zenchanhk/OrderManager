@@ -161,6 +161,7 @@ namespace AmiBroker.OrderManager
                         result = DateTimeFormat.Replace(dateFormat, dtLocal.AddDays(ExactTimeValidDays).ToString(dateFormat));
                         result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
                         result += TimeZone != null ? " " + TimeZone.Id : "";
+                        //System.Diagnostics.Debug.WriteLine("GTD: " + result);
                     }
                     break;
 				case 2:

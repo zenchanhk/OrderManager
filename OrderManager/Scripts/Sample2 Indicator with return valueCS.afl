@@ -18,6 +18,7 @@ ShortSignals="short1$short2";
 CoverSignals="cs1$cs2";
 Prices="bp1%sp1%shortp1%cp1$bp2%sp2%shortp2%cp2";
 ActionType="LongAndShort$Long";
+ScheduledOrders="{'buy':{'GTA':{'ExactTime':'21:29'},'GTD':{'ExactTime':'00:59', 'ExactTimeValidDays':1}}}$";
 
 bs1=high > ref(high, -1);
 ss1=low < ref(low, -1);

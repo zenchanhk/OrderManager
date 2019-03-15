@@ -155,7 +155,7 @@ namespace AmiBroker.Controllers
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for Interative Broker", OrderTypes = AllIBOrderTypes });
             VendorOrderTypes.Add(new VendorOrderType { Name = "Order Types for FuTu NiuNiu", OrderTypes = AllFTOrderTypes });
 
-            TimeZones.Add(new TimeZone { Id = "CST", UtcOffset = new TimeSpan(8,0,0), Description = "China Standard Time" });
+            TimeZones.Add(new TimeZone { Id = "HKT", UtcOffset = new TimeSpan(8,0,0), Description = "Asia/Hong_Kong" });
             TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
 
             //

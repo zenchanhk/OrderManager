@@ -16,6 +16,7 @@ using AmiBroker.OrderManager;
 using Newtonsoft.Json;
 using System.Collections.ObjectModel;
 using Xceed.Wpf.AvalonDock;
+using Newtonsoft.Json.Converters;
 
 namespace AmiBroker.Controllers
 {
@@ -259,6 +260,11 @@ namespace AmiBroker.Controllers
                         {
                             BaseStat strategyStat = strategy.AccountStat[acc.Name];
                             AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
+                            System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
+                            // IMPORTANT
+                            // should be improved here, same type controller share Order Info and should be waiting here
+                            // same accounts should be grouped together instead of using for-loop
+                            // TODO list
                             List<OrderLog> orderLogs = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1).Result;
                             strategyStat.OrderInfos[orderAction].Clear();   // clear old order info
                             foreach (OrderLog orderLog in orderLogs)
@@ -269,6 +275,7 @@ namespace AmiBroker.Controllers
                                     {
                                         OrderInfo oi = new OrderInfo
                                         {
+                                            OrderId = orderLog.OrderId,
                                             Strategy = strategy,
                                             Account = acc,
                                             OrderAction = orderAction,
@@ -332,6 +339,7 @@ namespace AmiBroker.Controllers
             message = string.Empty;
             Script script = strategy.Script;
             BaseStat scriptStat = script.AccountStat[strategyStat.Account.Name];
+            System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
             switch (action)
             {
                 case OrderAction.Buy:
@@ -453,7 +461,21 @@ namespace AmiBroker.Controllers
                     afl.Name = "Prices";
                     string[] prices = afl.GetString().Split(new char[] { '$' });
                     afl.Name = "ActionType";
-                    string[] actionTypes = afl.GetString().Split(new char[] { '$' });
+                    string[] actionTypes = afl.GetString().Split(new char[] { '$' });                    
+                    /*
+                     * read GTA and GTD info from script directly
+                     * ScheduledOrders="{'buy':{'GTA':{'ExactTime':'21:29'},'GTD':{'ExactTime':'00:59', 'ExactTimeValidDays':1}}}$";
+                    afl.Name = "ScheduledOrders";
+                    string[] schOrders = new string[] { }; 
+                    try
+                    {
+                        schOrders = afl.GetString().Split(new char[] { '$' });
+                    }
+                    catch (Exception ex)
+                    {
+                        // doing nothing if scheduldOrders not defined
+                    }*/
+
                     for (int i = 0; i < strategyNames.Length; i++)
                     {
                         Strategy s = script.Strategies.FirstOrDefault(x => x.Name == strategyNames[i]);
@@ -461,14 +483,21 @@ namespace AmiBroker.Controllers
                         {
                             if (s == null)
                                 s = new Strategy(strategyNames[i], script);
-                                
+                            /*
+                            if (schOrders[i].Trim().Length > 0)
+                            {
+                                Dictionary<string, Dictionary<string, GoodTime>> so = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, GoodTime>>>(schOrders[i],
+                                    new IsoDateTimeConverter { DateTimeFormat = "HH:mm" });
+                                s.ScheduledOrders = so;
+                            }*/
+
                             ActionType at = (ActionType)Enum.Parse(typeof(ActionType), actionTypes[i]);
                             s.ActionType = at;
                             s.Prices = new List<string>(prices[i].Split(new char[] { '%' }));
                             if (at == ActionType.Long || at == ActionType.LongAndShort)
                             {
                                 s.BuySignal = new ATAfl(buySignals[i]);
-                                s.SellSignal = new ATAfl(sellSignals[i]);
+                                s.SellSignal = new ATAfl(sellSignals[i]);                                
                             }
                             if (at == ActionType.Short || at == ActionType.LongAndShort)
                             {

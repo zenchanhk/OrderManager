@@ -40,6 +40,7 @@ namespace AmiBroker.Controllers
                 prop.PropertyName != "Name" && prop.PropertyName != "Controller")
                 ||
                 (prop.DeclaringType != typeof(Script) &&
+                //prop.DeclaringType != typeof(SSBase) &&
                 prop.DeclaringType != typeof(Strategy) &&
                 prop.DeclaringType != typeof(SymbolInAction) &&
                 prop.DeclaringType != typeof(SymbolDefinition) &&

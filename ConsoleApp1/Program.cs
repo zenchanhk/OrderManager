@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
 using System.Threading;
+using Newtonsoft.Json;
+using Newtonsoft;
+using Newtonsoft.Json.Converters;
 
 namespace ConsoleApp1
 {
@@ -57,20 +60,29 @@ namespace ConsoleApp1
         public string Name { get; set; } = "test";
         public List<string> Names { get; set; } = new List<string>();
     }
+    class GTA
+    {
+        public DateTime DT { get; set; }
+    }
     class Program
     {
        
         [STAThread]
         static void Main(string[] args)
         {
+            /*
             OrderManager om = new OrderManager();
             MainViewModel.Instance.test();
-
+            */
             //IBController controller = new IBController(MainViewModel.Instance);
             //controller.test();
-            Console.ReadLine();
-            
-            
+            //Console.ReadLine();
+            Dictionary<string, Dictionary<string, GTA>> t = new Dictionary<string, Dictionary<string, GTA>>();
+            t.Add("buy", new Dictionary<string, GTA>() { { "GTA", new GTA() { DT = DateTime.Now } } });
+            string s1 = JsonConvert.SerializeObject(t);
+            string s = "{'buy':{'GTA':{'DT':'15:39'}}}";
+            var dateTimeConverter = new IsoDateTimeConverter { DateTimeFormat = "HH:mm" };
+            Dictionary<string, Dictionary<string, GTA>> t1 = JsonConvert.DeserializeObject<Dictionary<string, Dictionary<string, GTA>>>(s, dateTimeConverter);
             //Console.ReadLine();
             /*
             Test test = new Test();

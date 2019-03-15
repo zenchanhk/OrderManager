@@ -117,6 +117,7 @@
     <Compile Include="Controllers\Helper\NotifyPropertyChangedBase.cs" />
     <Compile Include="Controllers\Helper\SiteHelper.cs" />
     <Compile Include="Controllers\Helper\UITreeHelper.cs" />
+    <Compile Include="Controllers\Helper\UpdateOSTime.cs" />
     <Compile Include="Controllers\UI\Command.cs" />
     <Compile Include="Controllers\UI\Controls\CachedContentControl.cs" />
     <Compile Include="Controllers\UI\Controls\DateTimeUpDown\AutoGreyImage.cs" />

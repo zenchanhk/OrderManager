@@ -53,12 +53,18 @@ namespace AmiBroker.OrderManager
     public class BaseStat : NotifyPropertyChangedBase
     {
         public AccountInfo Account { get; set; }
+        [JsonIgnore]
+        public SSBase SSBase { get; set; }
 
         private AccountStatus _pAccountStatus = AccountStatus.None;
         public AccountStatus AccountStatus
         {
             get { return _pAccountStatus; }
-            set { _UpdateField(ref _pAccountStatus, value); }
+            set {
+                _UpdateField(ref _pAccountStatus, value);
+                if (SSBase != null && SSBase.GetType() == typeof(Strategy))
+                    ((Strategy)SSBase).AFLStatusCallback(value);
+            }
         }
 
         private double _pLongPosition;
@@ -124,7 +130,7 @@ namespace AmiBroker.OrderManager
                 foreach (AccountInfo account in e.NewItems)
                 {
                     if (!AccountStat.ContainsKey(account.Name))
-                        AccountStat.Add(account.Name, new BaseStat() { Account = account });
+                        AccountStat.Add(account.Name, new BaseStat() { Account = account, SSBase = this });
                 }
                 // add account into script too
                 if (GetType() == typeof(Strategy))
@@ -136,7 +142,7 @@ namespace AmiBroker.OrderManager
                         foreach (AccountInfo account in e.NewItems)
                         {
                             if (!script.AccountStat.ContainsKey(account.Name))
-                                script.AccountStat.Add(account.Name, new BaseStat() { Account = account });
+                                script.AccountStat.Add(account.Name, new BaseStat() { Account = account, SSBase = this });
                         }
                     }                    
                 }
@@ -518,7 +524,9 @@ namespace AmiBroker.OrderManager
         public Dictionary<OrderAction, BaseObservableCollection<AccountInfo>> AccountsDic { get; set; } = new Dictionary<OrderAction, BaseObservableCollection<AccountInfo>>();
         [JsonIgnore]
         public Dictionary<OrderAction, ObservableCollection<BaseOrderType>> OrderTypesDic { get; set; } = new Dictionary<OrderAction, ObservableCollection<BaseOrderType>>();
-
+        [JsonIgnore]
+        // store GAT and GTD information from script
+        public Dictionary<string, Dictionary<string, GoodTime>> ScheduledOrders { get; set; } = new Dictionary<string, Dictionary<string, GoodTime>>();
         public ActionType ActionType { get; set; }
         [JsonIgnore]
         public Script Script { get; private set; }  // parent
@@ -611,6 +619,11 @@ namespace AmiBroker.OrderManager
                 AccountStat[acc.Name].LongEntry = 0;
                 AccountStat[acc.Name].ShortEntry = 0;
             }
+        }
+
+        public void AFLStatusCallback(AccountStatus status)
+        {
+            AFMisc.StaticVarSet(Name, (int)status);
         }
         public void CopyFrom(Strategy strategy)
         {
@@ -889,6 +902,8 @@ namespace AmiBroker.OrderManager
             var tz = MainViewModel.Instance.TimeZones.FirstOrDefault(x => x.UtcOffset.Minutes == timeZone.GetUtcOffset(DateTime.Now).Minutes);
             if (tz != null)
                 TimeZone = tz;
+            else
+                TimeZone = MainViewModel.Instance.TimeZones[0];
             // fill in accouts available for selecting
             AppliedControllers.CollectionChanged += AppliedControllers_CollectionChanged;
             // fill in Vendors
@@ -987,7 +1002,10 @@ namespace AmiBroker.OrderManager
         public AmiBroker.Controllers.TimeZone TimeZone
         {
             get { return _pTimeZone; }
-            set { _UpdateField(ref _pTimeZone, value); }
+            set {
+                _UpdateField(ref _pTimeZone, value);
+                ChangeTimeZone(value);
+            }
         }
         public void CloseAllPositions()
         {
