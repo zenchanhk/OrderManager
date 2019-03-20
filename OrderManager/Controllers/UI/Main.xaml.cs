@@ -415,7 +415,7 @@ namespace AmiBroker.Controllers
             this.Icon = bi;
 
             ScalingFactor = 1;
-            MinorLogPause = true;
+            MinorLogPause = false;
             // prevent Alt+F4 from shutting down windows
             this.KeyDown += MainWindow_KeyDown;
             MainVM.MessageList.CollectionChanged += MessageList_CollectionChanged;

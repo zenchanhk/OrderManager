@@ -235,7 +235,7 @@
                                             </DataTemplate>
                                         </GridViewColumn.CellTemplate>
                                     </GridViewColumn>
-                                    <GridViewColumn Header="Vendor" Width="150" DisplayMemberBinding="{Binding LocalSymbol}"/>
+                                    <GridViewColumn Header="Local Symbol" Width="150" DisplayMemberBinding="{Binding LocalSymbol}"/>
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -348,7 +348,21 @@
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxEntriesPerDay$300}" />
+                                    ConverterParameter=MaxEntriesPerDay$1000}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
+                        <TextBlock VerticalAlignment="Center" Text="Max. LONG attemps per day: " />
+                        <controls:NumericUpDown Value="{Binding MaxLongAttemps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
+                                    MaxValue="100" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
+                        <TextBlock VerticalAlignment="Center" Text="Max. SHORT attemps per day: " />
+                        <controls:NumericUpDown Value="{Binding MaxShortAttemps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
+                                    MaxValue="100" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" 
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"

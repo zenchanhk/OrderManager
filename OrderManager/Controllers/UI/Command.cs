@@ -942,7 +942,8 @@ namespace AmiBroker.Controllers
                 if (symbol.Position == 0) return;
                 if (symbol.Position > 0) orderAction = OrderAction.Sell;
                 if (symbol.Position < 0) orderAction = OrderAction.Cover;
-                controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
+                int bn = OrderManager.BatchNo;
+                controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, bn, Math.Abs(symbol.Position), symbol.Contract);
                 
                 foreach (SymbolInAction contract in mainVM.SymbolInActions)
                 {
@@ -1005,7 +1006,8 @@ namespace AmiBroker.Controllers
                     if (symbol.Position == 0) continue;
                     if (symbol.Position > 0) orderAction = OrderAction.Sell;
                     if (symbol.Position < 0) orderAction = OrderAction.Cover;
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, Math.Abs(symbol.Position), symbol.Contract);
+                    int bn = OrderManager.BatchNo;
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, bn, Math.Abs(symbol.Position), symbol.Contract);
                 }
                 foreach (SymbolInAction symbol in mainVM.SymbolInActions)
                 {

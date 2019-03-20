@@ -40,7 +40,7 @@
                 <GridView>
                     <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding OrderId}" />
                     <GridViewColumn Header="Action" Width="50" DisplayMemberBinding="{Binding Action}" />
-                    <GridViewColumn Header="Type" Width="50" DisplayMemberBinding="{Binding Type}" />
+                    <GridViewColumn Header="Type" Width="65" DisplayMemberBinding="{Binding Type}" />
                     <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Status}" />
                     <GridViewColumn Header="Symbol" Width="50" DisplayMemberBinding="{Binding Symbol}" />
                     <GridViewColumn Header="Quantity" Width="50" DisplayMemberBinding="{Binding Quantity}" />

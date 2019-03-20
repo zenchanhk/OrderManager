@@ -25,6 +25,7 @@ namespace AmiBroker.Controllers
         public Contract Contract { get; set; }
         public double MinTick { get; set; }
         public double RoundLotSize { get; set; }
+        public string TradingHours { get; set; }
     }
     public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
@@ -441,7 +442,7 @@ namespace AmiBroker.Controllers
         /// <param name="accountInfo"></param>
         /// <param name="symbol"></param>
         /// <returns>-1 means failure</returns>
-        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, double? posSize = null, Contract security = null, bool errorSuppressed = false)
+        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppressed = false)
         {         
             OrderLog orderLog = new OrderLog();
             string message = string.Empty;
@@ -563,7 +564,7 @@ namespace AmiBroker.Controllers
                             {
                                 orderId = OrderIdCount++;
                                 ClientSocket.placeOrder(orderId, contract, order);
-                                olog.OrderId = orderId;
+                                olog.OrderId = orderId;                                
                             }
                         }
                         else
@@ -573,13 +574,30 @@ namespace AmiBroker.Controllers
                             orderId = await reqIdsAsync();
                             ClientSocket.placeOrder(orderId, contract, order);
                             olog.OrderId = orderId;
-                        }
+                        }             
 
                         olog.OrgPrice = orgPrice;
                         olog.LmtPrice = order.LmtPrice;
                         olog.OrderSentTime = DateTime.Now;
                         olog.PosSize = ps;
                         olog.Slippage = slippage.Slippage;
+
+                        // add into list immediately to prevent from adding later than error hanlding,
+                        // which leads to order status cannot be reverted as expected
+                        OrderInfo oi = new OrderInfo
+                        {
+                            OrderId = orderId,
+                            BatchNo = batchNo,
+                            Strategy = strategy,
+                            Account = accountInfo,
+                            OrderAction = orderAction,
+                            PosSize = olog.PosSize,
+                            Slippage = (int)olog.Slippage,
+                            PlacedTime = olog.OrderSentTime
+                        };
+                        MainViewModel.Instance.OrderInfoList.Add(orderId, oi);
+
+                        // add to orderLogs as return value
                         orderLogs.Add(olog);
                     }
                 }
@@ -806,15 +824,15 @@ namespace AmiBroker.Controllers
                                 {                                    
                                     strategyStat.LongPosition += filled;
                                     scriptStat.LongPosition += filled;
-                                    strategyStat.LongEntry++;
-                                    scriptStat.LongEntry++;
+                                    strategyStat.LongEntry.Add(oi.BatchNo);
+                                    scriptStat.LongEntry.Add(oi.BatchNo);
                                 }
                                 else if (oi.OrderAction == OrderAction.Short)
                                 {
                                     strategyStat.ShortPosition += filled;
                                     scriptStat.ShortPosition += filled;
-                                    strategyStat.ShortEntry++;
-                                    scriptStat.ShortEntry++;
+                                    strategyStat.ShortEntry.Add(oi.BatchNo);
+                                    scriptStat.ShortEntry.Add(oi.BatchNo);
                                 }
                                 else if (oi.OrderAction == OrderAction.Sell)
                                 {
@@ -885,19 +903,36 @@ namespace AmiBroker.Controllers
             {
                 OrderInfo oi = mainVM.OrderInfoList[e.RequestId];                
                 oi.Error = e.Message;
-                BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
-                string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
-                AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
-                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                if (oi.Strategy.AccountStat.ContainsKey(oi.Account.Name))
                 {
-                    mainVM.Log(new Log()
+                    BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
+                    BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
+                    string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
+                    AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
-                        Time = DateTime.Now,
-                        Text = e.Message + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
-                        + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])",
-                        Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
+                        mainVM.Log(new Log()
+                        {
+                            Time = DateTime.Now,
+                            Text = e.Message + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
+                            + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])",
+                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
+                        });
                     });
-                });      
+                }
+                else
+                {
+                    Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+                    {
+                        mainVM.Log(new Log()
+                        {
+                            Time = DateTime.Now,
+                            Text = e.Message + "(OrderId:" + oi.OrderId + ", error: account status not found)",
+                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
+                        });
+                    });
+                }
+                
             }
             else if (e.RequestId > 0)
             {
@@ -974,14 +1009,14 @@ namespace AmiBroker.Controllers
             IBLimitOrder orderType = new IBLimitOrder();
             //orderType.Slippage = 0;
             strategy.BuyOrderTypes.Add(orderType);
-
-            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+            int bn = OrderManager.BatchNo;
+            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
             Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
             mainVM.Log(log1);
 
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 1 });
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 2 });
-            List<OrderLog> logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+            List<OrderLog> logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
             foreach (OrderLog olog in logs)
             {
                 mainVM.Log(new Log { Time = olog.OrderSentTime, Text = "Faked order2 placed." + olog.Slippage });
@@ -990,7 +1025,7 @@ namespace AmiBroker.Controllers
 
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 3 });
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 4 });
-            logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, null, null, true);
+            logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
             foreach (OrderLog olog in logs)
             {
                 mainVM.Log(new Log { Time = olog.OrderSentTime, Text = "Faked order3 placed." + olog.Slippage });
@@ -1096,8 +1131,8 @@ namespace AmiBroker.Controllers
                         contract.Symbol = arg.ContractDetails.Summary.Symbol;
                         contract.Exchange = arg.ContractDetails.Summary.Exchange;
                         contract.PrimaryExch = arg.ContractDetails.Summary.PrimaryExch;
-                        contract.Currency = arg.ContractDetails.Summary.Currency;                        
-                        IBContract ibContract = new IBContract { Contract = contract };
+                        contract.Currency = arg.ContractDetails.Summary.Currency;  
+                        IBContract ibContract = new IBContract { Contract = contract, TradingHours = arg.ContractDetails.TradingHours };
                         ibContract.MinTick = arg.ContractDetails.MinTick;
                         tcs.TrySetResult((T)(object)ibContract);
                         /*

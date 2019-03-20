@@ -20,6 +20,14 @@ using Newtonsoft.Json.Converters;
 
 namespace AmiBroker.Controllers
 {
+    public class BarInfo
+    {
+        public int BarCount { get; set; }
+        public bool BuySignal { get; set; }
+        public bool SellSignal { get; set; }
+        public bool ShortSignal { get; set; }
+        public bool CoverSignal { get; set; }
+    }
     public class OrderLog
     {
         public int OrderId { get; set; }
@@ -39,7 +47,7 @@ namespace AmiBroker.Controllers
         public static readonly Thread UIThread;
         //public static MainWindow MainWin { get => mainWin; }
         static OrderManager()
-        {            
+        {
             try
             {
                 // create a thread  
@@ -64,13 +72,13 @@ namespace AmiBroker.Controllers
                         DockingManager dock = OrderManager.MainWin.FindName("dockingManager") as DockingManager;
                         Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer layoutSerializer = new Xceed.Wpf.AvalonDock.Layout.Serialization.XmlLayoutSerializer(dock);
                         layoutSerializer.Deserialize("layout.cfg");
-                    }                    
+                    }
 
                     mainWin.Show();
                     app.Run();
                     mainWin.Dispatcher.Invoke(new System.Action(() => { }), DispatcherPriority.DataBind);
                     // start the Dispatcher processing 
-                    
+
                     Dispatcher.Run();
                 }));
 
@@ -99,33 +107,38 @@ namespace AmiBroker.Controllers
         private static void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
         {
             GlobalExceptionHandler.HandleException(sender, e.Exception, e, null, true);
-            
+
         }
 
         private static void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             GlobalExceptionHandler.HandleException(sender, e.Exception, e, null, true);
-            
+
         }
 
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             Exception ex = new Exception("Uncaptured exception for current domain");
             GlobalExceptionHandler.HandleException(sender, ex, e, null, true);
-            
+
         }
 
         private static void CurrentDomain_ProcessExit(object sender, EventArgs e)
         {
-            
+
         }
         /*
         public OrderManager()
         {
             //System.Diagnostics.Debug.WriteLine("Current Thread: " + Thread.CurrentThread.ManagedThreadId);
         }*/
-        
-        private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>(); 
+        // batch no is used for identifying the orders sent in group
+        private static int batch_no = 0;
+        public static int BatchNo { get { return batch_no++;  } }
+
+        private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>();
+        // key: ticker name + strategy name + interval
+        private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
         [ABMethod]
         public void IBC(string scriptName)
         {
@@ -156,16 +169,11 @@ namespace AmiBroker.Controllers
                     Initialize(scriptName);
                     return;
                 }
-
-                bool newDay = false;
+                                
                 string symbolName = AFInfo.Name();
 
                 if (lastBarDateTime.ContainsKey(symbolName))
                 {
-                    if ((logTime - lastBarDateTime[symbolName]).TotalHours > 6)
-                    {
-                        newDay = true;
-                    }
                     lastBarDateTime[symbolName] = logTime;
                 }
                 else
@@ -182,6 +190,7 @@ namespace AmiBroker.Controllers
 
                     if (!script.IsEnabled) return;
                     // reset entries count and positions for new day
+                    bool newDay = ATFloat.IsTrue(script.DayStart.GetArray()[BarCount - 1]);
                     if (newDay)
                     {
                         foreach (Strategy strategy in script.Strategies)
@@ -193,6 +202,9 @@ namespace AmiBroker.Controllers
                     {
                         if (!strategy.IsEnabled) continue;
 
+                        if (!lastBarInfo.ContainsKey(symbolName + strategy.Name + AFTimeFrame.Interval()))
+                            lastBarInfo.Add(symbolName + strategy.Name + AFTimeFrame.Interval(), new BarInfo() { BarCount = BarCount });
+
                         strategy.CurrentPrices.Clear();
                         foreach (var p in strategy.PricesATAfl)
                         {
@@ -203,23 +215,38 @@ namespace AmiBroker.Controllers
                         if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                         {
                             signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                            if (signal)
-                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
+                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BuySignal != signal)
+                            {
+                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));                                
+                            }
+                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BuySignal = signal;
+
 
                             signal = ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
-                            if (signal)
+                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].SellSignal != signal)
+                            {
                                 Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
+                            }
+                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].SellSignal = signal;
                         }
                         if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                         {
                             signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
-                            if (signal)
+                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].ShortSignal != signal)
+                            {
                                 Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
+                            }
+                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].ShortSignal = signal;
 
                             signal = ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
-                            if (signal)
+                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].CoverSignal != signal)
+                            {
                                 Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
+                            }
+                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].CoverSignal = signal;
                         }
+                        // store BarCount
+                        lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BarCount = BarCount;
                     }
                 }
             }
@@ -252,6 +279,7 @@ namespace AmiBroker.Controllers
                 if (ValidateSignal(strategy, strategy.AccountStat[acc.Name], orderAction, out message))
                 {
                     mainVM.Log(log);
+                    int batchNo = BatchNo;
                     foreach (var account in strategy.AccountsDic[orderAction])
                     {
                         string vendor = account.Controller.Vendor;
@@ -259,33 +287,24 @@ namespace AmiBroker.Controllers
                         if (orderType != null)
                         {
                             BaseStat strategyStat = strategy.AccountStat[acc.Name];
+                            BaseStat scriptStat = strategy.Script.AccountStat[acc.Name];
                             AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
+                            AccountStatusOp.SetAttemps(ref strategyStat, orderAction);
                             System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
                             // IMPORTANT
                             // should be improved here, same type controller share Order Info and should be waiting here
                             // same accounts should be grouped together instead of using for-loop
                             // TODO list
-                            List<OrderLog> orderLogs = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1).Result;
+                            List<OrderLog> orderLogs = account.Controller.PlaceOrder(account, strategy, orderType, orderAction, BarCount - 1, batchNo).Result;
                             strategyStat.OrderInfos[orderAction].Clear();   // clear old order info
                             foreach (OrderLog orderLog in orderLogs)
                             {
                                 if (orderLog.OrderId != -1)
                                 {
-                                    Dispatcher.FromThread(UIThread).Invoke(() =>
-                                    {
-                                        OrderInfo oi = new OrderInfo
-                                        {
-                                            OrderId = orderLog.OrderId,
-                                            Strategy = strategy,
-                                            Account = acc,
-                                            OrderAction = orderAction,
-                                            PosSize = orderLog.PosSize,
-                                            Slippage = (int)orderLog.Slippage,
-                                            PlacedTime = orderLog.OrderSentTime
-                                        };
-                                        strategyStat.OrderInfos[orderAction].Add(oi);
-                                        MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
-                                    });
+                                    //Dispatcher.FromThread(UIThread).Invoke(() =>
+                                    //{                                        
+                                        strategyStat.OrderInfos[orderAction].Add(MainViewModel.Instance.OrderInfoList[orderLog.OrderId]);
+                                    //});
                                     // log order place details
                                     MainViewModel.Instance.Log(new Log
                                     {
@@ -352,9 +371,7 @@ namespace AmiBroker.Controllers
                     {
                         message = "There is an pending buy order for strategy - " + strategy.Name;
                         return false;
-                    }
-                    if (scriptStat.LongPosition == script.MaxLongOpen)
-                        message = "Max. long position(script) reached.\n";
+                    }                    
                     break;
                 case OrderAction.Short:
                     if ((strategyStat.AccountStatus & AccountStatus.Short) != 0)
@@ -398,18 +415,43 @@ namespace AmiBroker.Controllers
 
             if (action == OrderAction.Buy || action == OrderAction.Short)
             {
-                if (strategyStat.LongEntry + strategyStat.ShortEntry >= strategy.MaxEntriesPerDay)
+                if (strategyStat.LongEntry.Count() + strategyStat.ShortEntry.Count() >= strategy.MaxEntriesPerDay)
                     message = "Max. entries per day reached(strategy).\n";
                 if (strategy.MaxOpenPosition <= strategyStat.LongPosition + strategyStat.ShortPosition)
                     message = "Max. open position(strategy) reached.\n";
                 if (script.MaxOpenPosition <= scriptStat.LongPosition + scriptStat.ShortPosition)
                     message = "Max. open position(script) reached.\n";
-                if (script.MaxEntriesPerDay <= scriptStat.LongEntry + scriptStat.ShortEntry)
-                    message = "Max. entries per day(script) reached.\n";
+                if (script.MaxEntriesPerDay <= scriptStat.LongEntry.Count() + scriptStat.ShortEntry.Count())
+                    message = "Max. entries per day(script) reached.\n";                
             }
 
             if (message == string.Empty)
-                return true;
+            {
+                if (action == OrderAction.Buy)
+                {
+                    if (script.AllowMultiLong && script.MaxLongOpen <= scriptStat.LongEntry.Count() - 1)
+                        message = "Max. LONG open position(script) reached.\n";
+                    if (!script.AllowMultiLong && scriptStat.LongEntry.Count() >= 1)
+                        message = "Multiple LONG open position(script) is not allowed.\n";
+                    if (strategyStat.LongAttemps >= strategy.MaxLongAttemps)
+                        message = "Max. LONG attemps(strategy) reached.\n";
+                }
+
+                if (action == OrderAction.Sell)
+                {
+                    if (script.AllowMultiShort && script.MaxShortOpen <= scriptStat.ShortEntry.Count() - 1)
+                        message = "Max. SHORT open position(script) reached.\n";
+                    if (!script.AllowMultiShort && scriptStat.ShortEntry.Count() >= 1)
+                        message = "Multiple SHORT open position(script) is not allowed.\n";
+                    if (strategyStat.ShortAttemps >= strategy.MaxShortAttemps)
+                        message = "Max. SHORT attemps(strategy) reached.\n";
+                }
+
+                if (message == string.Empty)
+                    return true;
+                else
+                    return false;
+            }                
             else
                 return false;
         }
@@ -461,7 +503,11 @@ namespace AmiBroker.Controllers
                     afl.Name = "Prices";
                     string[] prices = afl.GetString().Split(new char[] { '$' });
                     afl.Name = "ActionType";
-                    string[] actionTypes = afl.GetString().Split(new char[] { '$' });                    
+                    string[] actionTypes = afl.GetString().Split(new char[] { '$' });
+                    // get day start
+                    afl.Name = "DayStart";
+                    string dayStart = afl.GetString();
+                    script.DayStart = new ATAfl(dayStart);
                     /*
                      * read GTA and GTD info from script directly
                      * ScheduledOrders="{'buy':{'GTA':{'ExactTime':'21:29'},'GTD':{'ExactTime':'00:59', 'ExactTimeValidDays':1}}}$";

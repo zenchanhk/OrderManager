@@ -304,13 +304,27 @@ namespace ControlLib
 
         private static Type SearchPropertyType(object obj, string name)
         {
+            if (obj == null) return typeof(Object);
+
             PropertyInfo[] pis = obj.GetType().GetProperties();
             PropertyInfo pi = pis.FirstOrDefault(x => x.Name == name);
             if (pi != null)
                 return pi.PropertyType;
             else
             {
-                throw new Exception("Type not found");
+                if (obj.GetType().Name.Contains("Dictionary"))
+                {
+                    Type t = typeof(Object);
+                    foreach (var item in (IEnumerable)obj)
+                    {
+                        t = SearchPropertyType(((dynamic)item).Value, name);
+                        break;
+                    }
+                    return t;
+                }
+                else
+                    throw new Exception("Type not found");
+                
             }
         }
 
@@ -349,19 +363,32 @@ namespace ControlLib
                 }
                 else if (item is ArrayList)
                 {
-                    ArrayList list = (ArrayList)item;
+                    //ArrayList list = (ArrayList)item;
 
                     int index = 0;
-                    foreach (object value in list)
+                    foreach (object value in (IEnumerable)item)
                     {
-                        Dictionary<string, Object> dict = (Dictionary<string, Object>)value;
-                        TreeNode arrayItem = new TreeNode();
-                        arrayItem.Name = dict.ContainsKey("Name") ? $"[{dict["Name"]}]" : $"[{index}]";
-                        arrayItem.Type = arrayItem.GetType();
-                        arrayItem.Value = "";
-                        node.Children.Add(arrayItem);
-                        BuildTree(value, arrayItem, ((dynamic)obj)[index]);
-                        index++;
+                        if (value.GetType().Name.Contains("Dictionary"))
+                        {
+                            Dictionary<string, Object> dict = (Dictionary<string, Object>)value;
+                            TreeNode arrayItem = new TreeNode();
+                            arrayItem.Name = dict.ContainsKey("Name") ? $"[{dict["Name"]}]" : $"[{index}]";
+                            arrayItem.Type = arrayItem.GetType();
+                            arrayItem.Value = "";
+                            node.Children.Add(arrayItem);
+                            BuildTree(value, arrayItem, ((dynamic)obj)[index]);
+                            index++;
+                        }
+                        else
+                        {
+                            TreeNode arrayItem = new TreeNode();
+                            arrayItem.Name = $"[{index}]";
+                            arrayItem.Type = arrayItem.GetType();
+                            arrayItem.Value = value;
+                            node.Children.Add(arrayItem);
+                            //BuildTree(value, arrayItem, ((dynamic)obj)[index]);
+                            index++;
+                        }
                     }
                 }
                 else if (item is Dictionary<string, object>)

@@ -38,7 +38,7 @@ namespace AmiBroker.OrderManager
     public class OrderInfo
     {
         public int OrderId { get; set; }
-
+        public int BatchNo { get; set; }
         public double PosSize { get; set; }
         public double Filled { get; set; }
         public Strategy Strategy { get; set; }
@@ -68,6 +68,7 @@ namespace AmiBroker.OrderManager
         }
 
         private double _pLongPosition;
+        //[JsonIgnore]
         public double LongPosition
         {
             get { return _pLongPosition; }
@@ -81,18 +82,34 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pShortPosition, value); }
         }
 
-        private int _pLongEntry;
-        public int LongEntry
+        private HashSet<int> _pLongEntry = new HashSet<int>();
+        //[JsonIgnore]
+        public HashSet<int> LongEntry
         {
             get { return _pLongEntry; }
             set { _UpdateField(ref _pLongEntry, value); }
         }
 
-        private int _pShortEntry;
-        public int ShortEntry
+        private HashSet<int> _pShortEntry = new HashSet<int>();
+        //[JsonIgnore]
+        public HashSet<int> ShortEntry
         {
             get { return _pShortEntry; }
             set { _UpdateField(ref _pShortEntry, value); }
+        }
+        // only applied to Strategy
+        private int _pLongAttemps;
+        public int LongAttemps
+        {
+            get { return _pLongAttemps; }
+            set { _UpdateField(ref _pLongAttemps, value); }
+        }
+        // only applied to Strategy
+        private int _pShortAttemps;
+        public int ShortAttemps
+        {
+            get { return _pShortAttemps; }
+            set { _UpdateField(ref _pShortAttemps, value); }
         }
 
         [JsonIgnore]
@@ -258,6 +275,21 @@ namespace AmiBroker.OrderManager
             get { return _pPositionSize; }
             set { _UpdateField(ref _pPositionSize, value); }
         }
+
+        private int _pMaxLongAttemps;
+        public int MaxLongAttemps
+        {
+            get { return _pMaxLongAttemps; }
+            set { _UpdateField(ref _pMaxLongAttemps, value); }
+        }
+
+        private int _pMaxShortAttemps;
+        public int MaxShortAttemps
+        {
+            get { return _pMaxShortAttemps; }
+            set { _UpdateField(ref _pMaxShortAttemps, value); }
+        }
+
         // key is the name of account which is supposed to unique
         public Dictionary<string, BaseStat> AccountStat { get; set; } = new Dictionary<string, BaseStat>(); // statistics
 
@@ -530,37 +562,7 @@ namespace AmiBroker.OrderManager
         public ActionType ActionType { get; set; }
         [JsonIgnore]
         public Script Script { get; private set; }  // parent
-        /*        
-        private int _pLongAttemp;
-        [JsonIgnore]
-        public int LongAttemp
-        {
-            get { return _pLongAttemp; }
-            set
-            {
-                if (_pLongAttemp != value)
-                {
-                    _pLongAttemp = value;
-                    OnPropertyChanged("LongAttemp");
-                }
-            }
-        }
-
-        private int _pShortAttemp;
-        [JsonIgnore]
-        public int ShortAttemp
-        {
-            get { return _pShortAttemp; }
-            set
-            {
-                if (_pShortAttemp != value)
-                {
-                    _pShortAttemp = value;
-                    OnPropertyChanged("ShortAttemp");
-                }
-            }
-        }*/
-
+        
         [JsonIgnore]
         public ATAfl BuySignal { get; set; }
         [JsonIgnore]
@@ -575,6 +577,7 @@ namespace AmiBroker.OrderManager
         public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();        
         [JsonIgnore]
         public Dictionary<string, double> CurrentPrices { get; } = new Dictionary<string, double>();
+        
         public async void CloseAllPositions()
         {
             foreach (var item in AccountStat)
@@ -596,7 +599,7 @@ namespace AmiBroker.OrderManager
                     }                        
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
-                    await controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, 0, posSize);
+                    await controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, 0, 0, posSize);
                     item.Value.LongPosition = 0;
                     item.Value.ShortPosition = 0;
                     item.Value.AccountStatus = AccountStatus.None;
@@ -606,18 +609,19 @@ namespace AmiBroker.OrderManager
         // reset in case new day
         public void ResetForNewDay()
         {
-            /*
-            LongAttemp = 0;
-            ShortAttemp = 0;*/
             foreach (var acc in LongAccounts)
             {
-                AccountStat[acc.Name].LongEntry = 0;
-                AccountStat[acc.Name].ShortEntry = 0;
+                AccountStat[acc.Name].LongEntry.Clear();
+                AccountStat[acc.Name].ShortEntry.Clear();
+                AccountStat[acc.Name].LongAttemps = 0;
+                AccountStat[acc.Name].ShortAttemps = 0;
             }
             foreach (var acc in ShortAccounts)
             {
-                AccountStat[acc.Name].LongEntry = 0;
-                AccountStat[acc.Name].ShortEntry = 0;
+                AccountStat[acc.Name].LongEntry.Clear();
+                AccountStat[acc.Name].ShortEntry.Clear();
+                AccountStat[acc.Name].LongAttemps = 0;
+                AccountStat[acc.Name].ShortAttemps = 0;
             }
         }
 
@@ -697,7 +701,8 @@ namespace AmiBroker.OrderManager
             get { return _pLastBarTime; }
             set { _UpdateField(ref _pLastBarTime, value); }
         }
-
+        [JsonIgnore]
+        public ATAfl DayStart { get; set; } // reset LongAttemps and ShortAttemps
         public ObservableCollection<Strategy> Strategies { get; set; } = new ObservableCollection<Strategy>();
 
         private bool _pIsEnabled;
@@ -733,7 +738,7 @@ namespace AmiBroker.OrderManager
                     }
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
-                    await controller.PlaceOrder(item.Value.Account, Strategies[0], orderType, orderAction, 0, posSize);
+                    await controller.PlaceOrder(item.Value.Account, Strategies[0], orderType, orderAction, 0, 0, posSize);
                     item.Value.LongPosition = 0;
                     item.Value.ShortPosition = 0;
                 }
@@ -888,6 +893,12 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pLocalSymbol, value); }
         }
 
+        private string _pTradingHours;
+        public string TradingHours
+        {
+            get { return _pTradingHours; }
+            set { _UpdateField(ref _pTradingHours, value); }
+        }
     }
     public class SymbolInAction : NotifyPropertyChangedBase
     {
@@ -1024,6 +1035,7 @@ namespace AmiBroker.OrderManager
                     // the following line will result in non-block execution
                     IBContract c = await((IBController)controller).reqContractDetailsAsync(sd.ContractId);
                     sd.Contract = c.Contract;
+                    sd.TradingHours = c.TradingHours;
                     MinTick = c.MinTick;
                 }
             }

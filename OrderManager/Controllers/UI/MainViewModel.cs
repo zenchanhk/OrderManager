@@ -310,7 +310,21 @@ namespace AmiBroker.Controllers
         }
         public void MinorLog(Log log)
         {
-            if (!OrderManager.MainWin.MinorLogPause)
+            bool found = false;
+            if (UserPreference.ErrorFilter != null)
+            {
+                string[] filters = UserPreference.ErrorFilter.Split(new char[] { ';' });
+                for (int i = 0; i < filters.Length; i++)
+                {
+                    if (filters[i] != string.Empty && filters[i] != null && log.Text.ToLower().Contains(filters[i].ToLower()))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!OrderManager.MainWin.MinorLogPause && !found)
                 Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                 {
                     MinorLogList.Insert(0, log);
