@@ -627,12 +627,15 @@ namespace AmiBroker.OrderManager
 
         public void AFLStatusCallback(AccountStatus status)
         {
-            AFMisc.StaticVarSet(Name, (int)status);
+            // sometimes, it doesn't work well
+            //AFMisc.StaticVarSet(Name, (int)status);
         }
         public void CopyFrom(Strategy strategy)
         {
             MaxEntriesPerDay = strategy.MaxEntriesPerDay;
             MaxOpenPosition = strategy.MaxOpenPosition;
+            MaxLongAttemps = strategy.MaxLongAttemps;
+            MaxShortAttemps = strategy.MaxShortAttemps;
             ReverseSignalForcesExit = strategy.ReverseSignalForcesExit;
             PositionSize = strategy.PositionSize;
             /*
@@ -1034,9 +1037,12 @@ namespace AmiBroker.OrderManager
                 {
                     // the following line will result in non-block execution
                     IBContract c = await((IBController)controller).reqContractDetailsAsync(sd.ContractId);
-                    sd.Contract = c.Contract;
-                    sd.TradingHours = c.TradingHours;
-                    MinTick = c.MinTick;
+                    if (c != null)
+                    {
+                        sd.Contract = c.Contract;
+                        sd.TradingHours = c.TradingHours;
+                        MinTick = c.MinTick;
+                    }
                 }
             }
             if (controller.Vendor == "FT")

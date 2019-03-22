@@ -20,12 +20,18 @@ using System.Reflection;
 
 namespace AmiBroker.Controllers
 {    
+    public enum PriceAlignDirection
+    {
+        Ceiling=0,
+        Floor=1
+    }
     public class IBContract
     {
         public Contract Contract { get; set; }
         public double MinTick { get; set; }
         public double RoundLotSize { get; set; }
         public string TradingHours { get; set; }
+        public int ReqId { get; set; }
     }
     public class IBController : ApiClient, IController, INotifyPropertyChanged
     {
@@ -34,6 +40,7 @@ namespace AmiBroker.Controllers
         private readonly AsyncLock m_lock = new AsyncLock();
         private int OrderIdCount = 0;
         readonly MessageHub _hub = MessageHub.Instance;
+        private bool disconnectByManual = false;
         public Type Type { get { return this.GetType(); } }
         public EClientSocket Client { get => ClientSocket; }
         public IApiEvent IBEventDispatcher { get => EventDispatcher; }
@@ -76,12 +83,16 @@ namespace AmiBroker.Controllers
         private bool _pIsConnected = false;
         public bool IsConnected
         {
-            get { return ClientSocket.IsConnected(); }
+            get
+            {
+                return _pIsConnected;
+            }
             set
             {
                 if (_pIsConnected != value)
                 {
                     _pIsConnected = value;
+                    if (value) timer.Stop();
                     OnPropertyChanged("IsConnected");
                 }
             }
@@ -209,7 +220,7 @@ namespace AmiBroker.Controllers
             
             return null;
         }
-        public async Task<IBContract> reqContractDetailsAsync(string symbolName)
+        public async Task<IBContract> reqContractDetailsAsync(string symbolName, bool refresh = false, int? timeout = null)
         {
             Contract contract = new Contract();
             string[] parts = symbolName.Split(new char[] { '-' });
@@ -237,13 +248,13 @@ namespace AmiBroker.Controllers
                     contract.Currency = parts[3];
                     break;
             }
-            return await reqContractDetailsAsync(contract);
+            return await reqContractDetailsAsync(contract, refresh, timeout);
         }
-        public async Task<IBContract> reqContractDetailsAsync(Contract contract)
+        public async Task<IBContract> reqContractDetailsAsync(Contract contract, bool refresh = false, int? timeout = null)
         {
             string symbol = contract.LocalSymbol + "-" + contract.Exchange + "-" + contract.SecType
                 + (contract.Currency != null ? "-" + contract.Currency : "");
-            if (Contracts.ContainsKey(symbol))
+            if (!refresh && Contracts.ContainsKey(symbol))
                 return Contracts[symbol];
             
             try
@@ -262,7 +273,7 @@ namespace AmiBroker.Controllers
                     //EventDispatcher.MarketRule -= new EventHandler<MarketRuleEventArgs>(handler);
                     EventDispatcher.Error -= new EventHandler<ErrorEventArgs>(handler);
                 },
-                CancellationToken.None, this);
+                CancellationToken.None, this, timeout);
                 if (!Contracts.ContainsKey(symbol))
                     Contracts.Add(symbol, c);
                 return c;
@@ -270,6 +281,9 @@ namespace AmiBroker.Controllers
             catch (Exception ex)
             {
                 //throw ex;
+                if (!ex.Message.Contains("Request Contract Data Sending Error") && 
+                    !ex.Message.Contains("A task was canceled"))
+                    GlobalExceptionHandler.HandleException("IBController.reqContractDetailsAsync", ex);
                 return null;
             }            
         }
@@ -294,7 +308,8 @@ namespace AmiBroker.Controllers
             }
             catch (Exception ex)
             {
-                throw ex;
+                //throw ex;
+                GlobalExceptionHandler.HandleException("IBController.reqIdsAsync", ex);
                 return -1;
             }
         }
@@ -394,10 +409,13 @@ namespace AmiBroker.Controllers
             PropertyInfo[] pInfos = ot.GetType().GetProperties();
             PropertyInfo pi = pInfos.FirstOrDefault(x => x.Name == "LmtPrice");
             string aflVar = pi?.GetValue(ot)?.ToString();
+            double minTick = strategy != null ? strategy.Symbol.MinTick : -1;
             if (pi != null)
             {
                 if (aflVar != null)
-                {                    
+                {
+                    // order.LmtPrice = TruncatePrice(strategy.CurrentPrices[aflVar], minTick);
+                    // keep value as to store original value as comparision
                     order.LmtPrice = strategy.CurrentPrices[aflVar];
                 }                    
                 else
@@ -409,7 +427,7 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.AuxPrice = strategy.CurrentPrices[aflVar];
+                    order.AuxPrice = minTick != -1 ? TruncatePrice(strategy.CurrentPrices[aflVar], minTick) : strategy.CurrentPrices[aflVar];
                 else
                     message += "Auxarily price is not available. ";
             }
@@ -419,7 +437,7 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.TrailingPercent = strategy.CurrentPrices[aflVar];
+                    order.TrailingPercent = minTick != -1 ? TruncatePrice(strategy.CurrentPrices[aflVar], minTick) : strategy.CurrentPrices[aflVar];
                 else
                     message += "Trailing precent is not available. ";
             }
@@ -429,12 +447,19 @@ namespace AmiBroker.Controllers
             if (pi != null)
             {
                 if (aflVar != null)
-                    order.TrailStopPrice = strategy.CurrentPrices[aflVar];
+                    order.TrailStopPrice = minTick != -1 ? TruncatePrice(strategy.CurrentPrices[aflVar], minTick) : strategy.CurrentPrices[aflVar];
                 else
                     message += "Trail stop price is not available.";
             }
 
             return order;
+        }
+        // modify the price to conform to minTick requirement
+        private double TruncatePrice(double price, double minTick, PriceAlignDirection priceAlign = PriceAlignDirection.Floor)
+        {
+            double redundant = price % minTick;
+            double modifiedPrice = priceAlign == PriceAlignDirection.Ceiling ? price - redundant + minTick : price - redundant;
+            return modifiedPrice;
         }
         /// <summary>
         /// Place order, return OrderId if successful, otherwise, return -1
@@ -442,121 +467,174 @@ namespace AmiBroker.Controllers
         /// <param name="accountInfo"></param>
         /// <param name="symbol"></param>
         /// <returns>-1 means failure</returns>
-        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppressed = false)
-        {         
-            OrderLog orderLog = new OrderLog();
-            string message = string.Empty;
-            if (posSize == null)
+        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
+            OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, 
+            bool errorSuppressed = false, bool addToInfoList = true)
+        {
+            try
             {
-                // prevent caculating TotalQuantity
-                if (orderType.Slippages.Count > 0)
-                    posSize = -1;
-            }
-            Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex, out message, posSize);
-            orderLog.Error = message;
-            if (message != string.Empty && !errorSuppressed)
-            {
-                orderLog.OrderId = -1;                
-                return new List<OrderLog> { orderLog };
-            }
-            
-            Contract contract = new Contract();
-            if (security == null)
-            {
-                string symbolName = strategy.Symbol.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor)?.ContractId;
-                string[] parts = symbolName.Split(new char[] { '-' });
-                switch (parts.Length)
+                OrderLog orderLog = new OrderLog();
+                string message = string.Empty;
+                if (posSize == null)
                 {
-                    case 1:
-                        contract.LocalSymbol = parts[0];
-                        contract.Exchange = "SMART";
-                        contract.SecType = "STK";
-                        break;
-                    case 2:
-                        contract.LocalSymbol = parts[0];
-                        contract.Exchange = parts[1];
-                        contract.SecType = "STK";
-                        break;
-                    case 3:
-                        contract.LocalSymbol = parts[0];
-                        contract.Exchange = parts[1];
-                        contract.SecType = parts[2];
-                        break;
-                    case 4:
-                        contract.LocalSymbol = parts[0];
-                        contract.Exchange = parts[1];
-                        contract.SecType = parts[2];
-                        contract.Currency = parts[3];
-                        break;
+                    // prevent caculating TotalQuantity
+                    if (orderType.Slippages != null && orderType.Slippages.Count > 0)
+                        posSize = -1;
                 }
-                IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
-                contract = c.Contract;
-            }
-            else
-            {
-                contract = security;
-                if (contract.Exchange == null)
-                    contract.Exchange = contract.PrimaryExch;
-            }                
-            
-            if (contract != null)
-            {
-                List<OrderLog> orderLogs = new List<OrderLog>();
+                Order order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, barIndex, out message, posSize);
+                orderLog.Error = message;
+                if (message != string.Empty && !errorSuppressed)
+                {
+                    orderLog.OrderId = -1;
+                    return new List<OrderLog> { orderLog };
+                }
 
-                if (orderType.Slippages != null && orderType.Slippages.Count > 0)
-                {                    
-                    List<Order> orders = new List<Order>();
-                    int accuPosSize = 0;    // accumulated position size
-                    double orgPrice = order.LmtPrice;
-                    double redundant = order.LmtPrice % strategy.Symbol.MinTick;
-                    double modifiedPrice = order.LmtPrice - redundant;  
-                    int ttlPosSize = 0;
-                    if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
-                        ttlPosSize = strategy.PositionSize;
-                    else if (orderAction == OrderAction.Cover)
-                        ttlPosSize = (int)strategy.AccountStat[accountInfo.Name].ShortPosition;
-                    else if (orderAction == OrderAction.Sell)
-                        ttlPosSize = (int)strategy.AccountStat[accountInfo.Name].LongPosition;
-
-                    foreach (CSlippage slippage in orderType.Slippages)
+                Contract contract = new Contract();
+                if (security == null)
+                {
+                    string symbolName = strategy.Symbol.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor)?.ContractId;
+                    string[] parts = symbolName.Split(new char[] { '-' });
+                    switch (parts.Length)
                     {
-                        OrderLog olog = new OrderLog();
-                        olog.Error = message;
+                        case 1:
+                            contract.LocalSymbol = parts[0];
+                            contract.Exchange = "SMART";
+                            contract.SecType = "STK";
+                            break;
+                        case 2:
+                            contract.LocalSymbol = parts[0];
+                            contract.Exchange = parts[1];
+                            contract.SecType = "STK";
+                            break;
+                        case 3:
+                            contract.LocalSymbol = parts[0];
+                            contract.Exchange = parts[1];
+                            contract.SecType = parts[2];
+                            break;
+                        case 4:
+                            contract.LocalSymbol = parts[0];
+                            contract.Exchange = parts[1];
+                            contract.SecType = parts[2];
+                            contract.Currency = parts[3];
+                            break;
+                    }
+                    IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+                    contract = c.Contract;
+                }
+                else
+                {
+                    contract = security;
+                    if (contract.Exchange == null)
+                        contract.Exchange = contract.PrimaryExch;
+                }
 
-                        // calculate order TotalQuantity
-                        int ps = 0;
-                        if (accuPosSize + slippage.PosSize <= ttlPosSize)
+                if (contract != null)
+                {
+                    List<OrderLog> orderLogs = new List<OrderLog>();
+
+                    if (orderType.Slippages != null && orderType.Slippages.Count > 0)
+                    {
+                        List<Order> orders = new List<Order>();
+                        int accuPosSize = 0;    // accumulated position size
+                        double orgPrice = order.LmtPrice;
+                        //double redundant = order.LmtPrice % strategy.Symbol.MinTick;
+                        double modifiedPrice = TruncatePrice(order.LmtPrice, strategy.Symbol.MinTick);
+                        int ttlPosSize = 0;
+                        if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
+                            ttlPosSize = strategy.PositionSize;
+                        else if (orderAction == OrderAction.Cover)
+                            ttlPosSize = (int)strategy.AccountStat[accountInfo.Name].ShortPosition;
+                        else if (orderAction == OrderAction.Sell)
+                            ttlPosSize = (int)strategy.AccountStat[accountInfo.Name].LongPosition;
+
+                        foreach (CSlippage slippage in orderType.Slippages)
                         {
-                            ps = slippage.PosSize;
-                        }
-                        else
-                        {
-                            ps = ttlPosSize - accuPosSize;
-                            if (ps == 0)
+                            OrderLog olog = new OrderLog();
+                            olog.Error = message;
+
+                            // calculate order TotalQuantity
+                            int ps = 0;
+                            if (accuPosSize + slippage.PosSize <= ttlPosSize)
                             {
-                                olog.Error = "Total position size of slippage is greater than size defined in strategy/Long Positions/Short Positions";
-                                olog.Slippage = slippage.Slippage;
-                                olog.OrderId = -1;
-                                orderLogs.Add(olog);
-                                break;
+                                ps = slippage.PosSize;
                             }
-                        }
-                        accuPosSize += ps;
-                        order.TotalQuantity = ps * strategy.Symbol.RoundLotSize;
+                            else
+                            {
+                                ps = ttlPosSize - accuPosSize;
+                                if (ps == 0)
+                                {
+                                    olog.Error = "Total position size of slippage is greater than size defined in strategy/Long Positions/Short Positions";
+                                    olog.Slippage = slippage.Slippage;
+                                    olog.OrderId = -1;
+                                    orderLogs.Add(olog);
+                                    break;
+                                }
+                            }
+                            accuPosSize += ps;
+                            order.TotalQuantity = ps * strategy.Symbol.RoundLotSize;
 
-                        // calcuate limit price with slippages
-                        order.LmtPrice = modifiedPrice; // reset limit price with original one
-                        if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
-                        {
-                            order.LmtPrice += slippage.Slippage * strategy.Symbol.MinTick;
+                            // calcuate limit price with slippages
+                            order.LmtPrice = modifiedPrice; // reset limit price with original one
+                            if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
+                            {
+                                order.LmtPrice += slippage.Slippage * strategy.Symbol.MinTick;
+                            }
+                            else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
+                            {
+                                order.LmtPrice -= slippage.Slippage * strategy.Symbol.MinTick;
+                            }
+
+                            // sent order
+                            int orderId = 0;
+                            if (!ConnParam.IsMulti)
+                            {
+                                using (await m_lock.LockAsync())
+                                {
+                                    orderId = OrderIdCount++;
+                                    ClientSocket.placeOrder(orderId, contract, order);
+                                    olog.OrderId = orderId;
+                                }
+                            }
+                            else
+                            {
+                                // if multi instances are running, valid order id must be obtained from IB server
+                                // this will degrade the performance seriously
+                                orderId = await reqIdsAsync();
+                                ClientSocket.placeOrder(orderId, contract, order);
+                                olog.OrderId = orderId;
+                            }
+
+                            olog.OrgPrice = orgPrice;
+                            olog.LmtPrice = order.LmtPrice;
+                            olog.OrderSentTime = DateTime.Now;
+                            olog.PosSize = ps;
+                            olog.Slippage = slippage.Slippage;
+                            // add to orderLogs as return value
+                            orderLogs.Add(olog);
+
+                            // add into list immediately to prevent from adding later than error hanlding,
+                            // which leads to order status cannot be reverted as expected
+                            if (strategy != null && addToInfoList)
+                            {
+                                OrderInfo oi = new OrderInfo
+                                {
+                                    OrderId = olog.OrderId,
+                                    BatchNo = batchNo,
+                                    Strategy = strategy,
+                                    Account = accountInfo,
+                                    OrderAction = orderAction,
+                                    PosSize = olog.PosSize,
+                                    Slippage = (int)olog.Slippage,
+                                    PlacedTime = olog.OrderSentTime
+                                };
+                                MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi);
+                            }
+                            
                         }
-                        else if (orderAction == OrderAction.Short || orderAction == OrderAction.Sell)
-                        {
-                            order.LmtPrice -= redundant != 0 ? (slippage.Slippage - 1) * strategy.Symbol.MinTick
-                                                                : slippage.Slippage * strategy.Symbol.MinTick;
-                        }
-                        
-                        // sent order
+                    }
+                    else
+                    // no slippage defined for e.g. MarketOrder
+                    {
                         int orderId = 0;
                         if (!ConnParam.IsMulti)
                         {
@@ -564,7 +642,7 @@ namespace AmiBroker.Controllers
                             {
                                 orderId = OrderIdCount++;
                                 ClientSocket.placeOrder(orderId, contract, order);
-                                olog.OrderId = orderId;                                
+                                orderLog.OrderId = orderId;
                             }
                         }
                         else
@@ -573,70 +651,51 @@ namespace AmiBroker.Controllers
                             // this will degrade the performance seriously
                             orderId = await reqIdsAsync();
                             ClientSocket.placeOrder(orderId, contract, order);
-                            olog.OrderId = orderId;
-                        }             
-
-                        olog.OrgPrice = orgPrice;
-                        olog.LmtPrice = order.LmtPrice;
-                        olog.OrderSentTime = DateTime.Now;
-                        olog.PosSize = ps;
-                        olog.Slippage = slippage.Slippage;
+                            orderLog.OrderId = orderId;
+                        }
+                        orderLog.OrderSentTime = DateTime.Now;
+                        // strategy.PosSize cannot be used here because PosSize may not equal to that number.
+                        orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : (int)order.TotalQuantity;
+                        orderLog.Slippage = null;
+                        orderLogs.Add(orderLog);
 
                         // add into list immediately to prevent from adding later than error hanlding,
                         // which leads to order status cannot be reverted as expected
-                        OrderInfo oi = new OrderInfo
+                        if (strategy != null && addToInfoList)
                         {
-                            OrderId = orderId,
-                            BatchNo = batchNo,
-                            Strategy = strategy,
-                            Account = accountInfo,
-                            OrderAction = orderAction,
-                            PosSize = olog.PosSize,
-                            Slippage = (int)olog.Slippage,
-                            PlacedTime = olog.OrderSentTime
-                        };
-                        MainViewModel.Instance.OrderInfoList.Add(orderId, oi);
-
-                        // add to orderLogs as return value
-                        orderLogs.Add(olog);
+                            OrderInfo oi = new OrderInfo
+                            {
+                                OrderId = orderLog.OrderId,
+                                BatchNo = batchNo,
+                                Strategy = strategy,
+                                Account = accountInfo,
+                                OrderAction = orderAction,
+                                PosSize = orderLog.PosSize,
+                                Slippage = orderLog.Slippage != null ? (int)orderLog.Slippage : 0,
+                                PlacedTime = orderLog.OrderSentTime
+                            };
+                            MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
+                        }
+                        
                     }
+
+                    return orderLogs;
                 }
                 else
-                // no slippage defined for e.g. MarketOrder
                 {
-                    int orderId = 0;
-                    if (!ConnParam.IsMulti)
-                    {
-                        using (await m_lock.LockAsync())
-                        {
-                            orderId = OrderIdCount++;
-                            ClientSocket.placeOrder(orderId, contract, order);
-                            orderLog.OrderId = orderId;
-                        }
-                    }
-                    else
-                    {
-                        // if multi instances are running, valid order id must be obtained from IB server
-                        // this will degrade the performance seriously
-                        orderId = await reqIdsAsync();
-                        ClientSocket.placeOrder(orderId, contract, order);
-                        orderLog.OrderId = orderId;
-                    }
-                    orderLog.OrderSentTime = DateTime.Now;
-                    // strategy.PosSize cannot be used here because PosSize may not equal to that number.
-                    orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : (int)order.TotalQuantity;
-                    orderLog.Slippage = null;
-                    orderLogs.Add(orderLog);
+                    orderLog.OrderId = -1;
+                    orderLog.Error = "Contract cannot be found.";
+                    return new List<OrderLog> { orderLog };
                 }
-
-                return orderLogs;
             }
-            else
-            {
+            catch (Exception ex)
+            {                
+                GlobalExceptionHandler.HandleException("IBController.PlaceOrder", ex);
+                OrderLog orderLog = new OrderLog();
                 orderLog.OrderId = -1;
-                orderLog.Error = "Contract cannot be found.";
+                orderLog.Error = ex.Message;
                 return new List<OrderLog> { orderLog };
-            }            
+            }                        
         }
         public void CancelOrder(int orderId)
         {
@@ -663,21 +722,65 @@ namespace AmiBroker.Controllers
             }
             catch (Exception ex)
             {
-                throw ex;
+                //throw ex;
+                GlobalExceptionHandler.HandleException("IBControler.CancelOrderAsync", ex);
+                return false;
             }
         }
+        // auto reconnect
+        private System.Timers.Timer timer = new System.Timers.Timer();
+        private int reconnectInterval = 2000;
+        private void AutoReconnect()
+        {
+            // isconnected must be put in the first place
+            if (IsConnected || disconnectByManual || timer.Enabled) return;
+            timer.Interval = reconnectInterval;
+            timer.Elapsed += Timer_Elapsed; ;
+            timer.Start();
+        }
+        private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (IsConnected) return;
+            mainVM.AddMessage(new Message { Time = DateTime.Now, Text = "Trying to reconnect..." });
+            if (!isConnecting)
+                Connect();            
+        }
+
+        public void DisconnectByManual()
+        {
+            Disconnect();
+            disconnectByManual = true;
+        }
+        private bool isConnecting = false;
         public async void Connect()
         {
             try
             {
-                await ConnectAsync(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);                
+                
+                disconnectByManual = false;
+                isConnecting = true;
+                /*
+                var ts = new CancellationTokenSource();
+                CancellationToken ct = ts.Token;
+                var task = Task.Factory.StartNew(() =>
+                {
+                    base.Connect(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);
+                }, ct);
+                var task = ConnectAsync(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);
+                var task1 = await Task.WhenAny(task, Task.Delay(8000));
+                if (task1 != task) throw new TimeoutException();
+                if (IsConnected)
+                    Request();*/
+                await ConnectAsync(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);
                 Request();
+                isConnecting = false;
             }
             catch (Exception ex)
             {
-                if (ex.GetType() == typeof(TaskCanceledException))
+                isConnecting = false;
+                if (ex.GetType() == typeof(TaskCanceledException) || ex.GetType() == typeof(TimeoutException))
                 {
-                    mainVM.MessageList.Insert(0, new Message()
+                    mainVM.AddMessage(new Message()
                     {
                         Time = DateTime.Now,
                         Source = DisplayName,
@@ -685,7 +788,10 @@ namespace AmiBroker.Controllers
                     });
                 }
                 if (!IsConnected)
+                {
                     ConnectionStatus = "Disconnected";
+                    AutoReconnect();
+                }
             }
         }
         private void eh_ManagedAccounts(object sender, ManagedAccountsEventArgs e)
@@ -747,7 +853,8 @@ namespace AmiBroker.Controllers
                     {
                         OrderInfo oi = mainVM.OrderInfoList[e.OrderId];
                         Strategy strategy = oi.Strategy;
-                        dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
+                        if (strategy != null)
+                            dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
                                             + "." + oi.Slippage;
 
                     }
@@ -854,6 +961,9 @@ namespace AmiBroker.Controllers
             else
             {
                 //throw new Exception("OrderId:" + e.OrderId + " not found");
+                //Exception ex = new Exception("OrderId:" + e.OrderId + " not found");
+                //GlobalExceptionHandler.HandleException("IBController.eh_OrderStatus", ex);
+                mainVM.Log(new Log() { Text = string.Format("Order Id: {0:0} cannot be found, this order may be issued mannually", e.OrderId), Time = DateTime.Now });
             }
         }
         private void eh_UpdatePortfolio(object sender, UpdatePortfolioEventArgs e)
@@ -896,14 +1006,42 @@ namespace AmiBroker.Controllers
                 }
             });
         }
-        private void eh_Error(object sender, IB.CSharpApiClient.Events.ErrorEventArgs e)
+        private bool isCheckingConn = false;
+        private async Task<bool> CheckConnectivity()
         {
+            isCheckingConn = true;
+            IBContract contract = await reqContractDetailsAsync("QQQ", true, 1000);
+            isCheckingConn = false;
+            if (contract == null)
+                return false;
+            else
+                return true;
+        }
+        // store reqId for reqContractDetailsAsync to detect if connection is alive
+        private int testReqId = -10000;
+        private async void eh_Error(object sender, IB.CSharpApiClient.Events.ErrorEventArgs e)
+        {
+            if (isCheckingConn) return; // ignore error during checking
+
+            if (e.Message != null && e.Message.ToLower().Contains("not connected") && !disconnectByManual)
+            {
+                bool isConnected = await CheckConnectivity();
+                if (!isConnected)
+                    AutoReconnect();
+            }
+            if (e.RequestId == testReqId && e.Message != null)
+            {
+                if (e.Message.ToLower().Contains("error"))
+                {
+                    Disconnect();
+                }
+            }
             string msg = e.Exception != null ? e.Exception.Message : e.Message;
             if (mainVM.OrderInfoList.ContainsKey(e.RequestId))
             {
                 OrderInfo oi = mainVM.OrderInfoList[e.RequestId];                
                 oi.Error = e.Message;
-                if (oi.Strategy.AccountStat.ContainsKey(oi.Account.Name))
+                if (oi.Strategy != null && oi.Strategy.AccountStat.ContainsKey(oi.Account.Name))
                 {
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
@@ -928,7 +1066,7 @@ namespace AmiBroker.Controllers
                         {
                             Time = DateTime.Now,
                             Text = e.Message + "(OrderId:" + oi.OrderId + ", error: account status not found)",
-                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
+                            Source = oi.Strategy != null ? oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage : "Source not found, may be issued mannually."
                         });
                     });
                 }
@@ -956,9 +1094,40 @@ namespace AmiBroker.Controllers
             {
                 ConnectionStatus = "Connected";
             }
-            if (e.Message != null && e.Message.Contains("Unable to read beyond the end of stream"))
+            if (e.Message != null && e.Message.Contains("Unable to read beyond the end of the stream"))
             {
-                ConnectionStatus = "Disconnected";
+                if (IsConnected)
+                {
+                    bool isConnected = await CheckConnectivity();
+                    if (!isConnected)
+                    {
+                        Disconnect();
+                        AutoReconnect();
+                    }
+                }
+                else
+                {
+                    mainVM.AddMessage(new Message()
+                    {
+                        Time = DateTime.Now,
+                        Code = e.ErrorCode,
+                        Text = string.Format("Client Id {0:0} is already in use.", ConnParam.ClientId),
+                        Source = DisplayName
+                    });
+                    ConnParam.ClientId++;
+                    AutoReconnect();
+                }
+                //ConnectionStatus = "Disconnected";
+            }
+            if (e.Message != null && e.Message.ToLower().Contains("already connected"))
+            {
+                bool isConnected = await CheckConnectivity();
+                bool i = ClientSocket.IsConnected();
+                if (!isConnected)
+                {
+                    Disconnect();
+                    AutoReconnect();
+                }
             }
             if (e.Exception != null)
             {
@@ -988,6 +1157,7 @@ namespace AmiBroker.Controllers
         private void eh_ConnectionClosed(object sender, EventArgs e)
         {
             ConnectionStatus = "Disconnected";
+            IsConnected = false;
         }
         private bool init = false;
         private async void Init()
@@ -995,7 +1165,7 @@ namespace AmiBroker.Controllers
             if (init) return;
             init = true;    
             // place an order impossible traded for JITed performance
-            Log log = new Log { Time = DateTime.Now, Text = "Faked order sent." };
+            Log log = new Log { Time = DateTime.Now, Text = "Faked order generated." };
             mainVM.Log(log);
             SymbolInAction symbol = new SymbolInAction("QQQ", 60);
             symbol.AppliedControllers.Add(this);
@@ -1010,13 +1180,13 @@ namespace AmiBroker.Controllers
             //orderType.Slippage = 0;
             strategy.BuyOrderTypes.Add(orderType);
             int bn = OrderManager.BatchNo;
-            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
+            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true, false);
             Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
             mainVM.Log(log1);
 
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 1 });
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 2 });
-            List<OrderLog> logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
+            List<OrderLog> logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true, false);
             foreach (OrderLog olog in logs)
             {
                 mainVM.Log(new Log { Time = olog.OrderSentTime, Text = "Faked order2 placed." + olog.Slippage });
@@ -1025,7 +1195,7 @@ namespace AmiBroker.Controllers
 
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 3 });
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 4 });
-            logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true);
+            logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, 1, bn, null, null, true, false);
             foreach (OrderLog olog in logs)
             {
                 mainVM.Log(new Log { Time = olog.OrderSentTime, Text = "Faked order3 placed." + olog.Slippage });
@@ -1034,26 +1204,40 @@ namespace AmiBroker.Controllers
             //ClientSocket.cancelOrder(ol2.OrderId);
             //ClientSocket.cancelOrder(ol3.OrderId);
         }
+        private async void AfterConnected(int id = -1)
+        {
+            IsConnected = true;
+            _hub.Publish<IController>(this);
+            ConnectionStatus = "Connected";
+            if (id == -1)
+            {
+                id = await reqIdsAsync();
+            }
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                mainVM.MessageList.Insert(0, new Message()
+                {
+                    Source = DisplayName,
+                    Time = DateTime.Now,
+                    Text = "Connected -- NextValidOrderID: " + id
+                });
+                OrderIdCount = id;
+            });
+            Init();
+        }
         private void eh_ConnectionStatus(object sender, ConnectionStatusEventArgs e)
         {
             if (e.IsConnected)
             {
-                _hub.Publish<IController>(this);
-                ConnectionStatus = "Connected";
-                Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
-                {
-                    mainVM.MessageList.Insert(0, new Message()
-                    {
-                        Source = DisplayName,
-                        Time = DateTime.Now,
-                        Text = "Connected -- NextValidOrderID: " + e.NextValidOrderId
-                    });
-                    OrderIdCount = e.NextValidOrderId;
-                });
-                Init();                
+                AfterConnected(e.NextValidOrderId);
             }                
             else
+            {
+                IsConnected = false;
                 ConnectionStatus = "Disconnected";
+                AutoReconnect();
+            }
+                
         }
         private void eh_AccountValue(object sender, AccountValueEventArgs e)
         {
@@ -1096,13 +1280,20 @@ namespace AmiBroker.Controllers
             System.Action<int> action,
             Action<EventHandler<TEventArgs>> unregisterEvent,
             CancellationToken token,
-            object parameter = null)
+            object parameter = null,
+            int? timeout = null)
         {
             int reqId = reqIdCount--;
             if (reqIdCount >= int.MaxValue)
                 reqIdCount = 0;
 
             var tcs = new TaskCompletionSource<T>();
+            if (timeout != null)
+            {
+                var ct = new CancellationTokenSource((int)timeout);
+                ct.Token.Register(() => tcs.TrySetCanceled(), useSynchronizationContext: false);
+            }
+
             Contract contract = new Contract();
             EventHandler<TEventArgs> handler = (sender, args) =>
             {
@@ -1132,7 +1323,11 @@ namespace AmiBroker.Controllers
                         contract.Exchange = arg.ContractDetails.Summary.Exchange;
                         contract.PrimaryExch = arg.ContractDetails.Summary.PrimaryExch;
                         contract.Currency = arg.ContractDetails.Summary.Currency;  
-                        IBContract ibContract = new IBContract { Contract = contract, TradingHours = arg.ContractDetails.TradingHours };
+                        IBContract ibContract = new IBContract {
+                            Contract = contract,
+                            TradingHours = arg.ContractDetails.TradingHours,
+                            ReqId = reqId
+                        };
                         ibContract.MinTick = arg.ContractDetails.MinTick;
                         tcs.TrySetResult((T)(object)ibContract);
                         /*

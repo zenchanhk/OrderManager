@@ -811,7 +811,7 @@ namespace AmiBroker.Controllers
             //MenuItem mi = sender as MenuItem;
             IController ctrl = DC as IController;
             if (ctrl.IsConnected)
-                ctrl.Disconnect();
+                ctrl.DisconnectByManual();
             else
                 ctrl.Connect();
         }
@@ -833,7 +833,7 @@ namespace AmiBroker.Controllers
         {
             foreach (var ctrl in ((MainViewModel)VM).Controllers)
             {
-                ctrl.Disconnect();
+                ctrl.DisconnectByManual();
             }
         }
     }

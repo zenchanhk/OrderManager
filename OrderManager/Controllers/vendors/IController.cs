@@ -244,8 +244,9 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppress = false);
+        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
+        void DisconnectByManual();
         Task<bool> CancelOrderAsync(int orderId);
     }
 }

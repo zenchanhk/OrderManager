@@ -223,7 +223,10 @@ namespace AmiBroker.Controllers
                         pi.SetValue(strategy, false);
                     }
                     else
-                        throw new Exception("Property: " + path + " not found in Strategy");
+                    {
+                        Exception ex = new Exception("Property: " + path + " not found in Strategy");
+                        GlobalExceptionHandler.HandleException("ScriptTabView.cb_check", ex);
+                    }
                 }
             }
         }

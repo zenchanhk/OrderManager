@@ -323,8 +323,11 @@ namespace ControlLib
                     return t;
                 }
                 else
-                    throw new Exception("Type not found");
-                
+                {
+                    Exception ex = new Exception("Type not found: object - " + obj.ToString() + "; name - " + name);
+                    GlobalExceptionHandler.HandleException("ObjectInTreeView.SearchPropertyType", ex);
+                    return null;
+                }          
             }
         }
 
@@ -402,7 +405,8 @@ namespace ControlLib
             }
             catch (Exception e)
             {
-                throw e;
+                //throw e;
+                GlobalExceptionHandler.HandleException("ObjectInTreeView.BuildTree", e);
             }            
         }
 
@@ -428,7 +432,8 @@ namespace ControlLib
             }
             catch (Exception ex)
             {
-                throw ex;
+                //throw ex;
+                GlobalExceptionHandler.HandleException("ObjectInTreeView.FilterNode", ex);
             }
             
         }

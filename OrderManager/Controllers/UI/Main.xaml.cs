@@ -529,7 +529,7 @@ namespace AmiBroker.Controllers
             MenuItem mi = sender as MenuItem;
             IController ctrl = mi.DataContext as IController;
             if (ctrl.IsConnected)
-                ctrl.Disconnect();
+                ctrl.DisconnectByManual();
             else
                 ctrl.Connect();
         }

@@ -305,13 +305,16 @@ namespace AmiBroker.Controllers
         {
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
-                LogList.Insert(0, log);
+                if (LogList.Count > 0 && log.Text == LogList[0].Text && log.Source == LogList[0].Source)
+                    LogList[0].Time = log.Time;
+                else
+                    LogList.Insert(0, log);
             });
         }
         public void MinorLog(Log log)
         {
             bool found = false;
-            if (UserPreference.ErrorFilter != null)
+            if (UserPreference != null && UserPreference.ErrorFilter != null)
             {
                 string[] filters = UserPreference.ErrorFilter.Split(new char[] { ';' });
                 for (int i = 0; i < filters.Length; i++)
@@ -329,6 +332,13 @@ namespace AmiBroker.Controllers
                 {
                     MinorLogList.Insert(0, log);
                 });
+        }
+        public void AddMessage(Message msg)
+    {
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                MessageList.Insert(0, msg);
+            });
         }
         private void Orders_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
@@ -371,8 +381,11 @@ namespace AmiBroker.Controllers
                             ctrl.ConnParam = acc;
                             // if some connection is connected, then remain unchanged
                             IController ic = Controllers.FirstOrDefault(x => x.DisplayName == ctrl.DisplayName);
-                            if (ic != null && ic.IsConnected)
+                            if (ic != null)
+                            {
+                                ic.ConnParam = acc;
                                 ctrls.Add(ic);
+                            }
                             else
                                 ctrls.Add(ctrl);
                         }

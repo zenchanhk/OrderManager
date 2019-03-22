@@ -130,10 +130,13 @@ namespace AmiBroker.Controllers
             Group = DefaultGroupService.GetItemGroup("FT");
         }
         public void Connect() { IsConnected = true; ConnectionStatus = "Connected"; }
+        
         public Task ConnectAsync() { return new Task(() => { }); }
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
-
-        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppressed = false)
+        public void DisconnectByManual() { Disconnect(); }
+        public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
+            OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, 
+            bool errorSuppressed = false, bool addToInfoList = true)
         {
             return null;
         }

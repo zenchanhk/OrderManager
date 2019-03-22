@@ -57,11 +57,9 @@
       <HintPath>..\packages\GrayscaleEffect.dll</HintPath>
     </Reference>
     <Reference Include="IB.CSharpApi, Version=9.73.7.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
     </Reference>
     <Reference Include="IB.CSharpApiClient, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\IB.CSharpApiClient.1.0.2\lib\net461\IB.CSharpApiClient.dll</HintPath>
     </Reference>
     <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
