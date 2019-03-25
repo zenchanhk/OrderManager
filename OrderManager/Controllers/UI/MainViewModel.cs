@@ -351,13 +351,13 @@ namespace AmiBroker.Controllers
         private void PendingOrders_Filter(object sender, FilterEventArgs e)
         {
             var order = e.Item as DisplayedOrder;
-            e.Accepted = pendingStatus.Any(s => order.Status.Contains(s));
+            e.Accepted = pendingStatus.Any(s => order.Status.ToString().Contains(s));
         }
 
         private void Execution_Filter(object sender, FilterEventArgs e)
         {
             var order = e.Item as DisplayedOrder;
-            e.Accepted = !pendingStatus.Any(s => order.Status.Contains(s));
+            e.Accepted = !pendingStatus.Any(s => order.Status.ToString().Contains(s));
         }
 
         public void ReadSettings()

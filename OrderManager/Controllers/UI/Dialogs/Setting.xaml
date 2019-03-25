@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:AmiBroker.Controllers"
+             xmlns:ctrls="clr-namespace:ControlLib"
              mc:Ignorable="d" 
             ResizeMode="NoResize"
         Closing="Window_Closing"
@@ -33,6 +34,9 @@
             </TreeViewItem>
             <TreeViewItem Header="General" Name="tv_general">
                 
+            </TreeViewItem>
+            
+            <TreeViewItem Header="Connection" Name="tv_connection">
             </TreeViewItem>
             <TreeViewItem Header="Error">
                 <TreeViewItem Name="tv_err_filter" Header="Filter"></TreeViewItem>
@@ -169,6 +173,32 @@
                             <CheckBox IsChecked="{Binding IgnoreDuplicatedRecord}" Margin="5" >
                                 <TextBlock Text="Ignore duplated orders" ToolTip="Ignore duplated orders" />
                             </CheckBox>
+                        </StackPanel>
+                    </GroupBox>
+                </TabItem>
+                <TabItem Name="ti_connection" Visibility="Collapsed">
+                    <GroupBox Header="Connection Settings">
+                        <StackPanel>
+                            <CheckBox Name="chk_reconnect" IsChecked="{Binding ReconnectEnabled}" Margin="0, 5">
+                                <TextBlock Text="Enable auto re-connect after connection closed" ToolTip="Check this will enable re-connect after connection closed accidentally" />
+                            </CheckBox>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0, 5">
+                                <TextBlock Text="Re-connect attemps interval:"/>
+                                <ctrls:NumericUpDown Value="{Binding ConnectAttempInterval, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     Margin="3, 0" Width="40"
+                                                     Type="Integer" IsEnabled="{Binding IsChecked, ElementName=chk_reconnect}"
+                                                     MinValue="0" MaxValue="1000" Increment="1"/>
+                                <TextBlock Text="seconds."/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0, 5">
+                                <TextBlock Text="IB Application Name:"/>
+                                <TextBox Margin="3,0,0,0" Text="{Binding IBAppName}" Width="150"/>
+                            </StackPanel>
+                            <DockPanel VerticalAlignment="Center" LastChildFill="True" Margin="0, 5">
+                                <TextBlock Text="Startup Program Path:" Margin="0,0,3,0"/>
+                                <Button Content="..." DockPanel.Dock="Right" Click="Browse_Click"/>
+                                <TextBox Text="{Binding StartUpPath}" ToolTip="The path of program will start up IB TWS automatically after IB TWS shut down accidentally."/>
+                            </DockPanel>
                         </StackPanel>
                     </GroupBox>
                 </TabItem>

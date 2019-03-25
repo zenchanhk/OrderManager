@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using IBApi;
+using Krs.Ats.IBNet;
 using AmiBroker.Controllers;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -199,8 +199,8 @@ namespace AmiBroker.OrderManager
             }
         }
 
-        private IBTifType _pTif = IBTifType.DAY;
-        public IBTifType Tif
+        private TimeInForce _pTif = TimeInForce.Day;
+        public TimeInForce Tif
         {
             get { return _pTif; }
             set
@@ -218,7 +218,7 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public int OcaType { get; set; } = 1;        
         [JsonIgnore]
-        public string IBCode { get; protected set; }
+        public OrderType OrderType { get; protected set; }
         [JsonIgnore]
         public IList<IBContractType> Products { get; protected set; } = new List<IBContractType>();
         public override BaseOrderType Clone()
@@ -309,8 +309,8 @@ namespace AmiBroker.OrderManager
             Description = "An Auction order is entered into the electronic trading system during the pre-market opening period for execution at the Calculated Opening Price (COP). If your order is not filled on the open, the order is re-submitted as a limit order with the limit price set to the COP or the best bid/ask after the market opens.";
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.FUT);
-            Tif = IBTifType.AUC;
-            IBCode = "MTL";
+            Tif = TimeInForce.Auction;
+            OrderType = OrderType.Auction;
             Name = "Acution";
         }
     }
@@ -323,7 +323,7 @@ namespace AmiBroker.OrderManager
             {
                 Products.Add(contractType);
             }
-            IBCode = "MKT";
+            OrderType = OrderType.Market;
             Name = "Market";
         }
     }
@@ -346,7 +346,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "MIT";
+            OrderType = OrderType.MarketIfTouched;
             Name = "Market If Touched";
         }
     }
@@ -360,7 +360,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.FUT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "MOC";
+            OrderType = OrderType.MarketOnClose;
             Name = "Market On Close";
         }
     }
@@ -374,8 +374,8 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.FUT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "MKT";
-            Tif = IBTifType.OPG;
+            OrderType = OrderType.Market;
+            Tif = TimeInForce.MarketOnOpen;
             Name = "Market On Open";
         }
     }
@@ -398,7 +398,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);            
             Products.Add(IBContractType.WAR);
-            IBCode = "LMT";
+            OrderType = OrderType.Limit;
             Name = "Limit Order";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -427,7 +427,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "LIT";
+            OrderType = OrderType.LimitIfTouched;
             Name = "Limit If Touched";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -447,7 +447,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.FUT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "LOC";
+            OrderType = OrderType.LimitOnClose;
             Name = "Limit On Close";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -467,8 +467,8 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.FUT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "LMT";
-            Tif = IBTifType.OPG;
+            OrderType = OrderType.Limit;
+            Tif = TimeInForce.MarketOnOpen;
             Name = "Limit On Open";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -485,7 +485,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "MTL";
+            OrderType = OrderType.Auction;
             Name = "Market to Limit";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -497,8 +497,8 @@ namespace AmiBroker.OrderManager
         {
             Description = "This order type is useful for futures traders using Globex. A Market with Protection order is a market order that will be cancelled and resubmitted as a limit order if the entire order does not immediately execute at the market price. The limit price is set by Globex to be close to the current market price, slightly higher for a sell order and lower for a buy order.";
             Products.Add(IBContractType.FOP);
-            Products.Add(IBContractType.FUT);            
-            IBCode = "MKT PRT";
+            Products.Add(IBContractType.FUT);
+            OrderType = OrderType.MarketWithProtection;
             Name = "Market with Protection";
         }
     }
@@ -521,7 +521,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "STP";
+            OrderType = OrderType.Stop;
             Name = "Stop Order";
         }
     }
@@ -548,7 +548,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "STP LMT";
+            OrderType = OrderType.StopLimit;
             Name = "Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
         }
@@ -565,7 +565,7 @@ namespace AmiBroker.OrderManager
         {
             Description = "A Stop with Protection order combines the functionality of a stop limit order with a market with protection order. The order is set to trigger at a specified stop price. When the stop price is penetrated, the order is triggered as a market with protection order.";
             Products.Add(IBContractType.FUT);
-            IBCode = "STP PRT";
+            OrderType = OrderType.StopWithProtection;
             Name = "Stop with Protection";
         }
     }
@@ -591,7 +591,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "TRAIL";
+            OrderType = OrderType.TrailingStop;
             Name = "Trailing Stop";
         }
     }
@@ -624,7 +624,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.OPT);
             Products.Add(IBContractType.STK);
             Products.Add(IBContractType.WAR);
-            IBCode = "TRAIL";
+            OrderType = OrderType.TrailingStopLimit;
             Name = "Trailing Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
         }

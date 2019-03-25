@@ -56,12 +56,6 @@
     <Reference Include="GrayscaleEffect">
       <HintPath>..\packages\GrayscaleEffect.dll</HintPath>
     </Reference>
-    <Reference Include="IB.CSharpApi, Version=9.73.7.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\IB.CSharpApi.9.73.7\lib\net45\IB.CSharpApi.dll</HintPath>
-    </Reference>
-    <Reference Include="IB.CSharpApiClient, Version=1.0.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\IB.CSharpApiClient.1.0.2\lib\net461\IB.CSharpApiClient.dll</HintPath>
-    </Reference>
     <Reference Include="Mono.Data.Sqlite, Version=4.0.0.0, Culture=neutral, PublicKeyToken=0738eb9f132ed756, processorArchitecture=MSIL">
       <HintPath>..\packages\Mono.Data.Sqlite.1.0.61\lib\net40\Mono.Data.Sqlite.dll</HintPath>
     </Reference>
@@ -183,7 +177,6 @@
       <DependentUpon>Setting.xaml</DependentUpon>
     </Compile>
     <Compile Include="Controllers\vendors\FT\FTController.cs" />
-    <Compile Include="Controllers\vendors\IB\Events\EventArgs.cs" />
     <Compile Include="Controllers\vendors\IB\IBController.cs" />
     <Compile Include="Controllers\vendors\IController.cs" />
   </ItemGroup>
@@ -317,6 +310,10 @@
     <ProjectReference Include="..\..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj">
       <Project>{0378f38f-5bf3-497f-91c2-1ee77c874593}</Project>
       <Name>Sdl.MultiSelectComboBox</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ib-csharp-master\Krs.Ats.IBNet\Krs.Ats.IBNet.csproj">
+      <Project>{66da63ac-f9f9-40ff-ba11-a3f7816e02ba}</Project>
+      <Name>Krs.Ats.IBNet</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>

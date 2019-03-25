@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sdl.MultiSelectComboBox", "..\..\Multiselect-ComboBox-master\MultiSelectComboBox\MultiSelectComboBox\Sdl.MultiSelectComboBox.csproj", "{0378F38F-5BF3-497F-91C2-1EE77C874593}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Krs.Ats.IBNet", "..\ib-csharp-master\Krs.Ats.IBNet\Krs.Ats.IBNet.csproj", "{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0378F38F-5BF3-497F-91C2-1EE77C874593}.Release|Any CPU.Build.0 = Release|Any CPU
+		{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

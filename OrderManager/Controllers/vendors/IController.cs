@@ -12,7 +12,7 @@ using System.Collections.Specialized;
 using System.Runtime.Serialization;
 using AmiBroker.OrderManager;
 using Newtonsoft.Json;
-using IBApi;
+using Krs.Ats.IBNet;
 
 namespace AmiBroker.Controllers
 {
@@ -246,7 +246,6 @@ namespace AmiBroker.Controllers
         bool Dummy { get; set; }    // used in listview in account selecting section
         Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
-        void DisconnectByManual();
         Task<bool> CancelOrderAsync(int orderId);
     }
 }

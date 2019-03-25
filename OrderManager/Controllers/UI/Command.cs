@@ -111,10 +111,10 @@ namespace AmiBroker.Controllers
                 if (sd != null)
                 {
                     symbolName = sd.ContractId;
-                    string ex1 = sd?.Contract?.Exchange != null ? sd?.Contract?.Exchange : sd?.Contract?.PrimaryExch;
+                    string ex1 = sd?.Contract?.Exchange != null ? sd?.Contract?.Exchange : sd?.Contract?.PrimaryExchange;
                     symbolName += " - " + ex1;
                     //string ex2 = ((dynamic)parameter).Contract?.Exchange != null ? ((dynamic)parameter).Contract?.Exchange : ((dynamic)parameter).Contract?.PrimaryExch;
-                    return sd.Contract != null && sd?.Contract?.ConId == selectedSymbol.Contract?.ConId;
+                    return sd.Contract != null && sd?.Contract?.ContractId == selectedSymbol.Contract?.ContractId;
                         //&& ex1 == ex2;
                 }                    
                 else
@@ -811,7 +811,7 @@ namespace AmiBroker.Controllers
             //MenuItem mi = sender as MenuItem;
             IController ctrl = DC as IController;
             if (ctrl.IsConnected)
-                ctrl.DisconnectByManual();
+                ctrl.Disconnect();
             else
                 ctrl.Connect();
         }
@@ -833,7 +833,7 @@ namespace AmiBroker.Controllers
         {
             foreach (var ctrl in ((MainViewModel)VM).Controllers)
             {
-                ctrl.DisconnectByManual();
+                ctrl.Disconnect();
             }
         }
     }
@@ -947,7 +947,7 @@ namespace AmiBroker.Controllers
                 
                 foreach (SymbolInAction contract in mainVM.SymbolInActions)
                 {
-                    SymbolDefinition sd = contract.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == controller.Vendor && x.Contract.ConId == symbol.Contract.ConId);
+                    SymbolDefinition sd = contract.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == controller.Vendor && x.Contract.ContractId == symbol.Contract.ContractId);
                     if (sd != null)
                     {
                         foreach (Script script in contract.Scripts)

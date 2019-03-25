@@ -12,7 +12,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using ControlLib;
-using IBApi;
+using Krs.Ats.IBNet;
 using Xceed.Wpf.AvalonDock;
 using Xceed.Wpf.AvalonDock.Controls;
 using Xceed.Wpf.AvalonDock.Layout;
@@ -58,8 +58,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pMktPricee;
-        public double MktPrice
+        private decimal _pMktPricee;
+        public decimal MktPrice
         {
             get { return _pMktPricee; }
             set
@@ -72,8 +72,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pMktValue;
-        public double MktValue
+        private decimal _pMktValue;
+        public decimal MktValue
         {
             get { return _pMktValue; }
             set
@@ -86,8 +86,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pAvgCost;   
-        public double AvgCost
+        private decimal _pAvgCost;   
+        public decimal AvgCost
         {
             get { return _pAvgCost; }
             set
@@ -100,8 +100,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pUnrealizedPNL;
-        public double UnrealizedPNL
+        private decimal _pUnrealizedPNL;
+        public decimal UnrealizedPNL
         {
             get { return _pUnrealizedPNL; }
             set
@@ -114,8 +114,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pRealizedPNL;
-        public double RealizedPNL
+        private decimal _pRealizedPNL;
+        public decimal RealizedPNL
         {
             get { return _pRealizedPNL; }
             set
@@ -150,15 +150,15 @@ namespace AmiBroker.Controllers
         public string Exchange { get; set; }
         public string Symbol { get; set; }  // from Contract.Symbol
         public string Currency { get; set; }    // from Contract.Currency
-        public double Quantity { get; set; }    // from Order.TotalQuantity
-        public double LmtPrice { get; set; }
-        public double StopPrice { get; set; }   // from order.TrailStopPrice
+        public decimal Quantity { get; set; }    // from Order.TotalQuantity
+        public decimal LmtPrice { get; set; }
+        public decimal StopPrice { get; set; }   // from order.TrailStopPrice
         public string Tif { get; set; }
         public string GTD { get; set; }       // from Order.GoodTillDate
         public string GAT { get; set; }
         public int ParentId { get; set; }
         public string OcaGroup { get; set; }
-        public int OcaType { get; set; }
+        public string OcaType { get; set; }
         public string Source { get; set; }
 
         private DateTime _pTime;
@@ -177,8 +177,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private string _pStatus;    // from OrderStatusEventArgs.Status
-        public string Status
+        private OrderStatus _pStatus;    // from OrderStatusEventArgs.Status
+        public OrderStatus Status
         {
             get { return _pStatus; }
             set
@@ -219,8 +219,8 @@ namespace AmiBroker.Controllers
             }
         }
 
-        private double _pAvgPrice;   // from OrderStatusEventArgs.AvgFillPrice
-        public double AvgPrice
+        private decimal _pAvgPrice;   // from OrderStatusEventArgs.AvgFillPrice
+        public decimal AvgPrice
         {
             get { return _pAvgPrice; }
             set
@@ -529,7 +529,7 @@ namespace AmiBroker.Controllers
             MenuItem mi = sender as MenuItem;
             IController ctrl = mi.DataContext as IController;
             if (ctrl.IsConnected)
-                ctrl.DisconnectByManual();
+                ctrl.Disconnect();
             else
                 ctrl.Connect();
         }

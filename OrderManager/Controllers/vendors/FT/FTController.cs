@@ -1,5 +1,4 @@
 ﻿using AmiBroker.OrderManager;
-using IBApi;
 using Sdl.MultiSelectComboBox.API;
 using System;
 using System.Collections.Generic;
@@ -11,6 +10,7 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
+using Krs.Ats.IBNet;
 
 namespace AmiBroker.Controllers
 {

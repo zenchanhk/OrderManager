@@ -8,11 +8,9 @@ using AmiBroker.Controllers;
 using Newtonsoft.Json;
 using Easy.MessageHub;
 using System.Reflection;
-using Xceed.Wpf.Toolkit.PropertyGrid.Attributes;
-using IBApi;
 using System.Windows.Threading;
-using AmiBroker.Controllers;
 using System.Windows;
+using Krs.Ats.IBNet;
 
 namespace AmiBroker.OrderManager
 {   
@@ -28,12 +26,6 @@ namespace AmiBroker.OrderManager
         Sell=1,
         Short=2,
         Cover=3
-    }
-    public class OrderStatus
-    {
-        public string Status { get; set; }
-        public int Filled { get; set; }
-        public string Message { get; set; }
     }
     public class OrderInfo
     {
@@ -576,7 +568,7 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();        
         [JsonIgnore]
-        public Dictionary<string, double> CurrentPrices { get; } = new Dictionary<string, double>();
+        public Dictionary<string, decimal> CurrentPrices { get; } = new Dictionary<string, decimal>();
         
         public async void CloseAllPositions()
         {
@@ -963,11 +955,11 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pRoundLotSize, value); }
         }
 
-        private double _pMinTick = 1;
+        private decimal _pMinTick = 1;
         [Category("Details")]
         [DisplayName("Min. Tick Size")]
         [ReadOnly(true)]
-        public double MinTick
+        public decimal MinTick
         {
             get { return _pMinTick; }
             set { _UpdateField(ref _pMinTick, value); }

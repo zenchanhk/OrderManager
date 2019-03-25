@@ -15,13 +15,11 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interactivity;
-using IB.CSharpApiClient;
-using IB.CSharpApiClient.Events;
-using IBApi;
 using System.Data;
 using System.IO;
 using System.Windows.Threading;
 using AmiBroker.Utils;
+using System.Diagnostics;
 
 namespace AmiBroker.Controllers
 {
@@ -474,6 +472,20 @@ namespace AmiBroker.Controllers
             return property;
         }
     }
+    public static class SystemHelper
+    {
+        public static bool IsProcessOpen(string name)
+        {
+            foreach (Process clsProcess in Process.GetProcesses())
+            {
+                if (clsProcess.ProcessName.Contains(name))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
     public static class Helper
     {
         public static List<string> TranslateAccountStatus(AccountStatus status)
@@ -485,6 +497,21 @@ namespace AmiBroker.Controllers
                     sb.Add(acc.ToString());
             }
             return sb;
+        }
+        public static string GetEnumDescription(this Enum value)
+        {
+            FieldInfo fi = value.GetType().GetField(value.ToString());
+
+            DescriptionAttribute[] attributes =
+                (DescriptionAttribute[])fi.GetCustomAttributes(
+                typeof(DescriptionAttribute),
+                false);
+
+            if (attributes != null &&
+                attributes.Length > 0)
+                return attributes[0].Description;
+            else
+                return value.ToString();
         }
         /// <summary>
         /// Clones a object via shallow copy

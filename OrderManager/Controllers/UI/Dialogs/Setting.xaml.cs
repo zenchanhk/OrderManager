@@ -147,6 +147,62 @@ namespace AmiBroker.Controllers
             }
         }
 
+        private bool _pReconnectEnabled;
+        public bool ReconnectEnabled
+        {
+            get { return _pReconnectEnabled; }
+            set
+            {
+                if (_pReconnectEnabled != value)
+                {
+                    _pReconnectEnabled = value;
+                    OnPropertyChanged("ReconnectEnabled");
+                }
+            }
+        }
+
+        private int _pConnectAttempInterval;
+        public int ConnectAttempInterval
+        {
+            get { return _pConnectAttempInterval; }
+            set
+            {
+                if (_pConnectAttempInterval != value)
+                {
+                    _pConnectAttempInterval = value;
+                    OnPropertyChanged("ConnectAttempInterval");
+                }
+            }
+        }
+
+        private string _pIBAppName;
+        public string IBAppName
+        {
+            get { return _pIBAppName; }
+            set
+            {
+                if (_pIBAppName != value)
+                {
+                    _pIBAppName = value;
+                    OnPropertyChanged("IBAppName");
+                }
+            }
+        }
+
+        private string _pStartUpPath;
+        public string StartUpPath
+        {
+            get { return _pStartUpPath; }
+            set
+            {
+                if (_pStartUpPath != value)
+                {
+                    _pStartUpPath = value;
+                    OnPropertyChanged("StartUpPath");
+                }
+            }
+        }
+
         protected void OnPropertyChanged(string name)
         {
             PropertyChangedEventHandler handler = PropertyChanged;
@@ -452,6 +508,25 @@ namespace AmiBroker.Controllers
                     accOpt.IsExclusive = false;
                 }
             }            
+        }
+
+        private void Browse_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            // Set filter for file extension and default file extension 
+            dlg.DefaultExt = ".exe";
+            dlg.Filter = "Executable Files (*.exe)|*.exe|Bash Files (*.png)|*.png";
+
+            // Display OpenFileDialog by calling ShowDialog method 
+            Nullable<bool> result = dlg.ShowDialog();
+
+            // Get the selected file name and display in a TextBox 
+            if (result == true)
+            {
+                // Open document 
+                string filename = dlg.FileName;
+                settings.StartUpPath = filename;
+            }
         }
     }
 }

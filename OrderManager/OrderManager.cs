@@ -10,7 +10,6 @@ using AmiBroker.PlugIn;
 using AmiBroker.Utils;
 using System.Threading;
 using System.Reflection;
-using IBApi;
 using System.Windows.Threading;
 using AmiBroker.OrderManager;
 using Newtonsoft.Json;
@@ -32,8 +31,8 @@ namespace AmiBroker.Controllers
     {
         public int OrderId { get; set; }
         public int? Slippage { get; set; }
-        public double OrgPrice { get; set; }
-        public double LmtPrice { get; set; }
+        public decimal OrgPrice { get; set; }
+        public decimal LmtPrice { get; set; }
         public int PosSize { get; set; }
         public string Message { get; set; }
         public string Error { get; set; }
@@ -209,7 +208,7 @@ namespace AmiBroker.Controllers
                         strategy.CurrentPrices.Clear();
                         foreach (var p in strategy.PricesATAfl)
                         {
-                            strategy.CurrentPrices.Add(p.Key, p.Value.GetArray()[BarCount - 1]);
+                            strategy.CurrentPrices.Add(p.Key, (decimal)p.Value.GetArray()[BarCount - 1]);
                         }
 
                         bool signal = false;
