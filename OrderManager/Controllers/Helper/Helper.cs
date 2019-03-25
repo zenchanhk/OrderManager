@@ -20,6 +20,8 @@ using System.IO;
 using System.Windows.Threading;
 using AmiBroker.Utils;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Management;
 
 namespace AmiBroker.Controllers
 {
@@ -472,18 +474,52 @@ namespace AmiBroker.Controllers
             return property;
         }
     }
+
+    [Flags]
+    enum ProcessAccessFlags : uint
+    {
+        All = 0x001F0FFF,
+        Terminate = 0x00000001,
+        CreateThread = 0x00000002,
+        VMOperation = 0x00000008,
+        VMRead = 0x00000010,
+        VMWrite = 0x00000020,
+        DupHandle = 0x00000040,
+        SetInformation = 0x00000200,
+        QueryInformation = 0x00000400,
+        QueryLimitedInformation = 0x00001000,
+        Synchronize = 0x00100000,
+        ReadControl = 0x00020000
+    }
     public static class SystemHelper
     {
-        public static bool IsProcessOpen(string name)
+        public static bool IsTWSOpen()
         {
-            foreach (Process clsProcess in Process.GetProcesses())
+            List<string> appName = MainViewModel.Instance.UserPreference.IBAppName.Split(new char[] { ';' }).ToList();
+            var wmiQueryString = "SELECT ProcessId, ExecutablePath, CommandLine FROM Win32_Process";
+            using (var searcher = new ManagementObjectSearcher(wmiQueryString))
+            using (var results = searcher.Get())
             {
-                if (clsProcess.ProcessName.Contains(name))
+                var query = from p in Process.GetProcesses()
+                            join mo in results.Cast<ManagementObject>()
+                            on p.Id equals (int)(uint)mo["ProcessId"]
+                            select new
+                            {
+                                Process = p,
+                                Path = (string)mo["ExecutablePath"],
+                                CommandLine = (string)mo["CommandLine"],
+                            };
+                var cdc = query.Where(p => p.Path != null).Select(c => c.Path).ToList();
+                var pName = query.Where(p => p.Path != null).Select(c => c.Path).ToList().FirstOrDefault(x =>
                 {
+                    var apps = appName.FirstOrDefault(y => x.ToLower().Contains(y.ToLower()));
+                    if (apps != null) return true; else return false;
+                });
+                if (pName != null)
                     return true;
-                }
+                else
+                    return false;
             }
-            return false;
         }
     }
     public static class Helper

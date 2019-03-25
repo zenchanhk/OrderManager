@@ -756,25 +756,34 @@ namespace AmiBroker.Controllers
                 return false;
             }
         }
+
         // auto reconnect
         private System.Timers.Timer timer = new System.Timers.Timer();
-        private int reconnectInterval = 2000;
         private void AutoReconnect()
         {
             // isconnected must be put in the first place
             if (IsConnected || disconnectByManual || timer.Enabled) return;
-            timer.Interval = reconnectInterval;
-            timer.Elapsed += Timer_Elapsed; ;
-            timer.Start();
+            int interval = mainVM.UserPreference.ConnectAttempInterval;
+            if (interval > 0 && mainVM.UserPreference.ReconnectEnabled)
+            {
+                timer.Interval = interval * 1000;
+                timer.Elapsed += Timer_Elapsed;
+                timer.Start();
+            }            
         }
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
+            if (!mainVM.UserPreference.ReconnectEnabled)
+            {
+                timer.Stop();
+                return;
+            }
             if (IsConnected) return;
             mainVM.AddMessage(new Message { Time = DateTime.Now, Text = "Trying to reconnect..." });
             if (!IsConnected)
                 Connect();
-            else
-                timer.Stop();
+            
+            timer.Stop();
         }
 
         public void Disconnect()
@@ -783,25 +792,6 @@ namespace AmiBroker.Controllers
             disconnectByManual = true;
             if (!Client.Connected)
                 ConnectionStatus = "Disconnected";
-            else
-            {
-                if (!SystemHelper.IsProcessOpen("ib gateway"))
-                {
-                    mainVM.AddMessage(new Message
-                    {
-                        Time = DateTime.Now,
-                        Text = "Connection closed due to TWS shutdown."
-                    });
-                }
-                else
-                {
-                    mainVM.AddMessage(new Message
-                    {
-                        Time = DateTime.Now,
-                        Text = "Connection closed due to unknown reason."
-                    });
-                }
-            }
         }
 
         public void Connect()
@@ -809,7 +799,6 @@ namespace AmiBroker.Controllers
             try
             {
                 disconnectByManual = false;
-                ConnParam.ClientId++;
                 Client.Connect(ConnParam.Host, ConnParam.Port, ConnParam.ClientId);
                 if (Client.Connected)
                 {
@@ -1098,7 +1087,7 @@ namespace AmiBroker.Controllers
             if (e.ErrorMsg != null && e.ErrorMsg.Contains("Connectivity between IB and Trader Workstation has been restored"))
             {
                 ConnectionStatus = "Connected";
-            }
+            }            
             Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
             {
                 mainVM.MessageList.Insert(0, new Message()
@@ -1109,12 +1098,35 @@ namespace AmiBroker.Controllers
                     Source = DisplayName
                 });
             });
+            if ((int)e.ErrorCode == 326)
+            {
+                ConnParam.ClientId++;
+                //Connect();
+            }
         }
         private void eh_ConnectionClosed(object sender, ConnectionClosedEventArgs e)
         {
             ConnectionStatus = "Disconnected";
-            if (!disconnectByManual)
+            if (!disconnectByManual)               
+            {
+                if (!SystemHelper.IsTWSOpen())
+                {
+                    mainVM.AddMessage(new Message
+                    {
+                        Time = DateTime.Now,
+                        Text = "Connection closed due to TWS shutdown."
+                    });
+                }
+                else
+                {
+                    mainVM.AddMessage(new Message
+                    {
+                        Time = DateTime.Now,
+                        Text = "Connection closed due to unknown reason - sender:" + sender.ToString()
+                    });
+                }
                 AutoReconnect();
+            }
         }
         private bool init = false;
         private async void Init()

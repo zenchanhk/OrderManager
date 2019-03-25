@@ -515,7 +515,7 @@ namespace AmiBroker.Controllers
             Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
             // Set filter for file extension and default file extension 
             dlg.DefaultExt = ".exe";
-            dlg.Filter = "Executable Files (*.exe)|*.exe|Bash Files (*.png)|*.png";
+            dlg.Filter = "Executable Files (*.exe)|*.exe|Batch Files (*.bat)|*.bat|Shell Scripts (*.sh)|*.sh";
 
             // Display OpenFileDialog by calling ShowDialog method 
             Nullable<bool> result = dlg.ShowDialog();
