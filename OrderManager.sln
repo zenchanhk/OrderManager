@@ -13,6 +13,93 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sdl.MultiSelectComboBox", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Krs.Ats.IBNet", "..\ib-csharp-master\Krs.Ats.IBNet\Krs.Ats.IBNet.csproj", "{66DA63AC-F9F9-40FF-BA11-A3F7816E02BA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "IBController", "IBController", "{E3883D9B-E52A-4D3F-9D9B-F65958F50014}"
+	ProjectSection(SolutionItems) = preProject
+		IBController\IBController.iml = IBController\IBController.iml
+		IBController\jts.ini = IBController\jts.ini
+		IBController\launcher.log = IBController\launcher.log
+		IBController\log.log = IBController\log.log
+		IBController\loginFailFrequency.txt = IBController\loginFailFrequency.txt
+		IBController\pom.xml = IBController\pom.xml
+		IBController\xmlopt.dat = IBController\xmlopt.dat
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{3FEA6F5B-AB01-40E6-9A60-25C8343BA839}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "main", "main", "{3C837ED2-2D40-4CC7-A467-DB26E2FB807C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "java", "java", "{1B71B8F8-1A3A-4BB3-84E7-F5EA3D1BC364}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ibcontroller", "ibcontroller", "{1EBED5B2-51E2-471F-8AB6-3E648BA83D7D}"
+	ProjectSection(SolutionItems) = preProject
+		IBController\src\main\java\ibcontroller\AbstractLoginHandler.java = IBController\src\main\java\ibcontroller\AbstractLoginHandler.java
+		IBController\src\main\java\ibcontroller\AcceptIncomingConnectionDialogHandler.java = IBController\src\main\java\ibcontroller\AcceptIncomingConnectionDialogHandler.java
+		IBController\src\main\java\ibcontroller\ApiChangeConfirmationDialogHandler.java = IBController\src\main\java\ibcontroller\ApiChangeConfirmationDialogHandler.java
+		IBController\src\main\java\ibcontroller\App.java = IBController\src\main\java\ibcontroller\App.java
+		IBController\src\main\java\ibcontroller\BlindTradingWarningDialogHandler.java = IBController\src\main\java\ibcontroller\BlindTradingWarningDialogHandler.java
+		IBController\src\main\java\ibcontroller\CommandChannel.java = IBController\src\main\java\ibcontroller\CommandChannel.java
+		IBController\src\main\java\ibcontroller\CommandDispatcher.java = IBController\src\main\java\ibcontroller\CommandDispatcher.java
+		IBController\src\main\java\ibcontroller\ComponentIterator.java = IBController\src\main\java\ibcontroller\ComponentIterator.java
+		IBController\src\main\java\ibcontroller\ConfigDialogManager.java = IBController\src\main\java\ibcontroller\ConfigDialogManager.java
+		IBController\src\main\java\ibcontroller\ConfigurationAction.java = IBController\src\main\java\ibcontroller\ConfigurationAction.java
+		IBController\src\main\java\ibcontroller\ConfigurationTask.java = IBController\src\main\java\ibcontroller\ConfigurationTask.java
+		IBController\src\main\java\ibcontroller\ConfigureTwsApiPortTask.java = IBController\src\main\java\ibcontroller\ConfigureTwsApiPortTask.java
+		IBController\src\main\java\ibcontroller\DefaultConfigDialogManager.java = IBController\src\main\java\ibcontroller\DefaultConfigDialogManager.java
+		IBController\src\main\java\ibcontroller\DefaultLoginManager.java = IBController\src\main\java\ibcontroller\DefaultLoginManager.java
+		IBController\src\main\java\ibcontroller\DefaultMainWindowManager.java = IBController\src\main\java\ibcontroller\DefaultMainWindowManager.java
+		IBController\src\main\java\ibcontroller\DefaultSettings.java = IBController\src\main\java\ibcontroller\DefaultSettings.java
+		IBController\src\main\java\ibcontroller\DefaultTradingModeManager.java = IBController\src\main\java\ibcontroller\DefaultTradingModeManager.java
+		IBController\src\main\java\ibcontroller\EnableApiTask.java = IBController\src\main\java\ibcontroller\EnableApiTask.java
+		IBController\src\main\java\ibcontroller\Encryptor.java = IBController\src\main\java\ibcontroller\Encryptor.java
+		IBController\src\main\java\ibcontroller\ExcessiveAttempsDialogHandler.java = IBController\src\main\java\ibcontroller\ExcessiveAttempsDialogHandler.java
+		IBController\src\main\java\ibcontroller\ExistingSessionDetectedDialogHandler.java = IBController\src\main\java\ibcontroller\ExistingSessionDetectedDialogHandler.java
+		IBController\src\main\java\ibcontroller\ExitConfirmationDialogHandler.java = IBController\src\main\java\ibcontroller\ExitConfirmationDialogHandler.java
+		IBController\src\main\java\ibcontroller\ExitSessionFrameHandler.java = IBController\src\main\java\ibcontroller\ExitSessionFrameHandler.java
+		IBController\src\main\java\ibcontroller\GatewayLoginFrameHandler.java = IBController\src\main\java\ibcontroller\GatewayLoginFrameHandler.java
+		IBController\src\main\java\ibcontroller\GatewayMainWindowFrameHandler.java = IBController\src\main\java\ibcontroller\GatewayMainWindowFrameHandler.java
+		IBController\src\main\java\ibcontroller\GetConfigDialogTask.java = IBController\src\main\java\ibcontroller\GetConfigDialogTask.java
+		IBController\src\main\java\ibcontroller\GetMainWindowTask.java = IBController\src\main\java\ibcontroller\GetMainWindowTask.java
+		IBController\src\main\java\ibcontroller\GlobalConfigurationDialogHandler.java = IBController\src\main\java\ibcontroller\GlobalConfigurationDialogHandler.java
+		IBController\src\main\java\ibcontroller\GuiDeferredExecutor.java = IBController\src\main\java\ibcontroller\GuiDeferredExecutor.java
+		IBController\src\main\java\ibcontroller\GuiExecutor.java = IBController\src\main\java\ibcontroller\GuiExecutor.java
+		IBController\src\main\java\ibcontroller\GuiSynchronousExecutor.java = IBController\src\main\java\ibcontroller\GuiSynchronousExecutor.java
+		IBController\src\main\java\ibcontroller\IBController.ini = IBController\src\main\java\ibcontroller\IBController.ini
+		IBController\src\main\java\ibcontroller\IBController.java = IBController\src\main\java\ibcontroller\IBController.java
+		IBController\src\main\java\ibcontroller\IBControllerException.java = IBController\src\main\java\ibcontroller\IBControllerException.java
+		IBController\src\main\java\ibcontroller\IBControllerServer.java = IBController\src\main\java\ibcontroller\IBControllerServer.java
+		IBController\src\main\java\ibcontroller\IBGatewayController.java = IBController\src\main\java\ibcontroller\IBGatewayController.java
+		IBController\src\main\java\ibcontroller\JtsIniManager.java = IBController\src\main\java\ibcontroller\JtsIniManager.java
+		IBController\src\main\java\ibcontroller\LoginFailedDialogHandler.java = IBController\src\main\java\ibcontroller\LoginFailedDialogHandler.java
+		IBController\src\main\java\ibcontroller\LoginFrameHandler.java = IBController\src\main\java\ibcontroller\LoginFrameHandler.java
+		IBController\src\main\java\ibcontroller\LoginManager.java = IBController\src\main\java\ibcontroller\LoginManager.java
+		IBController\src\main\java\ibcontroller\MainWindowFrameHandler.java = IBController\src\main\java\ibcontroller\MainWindowFrameHandler.java
+		IBController\src\main\java\ibcontroller\MainWindowManager.java = IBController\src\main\java\ibcontroller\MainWindowManager.java
+		IBController\src\main\java\ibcontroller\MyCachedThreadPool.java = IBController\src\main\java\ibcontroller\MyCachedThreadPool.java
+		IBController\src\main\java\ibcontroller\MyScheduledExecutorService.java = IBController\src\main\java\ibcontroller\MyScheduledExecutorService.java
+		IBController\src\main\java\ibcontroller\NewerVersionDialogHandler.java = IBController\src\main\java\ibcontroller\NewerVersionDialogHandler.java
+		IBController\src\main\java\ibcontroller\NewerVersionFrameHandler.java = IBController\src\main\java\ibcontroller\NewerVersionFrameHandler.java
+		IBController\src\main\java\ibcontroller\NonBrokerageAccountDialogHandler.java = IBController\src\main\java\ibcontroller\NonBrokerageAccountDialogHandler.java
+		IBController\src\main\java\ibcontroller\NotCurrentlyAvailableDialogHandler.java = IBController\src\main\java\ibcontroller\NotCurrentlyAvailableDialogHandler.java
+		IBController\src\main\java\ibcontroller\NSEComplianceFrameHandler.java = IBController\src\main\java\ibcontroller\NSEComplianceFrameHandler.java
+		IBController\src\main\java\ibcontroller\PasswordExpiryWarningFrameHandler.java = IBController\src\main\java\ibcontroller\PasswordExpiryWarningFrameHandler.java
+		IBController\src\main\java\ibcontroller\ReloginDialogHandler.java = IBController\src\main\java\ibcontroller\ReloginDialogHandler.java
+		IBController\src\main\java\ibcontroller\SecurityCodeDialogHandler.java = IBController\src\main\java\ibcontroller\SecurityCodeDialogHandler.java
+		IBController\src\main\java\ibcontroller\SecurityCodeFailureDialogHandler.java = IBController\src\main\java\ibcontroller\SecurityCodeFailureDialogHandler.java
+		IBController\src\main\java\ibcontroller\Settings.java = IBController\src\main\java\ibcontroller\Settings.java
+		IBController\src\main\java\ibcontroller\SplashFrameHandler.java = IBController\src\main\java\ibcontroller\SplashFrameHandler.java
+		IBController\src\main\java\ibcontroller\StopTask.java = IBController\src\main\java\ibcontroller\StopTask.java
+		IBController\src\main\java\ibcontroller\SwingUtils.java = IBController\src\main\java\ibcontroller\SwingUtils.java
+		IBController\src\main\java\ibcontroller\SwitchLock.java = IBController\src\main\java\ibcontroller\SwitchLock.java
+		IBController\src\main\java\ibcontroller\test.java = IBController\src\main\java\ibcontroller\test.java
+		IBController\src\main\java\ibcontroller\TipOfTheDayDialogHandler.java = IBController\src\main\java\ibcontroller\TipOfTheDayDialogHandler.java
+		IBController\src\main\java\ibcontroller\TradesFrameHandler.java = IBController\src\main\java\ibcontroller\TradesFrameHandler.java
+		IBController\src\main\java\ibcontroller\TradingModeManager.java = IBController\src\main\java\ibcontroller\TradingModeManager.java
+		IBController\src\main\java\ibcontroller\TwsListener.java = IBController\src\main\java\ibcontroller\TwsListener.java
+		IBController\src\main\java\ibcontroller\TwsSettingsSaver.java = IBController\src\main\java\ibcontroller\TwsSettingsSaver.java
+		IBController\src\main\java\ibcontroller\Utils.java = IBController\src\main\java\ibcontroller\Utils.java
+		IBController\src\main\java\ibcontroller\WindowHandler.java = IBController\src\main\java\ibcontroller\WindowHandler.java
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,6 +129,12 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3FEA6F5B-AB01-40E6-9A60-25C8343BA839} = {E3883D9B-E52A-4D3F-9D9B-F65958F50014}
+		{3C837ED2-2D40-4CC7-A467-DB26E2FB807C} = {3FEA6F5B-AB01-40E6-9A60-25C8343BA839}
+		{1B71B8F8-1A3A-4BB3-84E7-F5EA3D1BC364} = {3C837ED2-2D40-4CC7-A467-DB26E2FB807C}
+		{1EBED5B2-51E2-471F-8AB6-3E648BA83D7D} = {1B71B8F8-1A3A-4BB3-84E7-F5EA3D1BC364}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {8D458F04-79D6-42ED-B094-01D7954973AA}
