@@ -1189,7 +1189,8 @@ namespace AmiBroker.Controllers
                     Time = DateTime.Now,
                     Text = "Connected -- NextValidOrderID: " + id
                 });
-                OrderIdCount = id;
+                if (OrderIdCount < id)
+                    OrderIdCount = id;
             });
             Init();
         }
