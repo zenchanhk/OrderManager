@@ -123,6 +123,13 @@ namespace AmiBroker.Controllers
             }
         }
     }
+    public static class StringExt
+    {
+        public static bool IsNumeric(this string text)
+        {
+            return double.TryParse(text, out double test);
+        }
+    }
     public class AsyncSemaphore
     {
         private readonly static Task s_completed = Task.FromResult(true);

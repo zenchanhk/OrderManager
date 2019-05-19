@@ -48,6 +48,9 @@ namespace AmiBroker.Controllers
                 prop.PropertyType != typeof(TimeZone) &&
                 prop.PropertyType != typeof(BaseStat) &&
                 prop.PropertyType != typeof(CSlippage) &&
+                prop.PropertyType != typeof(WeekDay) &&
+                prop.PropertyType != typeof(ForceExitOrder) &&
+                prop.PropertyType != typeof(AdaptiveProfitStop) &&
                 prop.PropertyType.IsClass &&
                 !prop.PropertyType.FullName.StartsWith("System")))
             {
@@ -72,7 +75,7 @@ namespace AmiBroker.Controllers
             KnownTypes = new List<Type> { typeof(IBController), typeof(FTController), typeof(Script),
             typeof(SymbolInAction), typeof(Strategy), typeof(SymbolDefinition), typeof(ConnectionParam),
             typeof(AccountInfo), typeof(BaseOrderType), typeof(GoodTime), typeof(TimeZone),
-            typeof(BaseStat), typeof(CSlippage)}
+            typeof(BaseStat), typeof(CSlippage), typeof(WeekDay), typeof(ForceExitOrder), typeof(AdaptiveProfitStop)}
         };
 
         public static JsonSerializerSettings saveSerializerSettings = new JsonSerializerSettings

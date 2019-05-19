@@ -6,19 +6,35 @@ _SECTION_BEGIN("Sample2 Indicator with return valueCS");
 //
 //////////////////////////////////////////////////////////////
 
-// getting the value calculated by the plug-in method
-//MySlowMa = BasicSampleCS2();			// see BasicSampleCS2() method in "Basic Samples.cs" for source
+wd = DayOfWeek();
+tn = TimeNum();
+dtn = DateTime();
+dn=DateNum();
+bi = BarIndex();
+OST = 091600;
+OET = 010000;
+NewDay = dn != Ref(dn, -1);
+DaysStart =  Cross( tn, OST - 1 ) || (NewDay && tn >= 010000) || bi == 0;
+DaysEnd = Ref(DaysStart, 1);
 
-//Plot(MySlowMa, "MySlowMa", colorBlue, styleLine);
-
+DayStart = "DaysStart";
 strategy="test1$test2";
 BuySignals="bs1$bs2";
 SellSignals="ss1$ss2";
 ShortSignals="short1$short2";
 CoverSignals="cs1$cs2";
 Prices="bp1%sp1%shortp1%cp1$bp2%sp2%shortp2%cp2";
+PosSizes="buy1_ps%sell1_ps%short1_ps%cover1_ps$buy2_ps%sell2_ps%short2_ps%cover2_ps";
+Stoploss="long_sl1%short_sl1$long_s12";
 ActionType="LongAndShort$Long";
-ScheduledOrders="{'buy':{'GTA':{'ExactTime':'21:29'},'GTD':{'ExactTime':'00:59', 'ExactTimeValidDays':1}}}$";
+
+buy1_ps = H;
+sell1_ps = 2;
+short1_ps = L;
+cover1_ps = 4;
+
+long_sl1 = 500;
+short_sl1 = 300;
 
 bs1=high > ref(high, -1);
 ss1=low < ref(low, -1);

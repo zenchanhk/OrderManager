@@ -17,7 +17,7 @@
         <ListView ItemsSource="{Binding ExecutionView}" ItemContainerStyle="{StaticResource GridLineStyle}" >
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding OrderId}" />
+                    <GridViewColumn Header="Order ID" Width="60" DisplayMemberBinding="{Binding RealOrderId}" />
                     <GridViewColumn Header="Action" Width="50" DisplayMemberBinding="{Binding Action}" />
                     <GridViewColumn Header="Status" Width="90" DisplayMemberBinding="{Binding Status}" />
                     <GridViewColumn Header="Type" Width="50" DisplayMemberBinding="{Binding Type}" />

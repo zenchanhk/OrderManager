@@ -88,6 +88,45 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+
+    class ATAflToNameConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            ATAfl v = (ATAfl)value;
+            return v.Name;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class StoplossComboToVisConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            int v = (int)value;
+            int p = int.Parse((string)parameter);
+            if (v == 0)
+                if (p == 0)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Collapsed;
+            else if (v == 1)
+                if (p == 1)
+                    return Visibility.Visible;
+                else
+                    return Visibility.Collapsed;
+            else
+                return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
     class SelectedItemToDataContextConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Windows.Threading;
 using System.Windows;
 using Krs.Ats.IBNet;
+using AmiBroker.Controllers;
 
 namespace AmiBroker.OrderManager
 {   
@@ -25,11 +26,58 @@ namespace AmiBroker.OrderManager
         Buy=0,
         Sell=1,
         Short=2,
-        Cover=3
+        Cover=3,
+        APSLong=4,  //adaptive profit stop for long
+        APSShort = 5,  //adaptive profit stop for short
+        StoplossLong=6,
+        StoplossShort=7,
+        ForceExit=8
+    }
+    public enum ClosePositionAction
+    {
+        CloseAllPositions=0,
+        CloseLongPositions=1,
+        CloseShortPositions=2
+    }
+    public class ForceExitOrder : NotifyPropertyChangedBase
+    {
+        // Market Order 
+        private DateTime _pFinalTime;
+        public DateTime FinalTime
+        {
+            get { return _pFinalTime; }
+            set { _UpdateField(ref _pFinalTime, value); }
+        }
+
+        private ObservableCollection<WeekDay> _pDays = new ObservableCollection<WeekDay>();
+        public ObservableCollection<WeekDay> Days
+        {
+            get { return _pDays; }
+            set { _UpdateField(ref _pDays, value); }
+        }
+
+        // before LmtOrderTime minute to final time
+        private int _pLmtOrderTime;
+        public int LmtOrderTime
+        {
+            get { return _pLmtOrderTime; }
+            set { _UpdateField(ref _pLmtOrderTime, value); }
+        }
+
+        private int _pSlippage;
+        public int Slippage
+        {
+            get { return _pSlippage; }
+            set { _UpdateField(ref _pSlippage, value); }
+        }
+
+        // Limited Order
+        public BaseOrderType OrderType { get; set; }
     }
     public class OrderInfo
     {
-        public int OrderId { get; set; }
+        public int RealOrderId { get; set; }    // order id
+        public string OrderId { get; set; }     // controller name + order id
         public int BatchNo { get; set; }
         public double PosSize { get; set; }
         public double Filled { get; set; }
@@ -41,6 +89,11 @@ namespace AmiBroker.OrderManager
         public DisplayedOrder OrderStatus { get; set; }
         public string Error { get; set; }
         public DateTime PlacedTime { get; set; }
+        public bool IsReversedOrder { get; set; }
+        public int NoOfRef { get; set; } = 0;  // the number of referenced by reverse signal exit
+        public Contract Contract { get; set; }
+        public Order Order { get; set; }
+        public decimal LmtPrice { get; set; }
     }
     public class BaseStat : NotifyPropertyChangedBase
     {
@@ -82,6 +135,22 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pLongEntry, value); }
         }
 
+        private float _pLongEntryPrice;
+        [JsonIgnore]
+        public float LongEntryPrice
+        {
+            get { return _pLongEntryPrice; }
+            set { _UpdateField(ref _pLongEntryPrice, value); }
+        }
+
+        private float _pShortEntryPrice;
+        [JsonIgnore]
+        public float ShortEntryPrice
+        {
+            get { return _pShortEntryPrice; }
+            set { _UpdateField(ref _pShortEntryPrice, value); }
+        }
+
         private HashSet<int> _pShortEntry = new HashSet<int>();
         //[JsonIgnore]
         public HashSet<int> ShortEntry
@@ -110,10 +179,11 @@ namespace AmiBroker.OrderManager
         public BaseStat()
         {
             OrderInfos = new Dictionary<OrderAction, List<OrderInfo>>();
-            OrderInfos.Add(OrderAction.Buy, new List<OrderInfo>());
-            OrderInfos.Add(OrderAction.Sell, new List<OrderInfo>());
-            OrderInfos.Add(OrderAction.Short, new List<OrderInfo>());
-            OrderInfos.Add(OrderAction.Cover, new List<OrderInfo>());
+            var orderActions = Enum.GetValues(typeof(OrderAction)).Cast<OrderAction>();
+            foreach (var oa in orderActions)
+            {
+                OrderInfos.Add(oa, new List<OrderInfo>());
+            }
         }
     }
     
@@ -262,7 +332,7 @@ namespace AmiBroker.OrderManager
         }
         
         private int _pPositionSize = 1;
-        public int PositionSize
+        public int DefaultPositionSize
         {
             get { return _pPositionSize; }
             set { _UpdateField(ref _pPositionSize, value); }
@@ -456,6 +526,84 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pSelectedVendor, value); }
         }
 
+        //
+        // Adaptive mult-level profit target profit trailing stop
+        //
+        private bool _pIsAPSAppliedforLong;
+        public bool IsAPSAppliedforLong
+        {
+            get { return _pIsAPSAppliedforLong; }
+            set
+            {
+                _UpdateField(ref _pIsAPSAppliedforLong, value);
+            }
+        }
+
+        private bool _pIsAPSAppliedforShort;
+        public bool IsAPSAppliedforShort
+        {
+            get { return _pIsAPSAppliedforShort; }
+            set
+            {
+                _UpdateField(ref _pIsAPSAppliedforShort, value);
+            }
+        }
+        
+
+        private AdaptiveProfitStop _APSLong = null;
+        public AdaptiveProfitStop AdaptiveProfitStopforLong {
+            get
+            {
+                if (_APSLong == null)
+                {
+                    IBStopLimitOrder stopLimitOrder = new IBStopLimitOrder();
+                    _APSLong = new AdaptiveProfitStop(this, stopLimitOrder, ActionType.Short);
+                }
+                return _APSLong;
+            }
+        }
+
+        private AdaptiveProfitStop _APSShort = null;
+        public AdaptiveProfitStop AdaptiveProfitStopforShort {
+            get
+            {
+                if (_APSShort == null)
+                {
+                    IBStopLimitOrder stopLimitOrder = new IBStopLimitOrder();
+                    _APSShort = new AdaptiveProfitStop(this, stopLimitOrder, ActionType.Short);
+                }
+                return _APSShort;
+            }
+        }
+
+        private bool _pIsForcedExitForLong;
+        public bool IsForcedExitForLong
+        {
+            get { return _pIsForcedExitForLong; }
+            set { _UpdateField(ref _pIsForcedExitForLong, value); }
+        }
+
+        private bool _pIsForcedExitForShort;
+        public bool IsForcedExitForShort
+        {
+            get { return _pIsForcedExitForShort; }
+            set { _UpdateField(ref _pIsForcedExitForShort, value); }
+        }
+
+        private ForceExitOrder _pForceExitOrderForLong = new ForceExitOrder();
+        public ForceExitOrder ForceExitOrderForLong
+        {
+            get { return _pForceExitOrderForLong; }
+            set { _UpdateField(ref _pForceExitOrderForLong, value); }
+        }
+
+        private ForceExitOrder _pForceExitOrderForShort = new ForceExitOrder();
+        public ForceExitOrder ForceExitOrderForShort
+        {
+            get { return _pForceExitOrderForShort; }
+            set { _UpdateField(ref _pForceExitOrderForShort, value); }
+        }
+
         public void Clear()
         {
             MaxEntriesPerDay = 0;
@@ -563,40 +711,80 @@ namespace AmiBroker.OrderManager
         public ATAfl ShortSignal { get; set; }
         [JsonIgnore]
         public ATAfl CoverSignal { get; set; }
+        
+        // Position Size        
+        // store names of positions from AFL script
+        [JsonIgnore]
+        public List<string> PositionSize { get; set; } = new List<string>();
+        [JsonIgnore]
+        public Dictionary<string, ATAfl> PositionSizeATAfl { get; } = new Dictionary<string, ATAfl>();
+        [JsonIgnore]
+        public Dictionary<string, decimal> CurrentPosSize { get; } = new Dictionary<string, decimal>();
+
+        // prices including AuxPrice, StopPrice and LmtPrice
+        // store names of price from AFL script
         [JsonIgnore]
         public List<string> Prices { get; set; } = new List<string>();
         [JsonIgnore]
         public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();        
         [JsonIgnore]
         public Dictionary<string, decimal> CurrentPrices { get; } = new Dictionary<string, decimal>();
-        
-        public async void CloseAllPositions()
+
+        /*
+        // store names of stoploss from AFL script
+        [JsonIgnore]
+        public List<string> Stoploss { get; set; } = new List<string>();*/
+
+        public void CloseAllPositions(ClosePositionAction closePositionAction = ClosePositionAction.CloseAllPositions)
         {
-            foreach (var item in AccountStat)
+            try
             {
-                if (item.Value.LongPosition > 0 || item.Value.ShortPosition > 0)
+                foreach (var item in AccountStat)
                 {
                     IController controller = item.Value.Account.Controller;
-                    OrderAction orderAction = OrderAction.Buy;
-                    double posSize = 0;
-                    if (item.Value.LongPosition > 0)
-                    {
-                        orderAction = OrderAction.Sell;
-                        posSize = item.Value.LongPosition * Symbol.RoundLotSize;
-                    }                        
-                    if (item.Value.ShortPosition > 0)
-                    {
-                        orderAction = OrderAction.Cover;
-                        posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
-                    }                        
                     string vendor = item.Value.Account.Controller.Vendor;
                     BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
-                    await controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, 0, 0, posSize);
-                    item.Value.LongPosition = 0;
-                    item.Value.ShortPosition = 0;
-                    item.Value.AccountStatus = AccountStatus.None;
+
+                    if (item.Value.LongPosition > 0
+                        && (closePositionAction == ClosePositionAction.CloseAllPositions || closePositionAction == ClosePositionAction.CloseLongPositions))
+                    {
+                        OrderAction orderAction = OrderAction.Sell;
+                        double posSize = item.Value.LongPosition * Symbol.RoundLotSize;
+
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize).ContinueWith(
+                            result =>
+                            {
+                                // should be done in IBController.eh_OrderStatus()
+                                //item.Value.LongPosition = 0;
+                                //BaseStat status = AccountStat[item.Key];
+                                //AccountStatusOp.SetPositionStatus(ref status, orderAction);
+                            }
+                        );                        
+                    }
+
+                    if (item.Value.ShortPosition > 0
+                        && (closePositionAction == ClosePositionAction.CloseAllPositions || closePositionAction == ClosePositionAction.CloseShortPositions))
+                    {
+                        OrderAction orderAction = OrderAction.Buy;
+                        double posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
+
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize).ContinueWith(
+                            result =>
+                            {
+                                // should be done in IBController.eh_OrderStatus()
+                                //item.Value.ShortPosition = 0;
+                                //BaseStat status = AccountStat[item.Key];
+                                //AccountStatusOp.SetPositionStatus(ref status, orderAction);
+                            }
+                        );
+                    }
                 }
             }
+            catch (Exception ex)
+            {                
+                GlobalExceptionHandler.HandleException("Strategy.CloseAllPosition", ex);
+            }
+            
         }
         // reset in case new day
         public void ResetForNewDay()
@@ -629,7 +817,9 @@ namespace AmiBroker.OrderManager
             MaxLongAttemps = strategy.MaxLongAttemps;
             MaxShortAttemps = strategy.MaxShortAttemps;
             ReverseSignalForcesExit = strategy.ReverseSignalForcesExit;
-            PositionSize = strategy.PositionSize;
+            DefaultPositionSize = strategy.DefaultPositionSize;
+            IsAPSAppliedforLong = strategy.IsAPSAppliedforLong;
+            IsAPSAppliedforShort = strategy.IsAPSAppliedforShort;
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -712,41 +902,11 @@ namespace AmiBroker.OrderManager
                 _UpdateField(ref _pIsEnabled, value);
             }
         }
-        public async void CloseAllPositions()
+        public void CloseAllPositions(ClosePositionAction closePositionAction = ClosePositionAction.CloseAllPositions)
         {
-            foreach (var item in AccountStat)
+            foreach (var s in Strategies)
             {
-                if (item.Value.LongPosition > 0 || item.Value.ShortPosition > 0)
-                {
-                    IController controller = item.Value.Account.Controller;
-                    OrderAction orderAction = OrderAction.Buy;
-                    double posSize = 0;
-                    if (item.Value.LongPosition > 0)
-                    {
-                        orderAction = OrderAction.Sell;
-                        posSize = item.Value.LongPosition * Symbol.RoundLotSize;
-                    }
-                    if (item.Value.ShortPosition > 0)
-                    {
-                        orderAction = OrderAction.Cover;
-                        posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
-                    }
-                    string vendor = item.Value.Account.Controller.Vendor;
-                    BaseOrderType orderType = (BaseOrderType)Helper.GetInstance(vendor + "MarketOrder");
-                    await controller.PlaceOrder(item.Value.Account, Strategies[0], orderType, orderAction, 0, 0, posSize);
-                    item.Value.LongPosition = 0;
-                    item.Value.ShortPosition = 0;
-                }
-            }
-            // reset for strategies
-            foreach (var strategy in Strategies)
-            {
-                foreach (var stat in strategy.AccountStat)
-                {
-                    stat.Value.LongPosition = 0;
-                    stat.Value.ShortPosition = 0;
-                    stat.Value.AccountStatus = AccountStatus.None;
-                }
+                s.CloseAllPositions(closePositionAction);
             }
         }
         public void RefreshStrategies()
@@ -780,7 +940,7 @@ namespace AmiBroker.OrderManager
             SellOrderTypes = script.SellOrderTypes;
             ShortOrderTypes = script.ShortOrderTypes;
             CoverOrderTypes = script.CoverOrderTypes;
-            PositionSize = script.PositionSize;
+            DefaultPositionSize = script.DefaultPositionSize;
             _RaisePropertyChanged("ShortOrderTypes");
             _RaisePropertyChanged("CoverOrderTypes");
             _RaisePropertyChanged("BuyOrderTypes");
@@ -849,7 +1009,7 @@ namespace AmiBroker.OrderManager
                 strategy.MaxEntriesPerDay = MaxEntriesPerDay;
                 strategy.MaxOpenPosition = MaxOpenPosition;
                 strategy.ReverseSignalForcesExit = ReverseSignalForcesExit;
-                strategy.PositionSize = PositionSize;
+                strategy.DefaultPositionSize = DefaultPositionSize;
                 /*
                 strategy.AllowReEntry = AllowReEntry;
                 strategy.ReEntryBefore = ReEntryBefore;

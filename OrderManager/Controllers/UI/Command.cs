@@ -891,7 +891,7 @@ namespace AmiBroker.Controllers
                 if (oi.Filled == oi.PosSize) return;
                 try
                 {
-                    bool result = await controller.CancelOrderAsync(oi.OrderId);
+                    bool result = await controller.CancelOrderAsync(oi.RealOrderId);
                     if (!result)
                         MessageBox.Show("Cancel order failed", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
@@ -943,7 +943,7 @@ namespace AmiBroker.Controllers
                 if (symbol.Position > 0) orderAction = OrderAction.Sell;
                 if (symbol.Position < 0) orderAction = OrderAction.Cover;
                 int bn = OrderManager.BatchNo;
-                controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, bn, Math.Abs(symbol.Position), symbol.Contract);
+                controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, null, Math.Abs(symbol.Position), symbol.Contract);
                 
                 foreach (SymbolInAction contract in mainVM.SymbolInActions)
                 {
@@ -1007,7 +1007,7 @@ namespace AmiBroker.Controllers
                     if (symbol.Position > 0) orderAction = OrderAction.Sell;
                     if (symbol.Position < 0) orderAction = OrderAction.Cover;
                     int bn = OrderManager.BatchNo;
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, 0, bn, Math.Abs(symbol.Position), symbol.Contract);
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, null, Math.Abs(symbol.Position), symbol.Contract);
                 }
                 foreach (SymbolInAction symbol in mainVM.SymbolInActions)
                 {

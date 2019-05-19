@@ -24,7 +24,11 @@ namespace AmiBroker.Controllers
         ShortPending=8,
         Short=16,
         SellPending=32,
-        CoverPending=64
+        CoverPending=64,
+        APSLongActivated=128, // adaptive profit stop activated
+        APSShortActivated = 256, // adaptive profit stop activated
+        StoplossLongActivated = 512,
+        StoplossShortActivated = 1024,
     }
     public class AccountStatusOp
     {
@@ -93,6 +97,14 @@ namespace AmiBroker.Controllers
             {
                 strategyStat.AccountStatus |= AccountStatus.CoverPending;
             }
+            else if (orderAction == OrderAction.APSLong)
+            {
+                strategyStat.AccountStatus |= AccountStatus.APSLongActivated;
+            }
+            else if (orderAction == OrderAction.APSShort)
+            {
+                strategyStat.AccountStatus |= AccountStatus.APSShortActivated;
+            }
         }
         public static void SetPositionStatus(ref BaseStat strategyStat, OrderAction orderAction)
         {
@@ -111,6 +123,28 @@ namespace AmiBroker.Controllers
             else if (orderAction == OrderAction.Cover && strategyStat.ShortPosition == 0)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.Short;
+            }
+            else if (orderAction == OrderAction.APSLong && strategyStat.LongPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
+            }
+            else if (orderAction == OrderAction.APSShort && strategyStat.ShortPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
+            }
+
+            if (strategyStat.LongPosition == 0)
+            {
+                strategyStat.OrderInfos[OrderAction.APSLong].Clear();
+                strategyStat.OrderInfos[OrderAction.Buy].Clear();
+                strategyStat.OrderInfos[OrderAction.Sell].Clear();
+            }
+
+            if (strategyStat.ShortPosition == 0)
+            {
+                strategyStat.OrderInfos[OrderAction.APSShort].Clear();
+                strategyStat.OrderInfos[OrderAction.Short].Clear();
+                strategyStat.OrderInfos[OrderAction.Cover].Clear();
             }
         }
         public static void SetAttemps(ref BaseStat strategyStat, OrderAction orderAction)
@@ -225,6 +259,18 @@ namespace AmiBroker.Controllers
             return Name;
         }
     }
+
+    /*
+    public class OrderIdCounter
+    {
+        public static object LockObject { get; } = new object();
+
+        private static int _orderId = 0;
+        public static int OrderId {
+            get { return _orderId++; }
+            set { _orderId = value; }
+        }
+    }*/
     public interface IController : IItemGroupAware, IItemEnabledAware
     {
         // IB can have more than one linked account (Finacial Advisor Account and sub accounts)
@@ -244,7 +290,7 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
-        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int barIndex, int batchNo, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
+        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int batchNo, OrderInfo oi = null, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
         Task<bool> CancelOrderAsync(int orderId);
     }

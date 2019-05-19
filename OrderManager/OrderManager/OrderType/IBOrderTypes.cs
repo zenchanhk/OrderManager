@@ -302,6 +302,23 @@ namespace AmiBroker.OrderManager
         }
     }
 
+    public class PositionSizeItemsSource : IItemsSource
+    {
+        public ItemCollection GetValues()
+        {
+            ItemCollection items = new ItemCollection();
+            if (MainViewModel.Instance.SelectedItem.GetType() == typeof(Strategy))
+            {
+                List<string> list = ((Strategy)MainViewModel.Instance.SelectedItem).PositionSize;
+                foreach (var item in list)
+                {
+                    items.Add(item);
+                }
+            }
+            return items;
+        }
+    }
+    
     public class AuctionOrder : IBOrderType
     {
         public AuctionOrder() : base()

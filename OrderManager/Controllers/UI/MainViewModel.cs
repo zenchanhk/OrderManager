@@ -17,6 +17,11 @@ using Easy.MessageHub;
 
 namespace AmiBroker.Controllers
 {
+    public class WeekDay
+    {
+        public string Name { get; set; }
+        public int Value { get; set; }
+    }
     public class TimeZone
     {
         public string Id { get; set; }
@@ -58,15 +63,18 @@ namespace AmiBroker.Controllers
         // commands
         public Commands Commands { get; set; } = new Commands();
         public List<TimeZone> TimeZones { get; private set; } = new List<TimeZone>();
+        public List<WeekDay> Weekdays { get; set; } = new List<WeekDay>();
         // All OrderTypes 
         public List<BaseOrderType> AllIBOrderTypes { get; set; } = new List<BaseOrderType>();
         public List<BaseOrderType> AllFTOrderTypes { get; set; } = new List<BaseOrderType>();
         public List<VendorOrderType> VendorOrderTypes { get; set; } = new List<VendorOrderType>();
         public UserPreference UserPreference { get; private set; }
         public ObservableCollection<IController> Controllers { get; set; }
-        public Dictionary<int, OrderInfo> OrderInfoList { get; set; } = new Dictionary<int, OrderInfo>();
+        public Dictionary<string, OrderInfo> OrderInfoList { get; set; } = new Dictionary<string, OrderInfo>();
         // Lists for displaying
         public ObservableCollection<Message> MessageList { set; get; }
+
+        public List<string> StopLossSource { set; get; } = new List<string>();
         public ObservableCollection<Log> LogList { set; get; }
         public ObservableCollection<Log> MinorLogList { set; private get; } = new ObservableCollection<Log>();
         public ObservableCollectionEx<DisplayedOrder> Orders { set; get; }
@@ -158,6 +166,16 @@ namespace AmiBroker.Controllers
             TimeZones.Add(new TimeZone { Id = "HKT", UtcOffset = new TimeSpan(8,0,0), Description = "Asia/Hong_Kong" });
             TimeZones.Add(new TimeZone { Id = "EST", UtcOffset = new TimeSpan(-5, 0, 0), Description = "Eastern Standard Time (North America)" });
 
+            Weekdays.Add(new WeekDay { Value = 0, Name = "Sun" });
+            Weekdays.Add(new WeekDay { Value = 1, Name = "Mon" });
+            Weekdays.Add(new WeekDay { Value = 2, Name = "Tue" });
+            Weekdays.Add(new WeekDay { Value = 3, Name = "Wed" });
+            Weekdays.Add(new WeekDay { Value = 4, Name = "Thu" });
+            Weekdays.Add(new WeekDay { Value = 5, Name = "Fri" });
+            Weekdays.Add(new WeekDay { Value = 6, Name = "Sat" });
+
+            StopLossSource.Add("User defined");
+            StopLossSource.Add("From AFL script");
             //
             _hub.Subscribe<IController>(OnControllerConnected);
         }

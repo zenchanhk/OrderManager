@@ -169,7 +169,7 @@ namespace ControlLib
             set { SetValue(ValueProperty, value); }
         }
         public static readonly DependencyProperty ValueProperty =
-            DependencyProperty.Register("Value", typeof(double), typeof(NumericUpDown), new FrameworkPropertyMetadata(0D, valueChangedCallback, coerceValueCallback), validateValueCallback);
+            DependencyProperty.Register("Value", typeof(double), typeof(NumericUpDown), new FrameworkPropertyMetadata(0D, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, valueChangedCallback, coerceValueCallback), validateValueCallback);
         private static void valueChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             NumericUpDown numericUpDown = (NumericUpDown)d;

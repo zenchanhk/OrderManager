@@ -160,7 +160,7 @@ namespace ControlLib
             set { SetValue(ValueProperty, value); }
         }
         public static readonly DependencyProperty ValueProperty =
-            DependencyProperty.Register("Value", typeof(DateTime?), typeof(DateTimeEditor), new PropertyMetadata(DateTime.Now, valueChangedCallback, coerceValueCallback), validateValueCallback);
+            DependencyProperty.Register("Value", typeof(DateTime?), typeof(DateTimeEditor), new FrameworkPropertyMetadata(DateTime.Now, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, valueChangedCallback, coerceValueCallback), validateValueCallback);
         private static void valueChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             DateTimeEditor dt = (DateTimeEditor)d;

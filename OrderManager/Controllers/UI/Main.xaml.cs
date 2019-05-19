@@ -140,7 +140,8 @@ namespace AmiBroker.Controllers
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public int OrderId { get; set; }
+        public int RealOrderId { get; set; }
+        public string OrderId { get; set; }
         public Contract Contract { get; set; }
         public string Vendor { get; set; }
         public string Strategy { get; set; }
