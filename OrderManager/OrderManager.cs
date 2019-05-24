@@ -17,6 +17,7 @@ using System.Collections.ObjectModel;
 using Xceed.Wpf.AvalonDock;
 using Newtonsoft.Json.Converters;
 using Krs.Ats.IBNet;
+using FastMember;
 
 namespace AmiBroker.Controllers
 {
@@ -195,14 +196,19 @@ namespace AmiBroker.Controllers
 
                     if (!script.IsEnabled) return;
                     // reset entries count and positions for new day
-                    bool newDay = ATFloat.IsTrue(script.DayStart.GetArray()[BarCount - 1]);
-                    if (newDay)
+                    if (script.DayTradeMode)
                     {
-                        foreach (Strategy strategy in script.Strategies)
+                        bool newDay = ATFloat.IsTrue(script.DayStart.GetArray()[BarCount - 1]);
+                        if (newDay)
                         {
-                            strategy.ResetForNewDay();
+                            script.ResetForNewDay();
+                            foreach (Strategy strategy in script.Strategies)
+                            {
+                                strategy.ResetForNewDay();
+                            }
                         }
                     }
+                    
                     foreach (Strategy strategy in script.Strategies)
                     {
                         if (!strategy.IsEnabled) continue;
@@ -259,7 +265,7 @@ namespace AmiBroker.Controllers
                             lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BuySignal = signal;
 
 
-                            signal = ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
+                            signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
                             if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].SellSignal != signal)
                             {
                                 Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
@@ -275,7 +281,7 @@ namespace AmiBroker.Controllers
                             }
                             lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].ShortSignal = signal;
 
-                            signal = ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
+                            signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
                             if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].CoverSignal != signal)
                             {
                                 Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
@@ -285,18 +291,22 @@ namespace AmiBroker.Controllers
                         // store BarCount
                         lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BarCount = BarCount;
 
+                        float close = Close[BarCount - 1];
                         //
                         // checking if Adaptive Profit Stop apply
                         //
                         if (strategy.IsAPSAppliedforLong)
-                            Task.Run(() => strategy.AdaptiveProfitStopforLong.Calc(Close[BarCount - 1]));
+                            Task.Run(() => strategy.AdaptiveProfitStopforLong.Calc(close));
                         if (strategy.IsAPSAppliedforShort)
-                            Task.Run(() => strategy.AdaptiveProfitStopforShort.Calc(Close[BarCount - 1]));
+                            Task.Run(() => strategy.AdaptiveProfitStopforShort.Calc(close));
 
                         //
                         // checking if day end exit applied
                         //
-
+                        if (strategy.IsForcedExitForLong)
+                            Task.Run(() => strategy.ForceExitOrderForLong.Run(close));
+                        if (strategy.IsForcedExitForShort)
+                            Task.Run(() => strategy.ForceExitOrderForShort.Run(close));
                     }
                 }
             }
@@ -322,6 +332,7 @@ namespace AmiBroker.Controllers
                 };
 
                 if (orderAction != OrderAction.APSLong && orderAction != OrderAction.APSShort 
+                    && orderAction != OrderAction.StoplossLong && orderAction != OrderAction.StoplossShort
                     && strategy.AccountsDic[orderAction].Count == 0)
                 {
                     log.Text += "\nBut there is no account assigned.";
@@ -331,23 +342,26 @@ namespace AmiBroker.Controllers
 
                 string message = string.Empty;
                 string warning = string.Empty;
-                int batchNo = BatchNo;
+
+                // batch no used for optimization (no need to transform order for different account)
+                int batchNo = BatchNo;                
                 foreach (var account in strategy.AccountsDic[orderAction])
                 {
+                    // get order type
+                    string vendor = account.Controller.Vendor;
+                    if (orderType == null)
+                        orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
+
                     if (ValidateSignal(strategy, strategy.AccountStat[account.Name], orderAction, orderType, out message, out warning))
                     {
                         // log after validation
                         mainVM.Log(log);
-
-                        // get order type
-                        string vendor = account.Controller.Vendor;
-                        if (orderType == null)
-                            orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
-                            
+                                                    
                         if (orderType != null)
                         {
                             BaseStat strategyStat = strategy.AccountStat[account.Name];
-                            AccountStatusOp.SetActionStatus(ref strategyStat, orderAction);
+                            BaseStat scriptStat = script.AccountStat[account.Name];
+                            AccountStatusOp.SetActionStatus(ref strategyStat, ref scriptStat, strategy.Name, orderAction);
                             AccountStatusOp.SetAttemps(ref strategyStat, orderAction);
                             System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
                             // IMPORTANT
@@ -381,7 +395,7 @@ namespace AmiBroker.Controllers
                                         else
                                         {
                                             strategyStat = strategy.AccountStat[account.Name];
-                                            AccountStatusOp.RevertActionStatus(ref strategyStat, orderAction);
+                                            AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, orderAction);
                                             MainViewModel.Instance.Log(new Log
                                             {
                                                 Time = DateTime.Now,
@@ -425,6 +439,7 @@ namespace AmiBroker.Controllers
             catch (Exception ex)
             {
                 GlobalExceptionHandler.HandleException("OrderManger.ProcessSignal", ex);
+                proc_result = false;
             }
             return proc_result;
         }
@@ -441,7 +456,7 @@ namespace AmiBroker.Controllers
                 {
                     Time = DateTime.Now,
                     Text = msg,
-                    Source = "HandleConflictOrder"
+                    Source = "OrderManager.CancelConflictOrder"
                 });
                 return null;
             }                
@@ -452,7 +467,30 @@ namespace AmiBroker.Controllers
                 return task;
             }
         }
-        
+
+       
+        private static List<string> fields = new List<string>() { "LmtPrice", "AuxPrice", "TrailingPercent", "TrailStopPrice" };
+        private static int IsEqualOrderType(BaseOrderType ot1, BaseOrderType ot2, List<string> compared_fields = null)
+        {
+            //get TypeAccessor
+            TypeAccessor accessor1 = BaseOrderTypeAccessor.GetAccessor(ot1);
+            TypeAccessor accessor2 = BaseOrderTypeAccessor.GetAccessor(ot2);
+
+            MemberSet members1 = accessor1.GetMembers();
+            MemberSet members2 = accessor2.GetMembers();
+            if (compared_fields == null) compared_fields = fields;
+            for (int i = 0; i < compared_fields.Count; i++)
+            {
+                Member mem1 = members1.First(m => m.Name == compared_fields[i]);
+                Member mem2 = members2.First(m => m.Name == compared_fields[i]);
+                if (mem1 == null) return -100;
+                if (mem2 == null) return -200;
+                if ((string)accessor1[ot1, compared_fields[i]] != (string)accessor2[ot2, compared_fields[i]])
+                    return -1;
+            }
+
+            return 0;
+        }
         private static bool ValidateSignal(Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, out string message, out string warning)
         {
             try
@@ -462,6 +500,7 @@ namespace AmiBroker.Controllers
                 Script script = strategy.Script;
                 BaseStat scriptStat = script.AccountStat[strategyStat.Account.Name];
                 System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
+
                 switch (action)
                 {
                     case OrderAction.APSLong:
@@ -480,10 +519,8 @@ namespace AmiBroker.Controllers
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                             {
-                                Order o = strategyStat.OrderInfos[action].Last()?.Order;
-                                decimal auxP = decimal.Parse(((IBStopLimitOrder)orderType).AuxPrice);
-                                decimal lmtP = decimal.Parse(((IBStopLimitOrder)orderType).LmtPrice);
-                                if (o != null && o.AuxPrice == auxP && o.AuxPrice == lmtP)
+                                BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                                if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
                                     message = "There is a duplicated APSLong order for strategy - " + strategy.Name;
                                     return false;
@@ -525,10 +562,8 @@ namespace AmiBroker.Controllers
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                             {
-                                Order o = strategyStat.OrderInfos[action].Last()?.Order;
-                                decimal auxP = decimal.Parse(((IBStopLimitOrder)orderType).AuxPrice);
-                                decimal lmtP = decimal.Parse(((IBStopLimitOrder)orderType).LmtPrice);
-                                if (o != null && o.AuxPrice == auxP && o.AuxPrice == lmtP)
+                                BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                                if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
                                     message = "There is a duplicated APSShort order for strategy - " + strategy.Name;
                                     return false;
@@ -574,10 +609,8 @@ namespace AmiBroker.Controllers
                         // cancel previous StoplossLong order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                         {
-                            Order o = strategyStat.OrderInfos[action].Last()?.Order;
-                            decimal auxP = decimal.Parse(((IBStopLimitOrder)orderType).AuxPrice);
-                            decimal lmtP = decimal.Parse(((IBStopLimitOrder)orderType).LmtPrice);
-                            if (o != null && o.AuxPrice == auxP && o.AuxPrice == lmtP)
+                            BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                            if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice"}) != 0)
                             {
                                 message = "There is a duplicated StoplossLong order for strategy - " + strategy.Name;
                                 return false;
@@ -601,7 +634,7 @@ namespace AmiBroker.Controllers
                             warning = "There is a pending APSShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
                         }
-                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) == 0)
+                        if ((strategyStat.AccountStatus & AccountStatus.CoverPending) == 0)
                         {
                             message = "There is a pending cover order for strategy - " + strategy.Name;
                             return false;
@@ -609,10 +642,8 @@ namespace AmiBroker.Controllers
                         // cancel previous APSShort order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                         {
-                            Order o = strategyStat.OrderInfos[action].Last()?.Order;
-                            decimal auxP = decimal.Parse(((IBStopLimitOrder)orderType).AuxPrice);
-                            decimal lmtP = decimal.Parse(((IBStopLimitOrder)orderType).LmtPrice);
-                            if (o != null && o.AuxPrice == auxP && o.AuxPrice == lmtP)
+                            BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                            if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                             {
                                 message = "There is a duplicated StoplossShort order for strategy - " + strategy.Name;
                                 return false;
@@ -625,6 +656,28 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Buy:
+                        if (!script.AllowMultiLong)
+                        {                            
+                            // checking for pending StopLimit Order
+                            for (int i = 0; i < script.Strategies.Count; i++)
+                            {
+                                Strategy s = script.Strategies[i];
+                                if (s.AccountStat.ContainsKey(strategyStat.Account.Name))
+                                {
+                                    BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
+                                    if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                                    {
+                                        BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                                        if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "AuxPrice" }) != 0)
+                                        {
+                                            warning = "There is a pending BUY order being cancelled for strategy - " + strategy.Name;
+                                            // cancel the previou buy order, and replace with new one
+                                            CancelConflictOrder(strategy, strategyStat, action);
+                                        }
+                                    }
+                                }                                                                                          
+                            }
+                        }
                         if ((strategyStat.AccountStatus & AccountStatus.Long) != 0)
                         {
                             message = "There is already a LONG position for strategy - " + strategy.Name;
@@ -641,6 +694,28 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Short:
+                        if (!script.AllowMultiShort)
+                        {
+                            // checking for pending StopLimit Order
+                            for (int i = 0; i < script.Strategies.Count; i++)
+                            {
+                                Strategy s = script.Strategies[i];
+                                if (s.AccountStat.ContainsKey(strategyStat.Account.Name))
+                                {
+                                    BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
+                                    if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                                    {
+                                        BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
+                                        if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "AuxPrice" }) != 0)
+                                        {
+                                            warning = "There is a pending SHORT order being cancelled for strategy - " + strategy.Name;
+                                            // cancel the previou buy order, and replace with new one
+                                            CancelConflictOrder(strategy, strategyStat, action);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if ((strategyStat.AccountStatus & AccountStatus.Short) != 0)
                         {
                             message = "There is already a SHORT position for strategy - " + strategy.Name;
@@ -746,40 +821,78 @@ namespace AmiBroker.Controllers
                         break;
                 }
 
-                if (action == OrderAction.Buy || action == OrderAction.Short)
-                {
-                    if (strategyStat.LongEntry.Count() + strategyStat.ShortEntry.Count() >= strategy.MaxEntriesPerDay)
-                        message = "Max. entries per day reached(strategy).\n";
-                    if (strategy.MaxOpenPosition <= strategyStat.LongPosition + strategyStat.ShortPosition)
-                        message = "Max. open position(strategy) reached.\n";
-                    if (script.MaxOpenPosition <= scriptStat.LongPosition + scriptStat.ShortPosition)
-                        message = "Max. open position(script) reached.\n";
-                    if (script.MaxEntriesPerDay <= scriptStat.LongEntry.Count() + scriptStat.ShortEntry.Count())
-                        message = "Max. entries per day(script) reached.\n";
-                }
+                // Max. Entries/Attemps/Open Positions validation
+                int scriptLE = scriptStat.LongStrategies.Count;
+                int scriptSE = scriptStat.ShortStrategies.Count;
+                int scriptLP = scriptStat.LongPendingStrategies.Count;
+                int scriptSP = scriptStat.ShortPendingStrategies.Count;
 
-                if (message == string.Empty)
-                {
-                    if (action == OrderAction.Buy)
+                if (action == OrderAction.Buy || action == OrderAction.Short)
+                {                       
+                    if (script.DayTradeMode)
                     {
-                        if (script.AllowMultiLong && script.MaxLongOpen <= scriptStat.LongEntry.Count() - 1)
-                            message = "Max. LONG open position(script) reached.\n";
-                        if (!script.AllowMultiLong && scriptStat.LongEntry.Count() >= 1)
-                            message = "Multiple LONG open position(script) is not allowed.\n";
-                        if (strategyStat.LongAttemps >= strategy.MaxLongAttemps)
-                            message = "Max. LONG attemps(strategy) reached.\n";
+                        int scriptALE = scriptStat.LongEntry.GroupBy(x => x.BatchNo).Count();
+                        int scriptASE = scriptStat.ShortEntry.GroupBy(x => x.BatchNo).Count();
+                        int strategyALE = strategyStat.LongEntry.GroupBy(x => x.BatchNo).Count();
+                        int strategyASE = strategyStat.ShortEntry.GroupBy(x => x.BatchNo).Count();
+
+                        if (strategyALE + strategyASE >= strategy.MaxEntriesPerDay)
+                            message += "Max. entries per day reached(strategy).\n";
+                        if (script.MaxEntriesPerDay <= scriptALE + scriptASE)
+                            message += "Max. entries per day(script) reached.\n";
                     }
 
-                    if (action == OrderAction.Sell)
+                    // Assume there is at most one long position and one short position
+                    int sl = 0; // count of strategy long open positions
+                    int ss = 0; // count of strategy short open positions
+                    if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0) sl++;
+                    if ((strategyStat.AccountStatus & AccountStatus.Long) != 0) sl++;
+                    if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0) ss++;
+                    if ((strategyStat.AccountStatus & AccountStatus.Short) != 0) ss++;
+
+                    if (strategy.MaxOpenPosition <= sl + ss)
+                        message += "Max. open position(strategy) reached.\n";
+
+                    if (script.MaxOpenPosition <= scriptLE + scriptSE + scriptLP + scriptSP)
+                        message += "Max. open position(including pending orders, script level) reached.\n";
+
+                    if (action == OrderAction.Buy)
                     {
-                        if (script.AllowMultiShort && script.MaxShortOpen <= scriptStat.ShortEntry.Count() - 1)
-                            message = "Max. SHORT open position(script) reached.\n";
-                        if (!script.AllowMultiShort && scriptStat.ShortEntry.Count() >= 1)
-                            message = "Multiple SHORT open position(script) is not allowed.\n";
-                        if (strategyStat.ShortAttemps >= strategy.MaxShortAttemps)
-                            message = "Max. SHORT attemps(strategy) reached.\n";
-                    }                    
+                        if (strategy.MaxLongOpenPosition <= sl)
+                            message += "Max. LONG open position(strategy) reached.\n";
+                        if (script.MaxLongOpenPosition < scriptLE + scriptLP)
+                            message += "Max. LONG open position(script) reached.\n";
+                    }
+
+                    if (action == OrderAction.Short)
+                    {
+                        if (strategy.MaxShortOpenPosition <= ss)
+                            message += "Max. SHORT open position(strategy) reached.\n";
+                        if (script.MaxShortOpenPosition < scriptSE + scriptSP)
+                            message += "Max. SHORT open position(script) reached.\n";
+                    }
                 }
+                
+                // Multi long/short validating
+                if (action == OrderAction.Buy)
+                {
+                    if (script.AllowMultiLong && script.MaxLongOpen <= scriptLE + scriptLP - 1)
+                        message += "Max. LONG open position(script) reached.\n";
+                    if (!script.AllowMultiLong && scriptLE + scriptLP >= 1)
+                        message += "Multiple LONG open position(script) is not allowed.\n";
+                    if (script.DayTradeMode && strategyStat.LongAttemps >= strategy.MaxLongAttemps)
+                        message += "Max. LONG attemps(strategy) reached.\n";
+                }
+
+                if (action == OrderAction.Sell)
+                {
+                    if (script.AllowMultiShort && script.MaxShortOpen <= scriptSE + scriptSP - 1)
+                        message += "Max. SHORT open position(script) reached.\n";
+                    if (!script.AllowMultiShort && scriptSE + scriptSP >= 1)
+                        message += "Multiple SHORT open position(script) is not allowed.\n";
+                    if (script.DayTradeMode && strategyStat.ShortAttemps >= strategy.MaxShortAttemps)
+                        message += "Max. SHORT attemps(strategy) reached.\n";
+                }    
                 
                 if (message == string.Empty)
                     return true;
@@ -848,17 +961,18 @@ namespace AmiBroker.Controllers
                         string[] prices = afl.GetString().Split(new char[] { '$' });
                         afl.Name = "PosSizes";
                         string[] posSizes = afl.GetString("na").Split(new char[] { '$' });
-                        afl.Name = "Stoploss";
+                        afl.Name = "Stoplosses";
                         string[] stoploss = afl.GetString("na").Split(new char[] { '$' });
                         afl.Name = "ActionType";
-                        string[] actionTypes = afl.GetString().Split(new char[] { '$' });
-                        afl.Name = "test";
-                        string[] ats = afl.GetString("na").Split(new char[] { '$' });
+                        string[] actionTypes = afl.GetString().Split(new char[] { '$' });                        
                         // get day start
                         afl.Name = "DayStart";
                         string dayStart = afl.GetString("na");
                         if (dayStart != "na")
+                        {
                             script.DayStart = new ATAfl(dayStart);
+                            script.DayTradeMode = true;
+                        }                            
                         else
                         {
                             script.DayStart = new ATAfl();
@@ -868,6 +982,7 @@ namespace AmiBroker.Controllers
                                 Text = "DayStart is not available in script - " + scriptName,
                                 Source = "Symbol Initialization"
                             });
+                            script.DayTradeMode = false;
                         }
                             
                         /*
@@ -887,6 +1002,7 @@ namespace AmiBroker.Controllers
                         for (int i = 0; i < strategyNames.Length; i++)
                         {
                             Strategy s = script.Strategies.FirstOrDefault(x => x.Name == strategyNames[i]);
+                            
                             if (s == null || (s != null && s.IsDirty))
                             {
                                 if (s == null)
@@ -898,18 +1014,20 @@ namespace AmiBroker.Controllers
                                         new IsoDateTimeConverter { DateTimeFormat = "HH:mm" });
                                     s.ScheduledOrders = so;
                                 }*/
+                                // DayTrade Mode
+                                s.DayTradeMode = script.DayTradeMode;
 
                                 ActionType at = (ActionType)Enum.Parse(typeof(ActionType), actionTypes[i]);
                                 s.ActionType = at;     
                                 if (at == ActionType.Long || at == ActionType.LongAndShort)
                                 {
                                     s.BuySignal = new ATAfl(buySignals[i]);
-                                    s.SellSignal = new ATAfl(sellSignals[i]);
+                                    s.SellSignal = !string.IsNullOrEmpty(sellSignals[0]) ? new ATAfl(sellSignals[i]) : new ATAfl();
                                 }
                                 if (at == ActionType.Short || at == ActionType.LongAndShort)
                                 {
                                     s.ShortSignal = new ATAfl(shortSignals[i]);
-                                    s.CoverSignal = new ATAfl(coverSignals[i]);
+                                    s.CoverSignal = !string.IsNullOrEmpty(coverSignals[0]) ? new ATAfl(coverSignals[i]) : new ATAfl();
                                 }
 
                                 // initialize prices
@@ -917,7 +1035,7 @@ namespace AmiBroker.Controllers
                                 foreach (var p in s.Prices)
                                 {
                                     // in case of refreshing strategy parameters
-                                    if (!s.PricesATAfl.ContainsKey(p))
+                                    if (!string.IsNullOrEmpty(p) && !s.PricesATAfl.ContainsKey(p))
                                         s.PricesATAfl.Add(p, new ATAfl(p));
                                 }
 
@@ -928,7 +1046,7 @@ namespace AmiBroker.Controllers
                                     foreach (var p in s.PositionSize)
                                     {
                                         // in case of refreshing strategy parameters
-                                        if (!s.PositionSizeATAfl.ContainsKey(p))
+                                        if (!string.IsNullOrEmpty(p) && !s.PositionSizeATAfl.ContainsKey(p))
                                             s.PositionSizeATAfl.Add(p, new ATAfl(p));
                                     }
                                 }
@@ -936,15 +1054,18 @@ namespace AmiBroker.Controllers
                                 // initial stoploss
                                 if (stoploss[0] != "na")
                                 {
-                                    if (at == ActionType.Long)
-                                        s.AdaptiveProfitStopforLong.StoplossAFL = new ATAfl(stoploss[i]);
-                                    else if (at == ActionType.Short)
-                                        s.AdaptiveProfitStopforShort.StoplossAFL = new ATAfl(stoploss[i]);
-                                    else if (at == ActionType.LongAndShort)
+                                    string sl = stoploss[i];
+                                    if (!string.IsNullOrEmpty(sl) && at == ActionType.Long)
+                                        s.AdaptiveProfitStopforLong.StoplossAFL = new ATAfl(sl);
+                                    else if (!string.IsNullOrEmpty(sl) && at == ActionType.Short)
+                                        s.AdaptiveProfitStopforShort.StoplossAFL = new ATAfl(sl);
+                                    else if (!string.IsNullOrEmpty(sl) && at == ActionType.LongAndShort)
                                     {
-                                        string[] sls = stoploss[i].Split(new char[] { '%' });
-                                        s.AdaptiveProfitStopforLong.StoplossAFL = new ATAfl(sls[0]);
-                                        s.AdaptiveProfitStopforShort.StoplossAFL = new ATAfl(sls[1]);
+                                        string[] sls = sl.Split(new char[] { '%' });
+                                        if (!string.IsNullOrEmpty(sls[0]))
+                                            s.AdaptiveProfitStopforLong.StoplossAFL = new ATAfl(sls[0]);
+                                        if (!string.IsNullOrEmpty(sls[1]))
+                                            s.AdaptiveProfitStopforShort.StoplossAFL = new ATAfl(sls[1]);
                                     }
                                 }
 

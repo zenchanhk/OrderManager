@@ -270,7 +270,7 @@ namespace AmiBroker.Controllers
                 }
             }
         }
-        public ObservableCollection<OptionTemplate> TemplateList { get; set; }
+        public ObservableCollection<OptionTemplate> TemplateList { get; set; } = new ObservableCollection<OptionTemplate>();
         public dynamic SaveItem { get; private set; }
         public List<Directory> Directories { get; } = new List<Directory>();
         public MainViewModel MainVM { get; set; }
@@ -417,6 +417,11 @@ namespace AmiBroker.Controllers
             {
                 Save();
             }
+        }
+
+        private void BtnImport_Click(object sender, RoutedEventArgs e)
+        {
+
         }
     }
 }

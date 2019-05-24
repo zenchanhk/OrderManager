@@ -148,6 +148,7 @@ namespace ControlLib
 
             return value;
         }
+        /*
         public string Type
         {
             get { return (string)GetValue(TypeProperty); }
@@ -161,7 +162,7 @@ namespace ControlLib
                 return "Integer";
             else
                 return value;
-        }
+        }*/
 
         public double Value
         {
@@ -177,8 +178,10 @@ namespace ControlLib
                 new ValueChangedEventArgs(NumericUpDown.ValueChangedEvent, d, (double)e.OldValue, (double)e.NewValue);
             numericUpDown.RaiseEvent(ea);
             //if (ea.Handled) numericUpDown.Value = (double)e.OldValue;
-            //else 
-            numericUpDown.PART_TextBox.Text = Math.Round((double)e.NewValue, 3).ToString();
+            //else       
+            bool p = double.TryParse(numericUpDown.PART_TextBox.Text, out double val);
+            if (p && val == (double)e.NewValue) return;
+            numericUpDown.PART_TextBox.Text = Math.Round((double)e.NewValue, 6).ToString();
         }
         private static bool validateValueCallback(object value)
         {
@@ -250,13 +253,30 @@ namespace ControlLib
             }
             if (!((e.Key >= Key.NumPad0 && e.Key <= Key.NumPad9) || e.Key == Key.Decimal ||
                 (e.Key >= Key.D0 && e.Key <= Key.D9) || e.Key == Key.Back || e.Key == Key.Delete
-                || e.Key == Key.Right || e.Key == Key.Left))
+                || e.Key == Key.Right || e.Key == Key.Left 
+                || e.Key == Key.Tab))
             {
-                if (e.Key == Key.Decimal && Type != "Integer")
+                if (e.Key == Key.Decimal)
                     e.Handled = false;
                 else
                     e.Handled = true;
             }
+            System.Diagnostics.Debug.Print(e.Key.ToString() + e.Handled.ToString());
+        }
+        protected override void OnGotFocus(RoutedEventArgs e)
+        {
+            base.OnGotFocus(e);
+            if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
+            {
+                TraversalRequest tRequest = new TraversalRequest(FocusNavigationDirection.Previous);
+                UIElement keyboardFocus = Keyboard.FocusedElement as UIElement;
+                if (keyboardFocus != null)
+                {
+                    keyboardFocus.MoveFocus(tRequest);
+                }
+            }
+            else
+                PART_TextBox.Focus();
         }
         private void textBox_TextChanged(object sender, TextChangedEventArgs e)
         {

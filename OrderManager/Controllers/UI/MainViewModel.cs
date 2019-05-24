@@ -93,7 +93,10 @@ namespace AmiBroker.Controllers
         public object SelectedItem
         {
             get { return _pSelectedItem; }
-            set { _UpdateField(ref _pSelectedItem, value); }
+            set {
+                _UpdateField(ref _pSelectedItem, value);
+                Dummy = !Dummy;
+            }
         }
 
         // for binding(displaying) controller for each symbol
@@ -291,6 +294,13 @@ namespace AmiBroker.Controllers
             s12.ActionType = ActionType.LongAndShort;
             s12.Prices = new List<string>() { "bp12a", "bp12b" };
             script3.Strategies.Add(s12);
+        }
+        public void RemoveSymbol(SymbolInAction symbol)
+        {
+            Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
+            {
+                SymbolInActions.Remove(symbol);
+            });
         }
         public bool AddSymbol(string name, float timeframe, out SymbolInAction symbol)
         {

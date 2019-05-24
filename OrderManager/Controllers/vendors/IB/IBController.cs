@@ -14,6 +14,7 @@ using Sdl.MultiSelectComboBox.API;
 using Easy.MessageHub;
 using AmiBroker.OrderManager;
 using System.Reflection;
+using FastMember;
 
 namespace AmiBroker.Controllers
 {    
@@ -369,7 +370,7 @@ namespace AmiBroker.Controllers
         /// <param name="orderAction"></param>
         /// <param name="BarIndex"></param>
         /// <param name="posSize"></param>
-        /// <returns></returns>
+        /// <returns></returns>       
         private Order TransformIBOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, out string message, double? posSize = null)
         {
             message = string.Empty;
@@ -377,7 +378,7 @@ namespace AmiBroker.Controllers
             IBOrderType ot = orderType as IBOrderType;
             SymbolInAction symbol = strategy?.Symbol;
             order.Transmit = ot.Transmit;
-
+            
             if (posSize == null)
             {
                 float ps = 0;
@@ -455,6 +456,83 @@ namespace AmiBroker.Controllers
             else
                 order.Tif = ot.Tif;
 
+            /*
+             * Using FastMember for better performance than .Net reflection
+             */
+            // get prices from AFL scripts or OrderType directly
+
+            // get MinTick for calculating prices comforming to OrderPlace
+            decimal minTick = strategy != null ? strategy.Symbol.MinTick : -1;
+
+            //get TypeAccessor
+            TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(orderType);            
+            
+            MemberSet members = accessor.GetMembers();
+            for (int i = 0; i < members.Count; i++)
+            {
+                Member member = members[i];
+                string fieldName = "LmtPrice";
+                if (member.Name == fieldName)
+                {
+                    string str = (string)accessor[orderType, fieldName];
+                    if (string.IsNullOrEmpty(str)) continue;
+                    decimal val = 0;
+                    if (double.TryParse(str, out double d))
+                        val = (decimal)d;
+                    else
+                        val = strategy.CurrentPrices[str];
+
+                    order.LimitPrice = val;
+                    continue;
+                }
+
+                fieldName = "AuxPrice";
+                if (member.Name == fieldName)
+                {
+                    string str = (string)accessor[orderType, fieldName];
+                    if (string.IsNullOrEmpty(str)) continue;
+                    decimal val = 0;
+                    if (double.TryParse(str, out double d))
+                        val = (decimal)d;
+                    else
+                        val = strategy.CurrentPrices[str];
+
+                    order.AuxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    continue;
+                }
+
+                fieldName = "TrailingPercent";
+                if (member.Name == fieldName)
+                {
+                    string str = (string)accessor[orderType, fieldName];
+                    if (string.IsNullOrEmpty(str)) continue;
+                    decimal val = 0;
+                    if (double.TryParse(str, out double d))
+                        val = (decimal)d;
+                    else
+                        val = strategy.CurrentPrices[str];
+
+                    order.AuxPrice =val;
+                    continue;
+                }
+
+                fieldName = "TrailStopPrice";
+                if (member.Name == fieldName)
+                {
+                    string str = (string)accessor[orderType, fieldName];
+                    if (string.IsNullOrEmpty(str)) continue;
+                    decimal val = 0;
+                    if (double.TryParse(str, out double d))
+                        val = (decimal)d;
+                    else
+                        val = strategy.CurrentPrices[str];
+
+                    order.AuxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    continue;
+                }
+            }
+
+            /*
             PropertyInfo[] pInfos = ot.GetType().GetProperties();
             PropertyInfo pi = pInfos.FirstOrDefault(x => x.Name == "LmtPrice");
             string aflVar = pi?.GetValue(ot)?.ToString();
@@ -526,7 +604,7 @@ namespace AmiBroker.Controllers
                 }                
                 else
                     message += "Trail stop price is not available.";
-            }
+            }*/
 
             return order;
         }
@@ -545,9 +623,6 @@ namespace AmiBroker.Controllers
         /// <returns>-1 means failure</returns>
         /// TODO:
         /// 
-
-
-
         public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
             OrderAction orderAction, int batchNo, OrderInfo oi0 = null, double? posSize = null, Contract security = null,
             bool errorSuppressed = false, bool addToInfoList = true)
@@ -611,6 +686,7 @@ namespace AmiBroker.Controllers
                 }
 
                 Contract contract = new Contract();
+                IBContract iBContract = null;
                 if (security == null)
                 {
                     string symbolName = strategy.Symbol.SymbolDefinition.FirstOrDefault(x => x.Controller.Vendor == Vendor)?.ContractId;
@@ -639,86 +715,114 @@ namespace AmiBroker.Controllers
                             contract.Currency = parts[3];
                             break;
                     }
-                    IBContract c = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
-                    contract = c.Contract;
+                    iBContract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(contract);
+                    contract = iBContract.Contract;
                 }
                 else
                 {
                     contract = security;
                     if (contract.Exchange == null)
                         contract.Exchange = contract.PrimaryExchange;
+
+                    // get MinTick
+                    if (strategy == null)
+                    {
+                        iBContract = await ((IBController)accountInfo.Controller).reqContractDetailsAsync(security);
+                        
+                    }                        
                 }
 
                 if (contract != null)
                 {
                     List<OrderLog> orderLogs = new List<OrderLog>();
 
-                    if (orderType.Slippages != null && orderType.Slippages.Count > 0)
+                    // truncate LimitPrice
+                    decimal orgPrice = order.LimitPrice;
+                    decimal modifiedPrice = 0;
+                    if (strategy == null)
                     {
-                        List<Order> orders = new List<Order>();
-                        int accuPosSize = 0;    // accumulated position size
-                        decimal orgPrice = order.LimitPrice;
-                        //double redundant = order.LmtPrice % strategy.Symbol.MinTick;
-                        decimal modifiedPrice = TruncatePrice(order.LimitPrice, strategy.Symbol.MinTick);
+                        if (iBContract != null)
+                            modifiedPrice = TruncatePrice(order.LimitPrice, iBContract.MinTick);
+                        else
+                            throw new Exception("Cannot get MinTick at IBController.PlaceOrder");
+                    }                        
+                    else
+                        modifiedPrice = TruncatePrice(order.LimitPrice, strategy.Symbol.MinTick);
 
-                        // get position size from either AFL or default value
-                        float _ps = 0;
+                    // get position size from either AFL or default value
+                    float _ps = 0;
+                    if (strategy != null)
+                    {
                         if (!string.IsNullOrEmpty(orderType.PositionSize))
                             _ps = (float)(strategy.CurrentPosSize[orderType.PositionSize]);
                         else
                             _ps = strategy.DefaultPositionSize;
+                    }                    
 
-                        int ttlPosSize = 0;
+                    // calculate total position size
+                    int ttlPosSize = 0;
+                    if (strategy != null)
+                    {
                         if (orderAction == OrderAction.Buy || orderAction == OrderAction.Short)
                             ttlPosSize = (int)_ps;
-                        else if (orderAction == OrderAction.Cover)
+                        else if (orderAction == OrderAction.Cover || orderAction == OrderAction.APSShort)
                             ttlPosSize = Math.Min((int)strategy.AccountStat[accountInfo.Name].ShortPosition, (int)_ps);
-                        else if (orderAction == OrderAction.Sell)
+                        else if (orderAction == OrderAction.Sell || orderAction == OrderAction.APSLong)
                             ttlPosSize = Math.Min((int)strategy.AccountStat[accountInfo.Name].LongPosition, (int)_ps);
+                    }
 
+                    // in case of slippage table defined
+                    if (orderType.Slippages != null && orderType.Slippages.Count > 0)
+                    {
+                        List<Order> orders = new List<Order>();
+                        
+                        // assign position size according to the pre-defined slippage table
                         int round = 0;
+                        int accuPosSize = 0;    // accumulated position size
+                        List<CSlippage> slippages = new List<CSlippage>();
+                        List<int> posSizes = new List<int>();
                         for (int i = 0; i < orderType.Slippages.Count; i++)
                         {
+                            int ps = 0;
+                            int ps_pre = orderType.Slippages[i].PosSize;
+                            if (accuPosSize + ps_pre <= ttlPosSize)
+                                ps = ps_pre;
+                            else
+                                ps = ttlPosSize - accuPosSize;
+
+                            if (round == 0)
+                            {
+                                slippages.Add(orderType.Slippages[i]);
+                                posSizes.Add(ps);
+                            }
+                            else
+                                posSizes[i] += ps;
+
+                            accuPosSize += ps;
+                            if (accuPosSize == ttlPosSize) break;
+                            if (accuPosSize > ttlPosSize) throw new Exception("Error in calculating Position Size (IBController.PlaceOrder)");
+
+                            if (accuPosSize < ttlPosSize && i == orderType.Slippages.Count - 1)
+                            {
+                                i = -1;
+                                round++;
+                            }
+                        }
+                        // END of re-arrangement of position size
+
+                        for (int i = 0; i < slippages.Count; i++)
+                        {
+                            int ps = posSizes[i];
                             CSlippage slippage = orderType.Slippages[i];
                             OrderLog olog = new OrderLog();
                             olog.Error = message;
 
-                            // calculate order TotalQuantity
-                            int ps = 0;
-                            if (accuPosSize + slippage.PosSize <= ttlPosSize)
-                            {
-                                ps = slippage.PosSize;                                
-                            }
-                            else
-                            {
-                                ps = ttlPosSize - accuPosSize;
-                                if (ps == 0 && round == 0)
-                                {
-                                    olog.Error = "Warning: Total position size of slippage is greater than size defined in strategy/Long Positions/Short Positions";
-                                    olog.Slippage = slippage.Slippage;
-                                    olog.OrderId = "-1";
-                                    orderLogs.Add(olog);
-                                    break;
-                                }
-                            }
-                            accuPosSize += ps;
+                            // assign actual position size
                             order.TotalQuantity = (int)(ps * strategy.Symbol.RoundLotSize);
-
-                            // if Slippage is not enough, then loop again
-                            if (accuPosSize < ttlPosSize && i == orderType.Slippages.Count - 1)
-                            {
-                                i = 0;
-                                round++;
-                                mainVM.Log(new Log
-                                {
-                                    Time = DateTime.Now,
-                                    Text = "Warning: Total position size of slippage is less than size defined in strategy/Long Positions/Short Positions\n" +
-                                            "Slippage will loop again from the begining",                                    
-                                });
-                            }
-
+                            
                             // calcuate limit price with slippages
                             order.LimitPrice = modifiedPrice; // reset limit price with original one
+
                             if (orderAction == OrderAction.Buy || orderAction == OrderAction.Cover)
                             {
                                 order.LimitPrice += slippage.Slippage * strategy.Symbol.MinTick;
@@ -768,8 +872,8 @@ namespace AmiBroker.Controllers
                             {
                                 OrderInfo oi = new OrderInfo
                                 {
-                                    RealOrderId = orderLog.RealOrderId,
-                                    OrderId = ConnParam.AccName + olog.OrderId,
+                                    RealOrderId = olog.RealOrderId,
+                                    OrderId = olog.OrderId,
                                     BatchNo = batchNo,
                                     Strategy = strategy,
                                     Account = accountInfo,
@@ -779,7 +883,7 @@ namespace AmiBroker.Controllers
                                     PlacedTime = olog.OrderSentTime,
                                     Contract = contract,
                                     Order = order,
-                                    LmtPrice = order.LimitPrice
+                                    OrderType = orderType
                                 };
                                 MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi);
                             }
@@ -789,7 +893,17 @@ namespace AmiBroker.Controllers
                     else
                     // no slippage defined for e.g. MarketOrder
                     {
+                        TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(orderType);
+                        MemberSet members = accessor.GetMembers();
+                        if (members.Any(x => x.Name == "LmtPrice"))
+                            order.LimitPrice = modifiedPrice;
+
                         int orderId = 0;
+                        if (strategy != null)
+                            order.TotalQuantity = (int)(ttlPosSize * strategy.Symbol.RoundLotSize);
+                        else
+                            order.TotalQuantity = (int)orderType.TotalQuantity;
+
                         if (!ConnParam.IsMulti)
                         {
                             //using (await m_lock.LockAsync())
@@ -812,7 +926,7 @@ namespace AmiBroker.Controllers
                         }
                         orderLog.OrderSentTime = DateTime.Now;
                         // strategy.PosSize cannot be used here because PosSize may not equal to that number.
-                        orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : (int)order.TotalQuantity;
+                        orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : order.TotalQuantity;
                         orderLog.Slippage = null;
                         orderLogs.Add(orderLog);
 
@@ -823,7 +937,7 @@ namespace AmiBroker.Controllers
                             OrderInfo oi = new OrderInfo
                             {
                                 RealOrderId = orderLog.RealOrderId,
-                                OrderId = ConnParam.AccName + orderLog.OrderId,
+                                OrderId = orderLog.OrderId,
                                 BatchNo = batchNo,
                                 Strategy = strategy,
                                 Account = accountInfo,
@@ -833,6 +947,7 @@ namespace AmiBroker.Controllers
                                 PlacedTime = orderLog.OrderSentTime,
                                 Contract = contract,
                                 Order = order,
+                                OrderType = orderType
                             };
                             MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
                         }
@@ -989,7 +1104,7 @@ namespace AmiBroker.Controllers
                         Tif = e.Order.Tif.ToString(),
                         GTD = e.Order.GoodTillDate,
                         GAT = e.Order.GoodAfterTime,
-                        StopPrice = e.Order.TrailStopPrice,
+                        StopPrice = e.Order.AuxPrice,
                         LmtPrice = e.Order.LimitPrice,
                         Quantity = e.Order.TotalQuantity,
                         Remaining = e.Order.TotalQuantity,
@@ -1002,9 +1117,9 @@ namespace AmiBroker.Controllers
                         Contract = e.Contract,
                         Vendor = Vendor
                     };
-                    if (mainVM.OrderInfoList.ContainsKey(e.Order.Account + e.OrderId))
+                    if (mainVM.OrderInfoList.Any(x => x.Value.RealOrderId == e.OrderId))
                     {
-                        OrderInfo oi = mainVM.OrderInfoList[e.Order.Account + e.OrderId];
+                        OrderInfo oi = mainVM.OrderInfoList.First(x => x.Value.RealOrderId == e.OrderId).Value;
                         Strategy strategy = oi.Strategy;
                         if (strategy != null)
                             dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
@@ -1075,7 +1190,7 @@ namespace AmiBroker.Controllers
                             break;
                         case OrderStatus.ApiCancelled:
                         case OrderStatus.Canceled:
-                            AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction, true);
+                            AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction, true);
                             break;
                         case OrderStatus.Filled:
                         case OrderStatus.PartiallyFilled:
@@ -1130,10 +1245,11 @@ namespace AmiBroker.Controllers
                                     {
                                         strategyStat.LongPosition += filled;
                                         scriptStat.LongPosition += filled;
-                                        scriptStat.LongEntryPrice = (float)e.AverageFillPrice;
                                         apsLong.EntryPrice = (float)e.AverageFillPrice;
-                                        strategyStat.LongEntry.Add(oi.BatchNo);
-                                        scriptStat.LongEntry.Add(oi.BatchNo);
+                                        oi.Strategy.ForceExitOrderForLong.EntryPrice = (float)e.AverageFillPrice;
+                                        Entry entry = new Entry(oi.OrderId, oi.BatchNo);
+                                        strategyStat.LongEntry.Add(entry);
+                                        scriptStat.LongEntry.Add(entry);
                                     }                                    
                                 }
 
@@ -1183,38 +1299,30 @@ namespace AmiBroker.Controllers
                                     {
                                         strategyStat.ShortPosition += filled;
                                         scriptStat.ShortPosition += filled;
-                                        scriptStat.ShortEntryPrice = (float)e.AverageFillPrice;
                                         apsShort.EntryPrice = (float)e.AverageFillPrice;
-                                        strategyStat.ShortEntry.Add(oi.BatchNo);
-                                        scriptStat.ShortEntry.Add(oi.BatchNo);
+                                        oi.Strategy.ForceExitOrderForShort.EntryPrice = (float)e.AverageFillPrice;
+                                        // adding entry
+                                        Entry entry = new Entry(oi.OrderId, oi.BatchNo);
+                                        strategyStat.ShortEntry.Add(entry);
+                                        scriptStat.ShortEntry.Add(entry);
                                     }
                                 }
 
-                                else if (oi.OrderAction == OrderAction.Sell)
+                                else if (oi.OrderAction == OrderAction.Sell || oi.OrderAction == OrderAction.APSLong
+                                    || oi.OrderAction == OrderAction.StoplossLong)
                                 {
                                     strategyStat.LongPosition -= filled;
                                     scriptStat.LongPosition -= filled;
                                 }
 
-                                else if (oi.OrderAction == OrderAction.Cover)
+                                else if (oi.OrderAction == OrderAction.Cover || oi.OrderAction == OrderAction.APSShort
+                                    || oi.OrderAction == OrderAction.StoplossShort)
                                 {
                                     strategyStat.ShortPosition -= filled;
                                     scriptStat.ShortPosition -= filled;
                                 }
-
-                                else if (oi.OrderAction == OrderAction.APSLong)
-                                {
-                                    strategyStat.LongPosition -= filled;
-                                    scriptStat.LongPosition -= filled;
-                                }
-
-                                else if (oi.OrderAction == OrderAction.APSShort)
-                                {
-                                    strategyStat.ShortPosition -= filled;
-                                    scriptStat.ShortPosition -= filled;
-                                } 
-                                AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
-                                AccountStatusOp.SetPositionStatus(ref strategyStat, oi.OrderAction);
+                                AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
+                                AccountStatusOp.SetPositionStatus(ref strategyStat, ref scriptStat, ref strategy, oi.OrderAction);
                             }                            
                             break;
                     }
@@ -1277,10 +1385,11 @@ namespace AmiBroker.Controllers
                 oi.Error = e.ErrorMsg;
                 if (oi.Strategy != null && oi.Strategy.AccountStat.ContainsKey(oi.Account.Name))
                 {
+                    Strategy strategy = oi.Strategy;
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
                     string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
-                    AccountStatusOp.RevertActionStatus(ref strategyStat, oi.OrderAction);
+                    AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()
@@ -1389,10 +1498,12 @@ namespace AmiBroker.Controllers
             //orderType.Slippage = 0;
             strategy.BuyOrderTypes.Add(orderType);
             int bn = OrderManager.BatchNo;
+            
             await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, bn, null, null, null, true, false);
             Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
             mainVM.Log(log1);
-
+            //Client.CancelOrder(ol1.OrderId);
+            /*
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 1 });
             orderType.Slippages.Add(new CSlippage { PosSize = 1, Slippage = 2 });
             List<OrderLog> logs = await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, bn, null, null, null, true, false);
@@ -1408,7 +1519,7 @@ namespace AmiBroker.Controllers
             foreach (OrderLog olog in logs)
             {
                 mainVM.Log(new Log { Time = olog.OrderSentTime, Text = "Faked order3 placed." + olog.Slippage });
-            }
+            }*/
             //ClientSocket.cancelOrder(ol1.OrderId);
             //ClientSocket.cancelOrder(ol2.OrderId);
             //ClientSocket.cancelOrder(ol3.OrderId);

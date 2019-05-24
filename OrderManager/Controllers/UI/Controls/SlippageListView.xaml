@@ -45,8 +45,7 @@
                                 <DataTemplate>
                                     <controls:NumericUpDown Value="{Binding Slippage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                                         MinValue="0" MaxValue="100" Increment="1"
-                                                            Width="50"
-                                                        Type="Integer" />
+                                                            Width="50" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -55,8 +54,7 @@
                                 <DataTemplate>
                                     <controls:NumericUpDown Value="{Binding PosSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                                         MinValue="1" MaxValue="100" Increment="1"
-                                                         Width="50"
-                                                        Type="Integer" />
+                                                         Width="50" />
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>

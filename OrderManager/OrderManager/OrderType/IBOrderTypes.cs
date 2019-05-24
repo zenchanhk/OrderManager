@@ -151,18 +151,18 @@ namespace AmiBroker.OrderManager
                     System.TimeZone zone = System.TimeZone.CurrentTimeZone;
                     TimeSpan span = zone.GetUtcOffset(DateTime.Now);
                     DateTime dtLocal = DateTime.Now.Add(TimeZone.UtcOffset - span);
-                    // if GAT is behind Now, return null
+                    // if GAT is behind Now, return +1
+                    int addDays = ExactTimeValidDays;
                     if (ExactTimeValidDays == 0 && DateTime.Parse(dtLocal.ToShortTimeString()) >= DateTime.Parse(ExactTime.ToShortTimeString()))
                     {
-                        result = null;
+                        addDays = 1;
                     }
-                    else
-                    {
-                        result = DateTimeFormat.Replace(dateFormat, dtLocal.AddDays(ExactTimeValidDays).ToString(dateFormat));
-                        result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
-                        result += TimeZone != null ? " " + TimeZone.Id : "";
+                    
+                    result = DateTimeFormat.Replace(dateFormat, dtLocal.AddDays(addDays).ToString(dateFormat));
+                    result = result.Replace(timeFormat, ExactTime.ToString(timeFormat));
+                    result += TimeZone != null ? " " + TimeZone.Id : "";
                         //System.Diagnostics.Debug.WriteLine("GTD: " + result);
-                    }
+                    
                     break;
 				case 2:
                     //result =  OrderTime.AddSeconds(Seconds).ToString(DateTimeFormat);
@@ -293,10 +293,13 @@ namespace AmiBroker.OrderManager
             if (MainViewModel.Instance.SelectedItem.GetType() == typeof(Strategy))
             {
                 List<string> list = ((Strategy)MainViewModel.Instance.SelectedItem).Prices;
-                foreach (var item in list)
+                if (list != null)
                 {
-                    items.Add(item);
-                }
+                    foreach (var item in list)
+                    {
+                        items.Add(item);
+                    }
+                }                
             }            
             return items;
         }
@@ -310,10 +313,13 @@ namespace AmiBroker.OrderManager
             if (MainViewModel.Instance.SelectedItem.GetType() == typeof(Strategy))
             {
                 List<string> list = ((Strategy)MainViewModel.Instance.SelectedItem).PositionSize;
-                foreach (var item in list)
+                if (list != null)
                 {
-                    items.Add(item);
-                }
+                    foreach (var item in list)
+                    {
+                        items.Add(item);
+                    }
+                }                
             }
             return items;
         }

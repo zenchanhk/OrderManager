@@ -91,8 +91,7 @@
                            Width="20" Margin="2,2,5,2" />
                     <TextBlock VerticalAlignment="Center" Text="{Binding Path=Name}"/>
                     <TextBlock VerticalAlignment="Center" Text=" : "/>
-                    <local:NumericUpDown Value="{Binding Path=Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"   
-                                         Type="Double"
+                    <local:NumericUpDown Value="{Binding Path=Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                         MinValue="0" MaxValue="30" Increment="1" Width="50" Height="20"/>
                 </StackPanel>
             </DataTemplate>

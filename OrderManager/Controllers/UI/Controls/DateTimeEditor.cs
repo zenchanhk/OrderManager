@@ -390,9 +390,14 @@ namespace ControlLib
             //eat the keystroke if insert is pressed
             //if (!Keyboard.IsKeyToggled(Key.Insert))
             //{
-                //InputSimulator.SimulateKeyPress(VirtualKeyCode.INSERT);
+            //InputSimulator.SimulateKeyPress(VirtualKeyCode.INSERT);
             //    PressKey(Key.Insert);
             //}
+            if (e.Key == Key.Tab)
+            {
+                
+                return;
+            }
 
             MaskedTextProvider provider = MaskProvider;
             int position = SelectionStart;
@@ -441,6 +446,10 @@ namespace ControlLib
                     SelectionStart = position;
                 }
                 e.Handled = true;
+            }
+            else if (e.Key == Key.Tab)
+            {
+                e.Handled = false;
             }
             base.OnPreviewKeyDown(e);
         }

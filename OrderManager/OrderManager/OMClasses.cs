@@ -39,41 +39,7 @@ namespace AmiBroker.OrderManager
         CloseLongPositions=1,
         CloseShortPositions=2
     }
-    public class ForceExitOrder : NotifyPropertyChangedBase
-    {
-        // Market Order 
-        private DateTime _pFinalTime;
-        public DateTime FinalTime
-        {
-            get { return _pFinalTime; }
-            set { _UpdateField(ref _pFinalTime, value); }
-        }
-
-        private ObservableCollection<WeekDay> _pDays = new ObservableCollection<WeekDay>();
-        public ObservableCollection<WeekDay> Days
-        {
-            get { return _pDays; }
-            set { _UpdateField(ref _pDays, value); }
-        }
-
-        // before LmtOrderTime minute to final time
-        private int _pLmtOrderTime;
-        public int LmtOrderTime
-        {
-            get { return _pLmtOrderTime; }
-            set { _UpdateField(ref _pLmtOrderTime, value); }
-        }
-
-        private int _pSlippage;
-        public int Slippage
-        {
-            get { return _pSlippage; }
-            set { _UpdateField(ref _pSlippage, value); }
-        }
-
-        // Limited Order
-        public BaseOrderType OrderType { get; set; }
-    }
+    
     public class OrderInfo
     {
         public int RealOrderId { get; set; }    // order id
@@ -91,9 +57,34 @@ namespace AmiBroker.OrderManager
         public DateTime PlacedTime { get; set; }
         public bool IsReversedOrder { get; set; }
         public int NoOfRef { get; set; } = 0;  // the number of referenced by reverse signal exit
-        public Contract Contract { get; set; }
-        public Order Order { get; set; }
-        public decimal LmtPrice { get; set; }
+        public Contract Contract = null;
+        public Order Order = null;
+        public BaseOrderType OrderType = null;
+    }
+    public sealed class Entry : IEquatable<Entry>
+    {
+        public string OrderId { get; }
+        public int BatchNo { get; }
+
+        public Entry(string orderId, int batchNo)
+        {
+            OrderId = orderId;
+            BatchNo = batchNo;
+        }
+
+        public override int GetHashCode()
+        {
+            return OrderId.GetHashCode() + BatchNo; 
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Entry && Equals((Entry)obj);
+        }
+        public bool Equals(Entry entry)
+        {
+            return entry.OrderId == OrderId && BatchNo == entry.BatchNo;
+        }
     }
     public class BaseStat : NotifyPropertyChangedBase
     {
@@ -126,15 +117,15 @@ namespace AmiBroker.OrderManager
             get { return _pShortPosition; }
             set { _UpdateField(ref _pShortPosition, value); }
         }
-
-        private HashSet<int> _pLongEntry = new HashSet<int>();
+        
+        private HashSet<Entry> _pLongEntry = new HashSet<Entry>();
         //[JsonIgnore]
-        public HashSet<int> LongEntry
+        public HashSet<Entry> LongEntry
         {
             get { return _pLongEntry; }
             set { _UpdateField(ref _pLongEntry, value); }
         }
-
+        /*
         private float _pLongEntryPrice;
         [JsonIgnore]
         public float LongEntryPrice
@@ -149,15 +140,20 @@ namespace AmiBroker.OrderManager
         {
             get { return _pShortEntryPrice; }
             set { _UpdateField(ref _pShortEntryPrice, value); }
-        }
-
-        private HashSet<int> _pShortEntry = new HashSet<int>();
+        }*/
+        
+        private HashSet<Entry> _pShortEntry = new HashSet<Entry>();
         //[JsonIgnore]
-        public HashSet<int> ShortEntry
+        public HashSet<Entry> ShortEntry
         {
             get { return _pShortEntry; }
             set { _UpdateField(ref _pShortEntry, value); }
         }
+        public HashSet<string> LongStrategies { get; } = new HashSet<string>();
+        public HashSet<string> LongPendingStrategies { get; } = new HashSet<string>();
+        public HashSet<string> ShortStrategies { get; } = new HashSet<string>();
+        public HashSet<string> ShortPendingStrategies { get; } = new HashSet<string>();
+
         // only applied to Strategy
         private int _pLongAttemps;
         public int LongAttemps
@@ -228,6 +224,13 @@ namespace AmiBroker.OrderManager
             }
         }
 
+        private bool _pDayTradeMode;
+        public bool DayTradeMode
+        {
+            get { return _pDayTradeMode; }
+            set { _UpdateField(ref _pDayTradeMode, value); }
+        }
+
         private SymbolInAction _pSymbol;
         public SymbolInAction Symbol
         {
@@ -282,18 +285,32 @@ namespace AmiBroker.OrderManager
 
         public string Name { get; set; }
 
-        private int _pMaxEntriesPerDay;
+        private int _pMaxEntriesPerDay = 1;
         public int MaxEntriesPerDay
         {
             get { return _pMaxEntriesPerDay; }
             set { _UpdateField(ref _pMaxEntriesPerDay, value); }
         }
 
-        private int _pMaxOpenPosition;
+        private int _pMaxOpenPosition = 1;
         public int MaxOpenPosition
         {
             get { return _pMaxOpenPosition; }
             set { _UpdateField(ref _pMaxOpenPosition, value); }
+        }
+
+        private int _pMaxLongOpenPosition = 1;
+        public int MaxLongOpenPosition
+        {
+            get { return _pMaxLongOpenPosition; }
+            set { _UpdateField(ref _pMaxLongOpenPosition, value); }
+        }
+
+        private int _pMaxShortOpenPosition = 1;
+        public int MaxShortOpenPosition
+        {
+            get { return _pMaxShortOpenPosition; }
+            set { _UpdateField(ref _pMaxShortOpenPosition, value); }
         }
 
         private bool _pAllowMultiLong;
@@ -303,7 +320,7 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pAllowMultiLong, value); }
         }
 
-        private int _pMaxLongOpen;
+        private int _pMaxLongOpen = 1;
         public int MaxLongOpen
         {
             get { return _pMaxLongOpen; }
@@ -317,7 +334,7 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pAllowMultiShort, value); }
         }
 
-        private int _pMaxShortOpen;
+        private int _pMaxShortOpen = 1;
         public int MaxShortOpen
         {
             get { return _pMaxShortOpen; }
@@ -338,14 +355,14 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pPositionSize, value); }
         }
 
-        private int _pMaxLongAttemps;
+        private int _pMaxLongAttemps = 1;
         public int MaxLongAttemps
         {
             get { return _pMaxLongAttemps; }
             set { _UpdateField(ref _pMaxLongAttemps, value); }
         }
 
-        private int _pMaxShortAttemps;
+        private int _pMaxShortAttemps = 1;
         public int MaxShortAttemps
         {
             get { return _pMaxShortAttemps; }
@@ -462,6 +479,8 @@ namespace AmiBroker.OrderManager
                     {
                         ((Strategy)this).AccountsDic.Add(OrderAction.Buy, _longAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.Sell, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.APSLong, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.StoplossLong, _longAccounts);
                     }                        
                 }
                 return _longAccounts;
@@ -475,6 +494,8 @@ namespace AmiBroker.OrderManager
                     {
                         ((Strategy)this).AccountsDic[OrderAction.Buy] = _longAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.Sell] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.APSLong] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.StoplossLong] = _longAccounts;
                     }                        
                 }
             }
@@ -492,6 +513,8 @@ namespace AmiBroker.OrderManager
                     {
                         ((Strategy)this).AccountsDic.Add(OrderAction.Short, _shortAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.Cover, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.APSShort, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.StoplossShort, _shortAccounts);
                     }
                 }
                 return _shortAccounts;
@@ -505,6 +528,8 @@ namespace AmiBroker.OrderManager
                     {
                         ((Strategy)this).AccountsDic[OrderAction.Short] = _shortAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.Cover] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.APSShort] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.StoplossShort] = _shortAccounts;
                     }
                 }
             }
@@ -555,12 +580,12 @@ namespace AmiBroker.OrderManager
             get
             {
                 if (_APSLong == null)
-                {
-                    IBStopLimitOrder stopLimitOrder = new IBStopLimitOrder();
-                    _APSLong = new AdaptiveProfitStop(this, stopLimitOrder, ActionType.Short);
+                {                    
+                    _APSLong = new AdaptiveProfitStop(this, ActionType.Long);
                 }
                 return _APSLong;
             }
+            set { _APSLong = value; }
         }
 
         private AdaptiveProfitStop _APSShort = null;
@@ -568,12 +593,12 @@ namespace AmiBroker.OrderManager
             get
             {
                 if (_APSShort == null)
-                {
-                    IBStopLimitOrder stopLimitOrder = new IBStopLimitOrder();
-                    _APSShort = new AdaptiveProfitStop(this, stopLimitOrder, ActionType.Short);
+                {                    
+                    _APSShort = new AdaptiveProfitStop(this, ActionType.Short);
                 }
                 return _APSShort;
             }
+            set { _APSShort = value; }
         }
 
         private bool _pIsForcedExitForLong;
@@ -590,18 +615,28 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pIsForcedExitForShort, value); }
         }
 
-        private ForceExitOrder _pForceExitOrderForLong = new ForceExitOrder();
+        private ForceExitOrder _pForceExitOrderForLong;
         public ForceExitOrder ForceExitOrderForLong
         {
-            get { return _pForceExitOrderForLong; }
-            set { _UpdateField(ref _pForceExitOrderForLong, value); }
+            get
+            {
+                if (_pForceExitOrderForLong == null)
+                    _pForceExitOrderForLong = new ForceExitOrder(this, ActionType.Long);
+                return _pForceExitOrderForLong;
+            }
+            set { _pForceExitOrderForLong = value; }
         }
 
-        private ForceExitOrder _pForceExitOrderForShort = new ForceExitOrder();
+        private ForceExitOrder _pForceExitOrderForShort;
         public ForceExitOrder ForceExitOrderForShort
         {
-            get { return _pForceExitOrderForShort; }
-            set { _UpdateField(ref _pForceExitOrderForShort, value); }
+            get
+            {
+                if (_pForceExitOrderForShort == null)
+                    _pForceExitOrderForShort = new ForceExitOrder(this, ActionType.Short);
+                return _pForceExitOrderForShort;
+            }
+            set { _pForceExitOrderForShort = value; }
         }
 
         public void Clear()
@@ -679,8 +714,14 @@ namespace AmiBroker.OrderManager
             AccountsDic.Clear();
             AccountsDic.Add(OrderAction.Buy, LongAccounts);
             AccountsDic.Add(OrderAction.Sell, LongAccounts);
+            AccountsDic.Add(OrderAction.StoplossLong, LongAccounts);
+            AccountsDic.Add(OrderAction.APSLong, LongAccounts);
+
             AccountsDic.Add(OrderAction.Short, ShortAccounts);
             AccountsDic.Add(OrderAction.Cover, ShortAccounts);
+            AccountsDic.Add(OrderAction.APSShort, ShortAccounts);
+            AccountsDic.Add(OrderAction.StoplossShort, ShortAccounts);
+
             OrderTypesDic.Clear();
             OrderTypesDic.Add(OrderAction.Buy, BuyOrderTypes);
             OrderTypesDic.Add(OrderAction.Sell, SellOrderTypes);
@@ -737,6 +778,7 @@ namespace AmiBroker.OrderManager
 
         public void CloseAllPositions(ClosePositionAction closePositionAction = ClosePositionAction.CloseAllPositions)
         {
+            List<Log> logs = new List<Log>();
             try
             {
                 foreach (var item in AccountStat)
@@ -765,7 +807,7 @@ namespace AmiBroker.OrderManager
                     if (item.Value.ShortPosition > 0
                         && (closePositionAction == ClosePositionAction.CloseAllPositions || closePositionAction == ClosePositionAction.CloseShortPositions))
                     {
-                        OrderAction orderAction = OrderAction.Buy;
+                        OrderAction orderAction = OrderAction.Cover;
                         double posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
 
                         controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize).ContinueWith(
@@ -777,6 +819,96 @@ namespace AmiBroker.OrderManager
                                 //AccountStatusOp.SetPositionStatus(ref status, orderAction);
                             }
                         );
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.BuyPending) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.Buy;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No LONG order info found for a BuyPending status",
+                                Time = DateTime.Now
+                            });
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.ShortPending) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.Short;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No SHORT order info found for a ShortPending status",
+                                Time = DateTime.Now
+                            });
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.APSLongActivated) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.APSLong;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No APSLong order info found for a APSLong Pending status",
+                                Time = DateTime.Now
+                            });
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.APSShortActivated) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.APSShort;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No APSShort order info found for a APSShort Pending status",
+                                Time = DateTime.Now
+                            });
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.StoplossLong;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No StoplossLong order info found for a StoplossLong Pending status",
+                                Time = DateTime.Now
+                            });
+                    }
+
+                    if ((item.Value.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
+                    {
+                        OrderAction orderAction = OrderAction.StoplossShort;
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        if (oi != null)
+                            controller.CancelOrderAsync(oi.RealOrderId);
+                        else
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Source = "Strategy.CloseAllPositions",
+                                Text = "No StoplossShort order info found for a StoplossShort Pending status",
+                                Time = DateTime.Now
+                            });
                     }
                 }
             }
@@ -820,6 +952,8 @@ namespace AmiBroker.OrderManager
             DefaultPositionSize = strategy.DefaultPositionSize;
             IsAPSAppliedforLong = strategy.IsAPSAppliedforLong;
             IsAPSAppliedforShort = strategy.IsAPSAppliedforShort;
+            IsForcedExitForLong = strategy.IsForcedExitForLong;
+            IsForcedExitForShort = strategy.IsForcedExitForShort;
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -830,6 +964,15 @@ namespace AmiBroker.OrderManager
                 CoverOrderTypes = strategy.CoverOrderTypes;
                 AllowMultiShort = strategy.AllowMultiShort;
                 MaxShortOpen = strategy.MaxShortOpen;
+                
+                AdaptiveProfitStopforShort = strategy.AdaptiveProfitStopforShort;
+                AdaptiveProfitStopforShort.Strategy = this;
+                AdaptiveProfitStopforShort.ActionType = ActionType.Short;
+
+                ForceExitOrderForShort = strategy.ForceExitOrderForShort;
+                ForceExitOrderForShort.Strategy = this;
+                ForceExitOrderForShort.ActionType = ActionType.Short;
+
                 foreach (AccountInfo acc in strategy.ShortAccounts)
                 {
                     AccountInfo tmp = Script.Symbol.AccountCandidates.FirstOrDefault(x => x.Name == acc.Name);
@@ -846,6 +989,15 @@ namespace AmiBroker.OrderManager
                 SellOrderTypes = strategy.SellOrderTypes;
                 AllowMultiLong = strategy.AllowMultiLong;
                 MaxLongOpen = strategy.MaxLongOpen;
+
+                AdaptiveProfitStopforLong = strategy.AdaptiveProfitStopforLong;
+                AdaptiveProfitStopforLong.Strategy = this;
+                AdaptiveProfitStopforLong.ActionType = ActionType.Long;
+
+                ForceExitOrderForLong = strategy.ForceExitOrderForLong;
+                ForceExitOrderForLong.Strategy = this;
+                ForceExitOrderForLong.ActionType = ActionType.Long;
+
                 foreach (AccountInfo acc in strategy.LongAccounts)
                 {
                     AccountInfo tmp = Script.Symbol.AccountCandidates.FirstOrDefault(x => x.Name == acc.Name);
@@ -916,6 +1068,23 @@ namespace AmiBroker.OrderManager
                 Strategies.Remove(item);
             }    
         }
+        public void ResetForNewDay()
+        {
+            foreach (var acc in LongAccounts)
+            {
+                AccountStat[acc.Name].LongEntry.Clear();
+                AccountStat[acc.Name].ShortEntry.Clear();
+                AccountStat[acc.Name].LongAttemps = 0;
+                AccountStat[acc.Name].ShortAttemps = 0;
+            }
+            foreach (var acc in ShortAccounts)
+            {
+                AccountStat[acc.Name].LongEntry.Clear();
+                AccountStat[acc.Name].ShortEntry.Clear();
+                AccountStat[acc.Name].LongAttemps = 0;
+                AccountStat[acc.Name].ShortAttemps = 0;
+            }
+        }
         public void CopyFrom(Script script)
         {
             foreach (var item in script.Strategies)
@@ -941,6 +1110,12 @@ namespace AmiBroker.OrderManager
             ShortOrderTypes = script.ShortOrderTypes;
             CoverOrderTypes = script.CoverOrderTypes;
             DefaultPositionSize = script.DefaultPositionSize;
+
+            AdaptiveProfitStopforLong = script.AdaptiveProfitStopforLong;
+            AdaptiveProfitStopforShort = script.AdaptiveProfitStopforShort;
+            ForceExitOrderForLong = script.ForceExitOrderForLong;
+            ForceExitOrderForShort = script.ForceExitOrderForShort;
+
             _RaisePropertyChanged("ShortOrderTypes");
             _RaisePropertyChanged("CoverOrderTypes");
             _RaisePropertyChanged("BuyOrderTypes");
@@ -1010,6 +1185,27 @@ namespace AmiBroker.OrderManager
                 strategy.MaxOpenPosition = MaxOpenPosition;
                 strategy.ReverseSignalForcesExit = ReverseSignalForcesExit;
                 strategy.DefaultPositionSize = DefaultPositionSize;
+
+                strategy.IsAPSAppliedforLong = IsAPSAppliedforLong;
+                strategy.IsAPSAppliedforShort = IsAPSAppliedforShort;
+                strategy.IsForcedExitForLong = IsForcedExitForLong;
+                strategy.IsForcedExitForShort = IsForcedExitForShort;
+
+                strategy.AdaptiveProfitStopforLong = AdaptiveProfitStopforLong.CloneObject();
+                strategy.AdaptiveProfitStopforLong.Strategy = strategy;
+                strategy.AdaptiveProfitStopforLong.ActionType = ActionType.Long;
+
+                strategy.AdaptiveProfitStopforShort = AdaptiveProfitStopforShort.CloneObject();
+                strategy.AdaptiveProfitStopforShort.Strategy = strategy;
+                strategy.AdaptiveProfitStopforShort.ActionType = ActionType.Short;
+
+                strategy.ForceExitOrderForLong = ForceExitOrderForLong.CloneObject();
+                strategy.ForceExitOrderForLong.Strategy = strategy;
+                strategy.ForceExitOrderForLong.ActionType = ActionType.Long;
+
+                strategy.ForceExitOrderForShort = ForceExitOrderForShort.CloneObject();
+                strategy.ForceExitOrderForShort.Strategy = strategy;
+                strategy.ForceExitOrderForShort.ActionType = ActionType.Short;
                 /*
                 strategy.AllowReEntry = AllowReEntry;
                 strategy.ReEntryBefore = ReEntryBefore;

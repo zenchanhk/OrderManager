@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:local="clr-namespace:AmiBroker.Controllers"
+             xmlns:controls="clr-namespace:ControlLib"
              mc:Ignorable="d" 
              d:DesignHeight="450" d:DesignWidth="800">
     <UserControl.Resources>
@@ -26,7 +27,7 @@
                     <MenuItem Header="Close current positions" Command="{Binding Path=DataContext.Commands.CloseSymbolOpenOrders, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke"
                               CommandParameter="{Binding Path=DataContext.SelectedPortfolio, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
                         <MenuItem.Icon>
-                            <Image Source="{StaticResource closeCurrentDrawingImage}"/>
+                            <controls:AutoGreyableImage Source="{StaticResource closeCurrentDrawingImage}"/>
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>                

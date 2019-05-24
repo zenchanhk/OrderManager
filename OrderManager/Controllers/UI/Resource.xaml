@@ -26,6 +26,7 @@
     <local:TypeToVisReverseConverter x:Key="TypeToVisRevConverter" />
     <local:TypeToPGObjectConverter x:Key="TypeToPGObjectConverter"/>
     <local:ActionTypeToTextConverter x:Key="ActionTypeToTextConverter" />
+    <local:DayTradeModeToTextConverter x:Key="DayTradeModeToTextConverter" />
     <local:ControllerToAccountDetailConverter x:Key="ControllerToAccountDetailConverter" />
     <local:TypeToStaticMemberConverter x:Key="TypeToStaticMemberConverter" />
     <local:SelectedToCollectionConverter x:Key="SelectedToCollectionConverter" />
@@ -88,6 +89,7 @@
     <Style TargetType="RepeatButton" x:Key="TabButton">
         <Setter Property="Background" Value="LightGray" />
         <Setter Property="TextBlock.TextAlignment" Value="Center" />
+        <Setter Property="Focusable" Value="False"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RepeatButton">
@@ -286,7 +288,16 @@
             </DrawingGroup>
         </DrawingImage.Drawing>
     </DrawingImage>
-    
+
+    <DrawingImage x:Key="trashDrawingImage">
+        <DrawingImage.Drawing>
+            <DrawingGroup ClipGeometry="M0,0 V1024 H1024 V0 H0 Z">
+                <GeometryDrawing Brush="#FFFF0000" Geometry="F1 M1024,1024z M0,0z M808.421053,377.263158A26.947368,26.947368,0,1,1,862.315789,377.263158L862.315789,902.736842A107.789474,107.789474,0,0,1,754.526316,1010.526316L269.473684,1010.526316A107.789474,107.789474,0,0,1,161.684211,902.736842L161.684211,377.263158A26.947368,26.947368,0,0,1,215.578947,377.263158L215.578947,902.736842A53.894737,53.894737,0,0,0,269.473684,956.631579L754.526316,956.631579A53.894737,53.894737,0,0,0,808.421053,902.736842L808.421053,377.263158z M296.421053,215.578947L727.578947,215.578947 727.578947,113.178947C727.578947,95.447579,712.650105,80.842105,693.894737,80.842105L330.105263,80.842105A33.037474,33.037474,0,0,0,296.421053,113.178947L296.421053,215.578947z M242.526316,215.578947L242.526316,113.178947C242.526316,65.428211,281.869474,26.947368,330.105263,26.947368L693.894737,26.947368C742.130526,26.947368,781.473684,65.428211,781.473684,113.178947L781.473684,215.578947 970.105263,215.578947A26.947368,26.947368,0,1,1,970.105263,269.473684L53.894737,269.473684A26.947368,26.947368,0,0,1,53.894737,215.578947L242.526316,215.578947z" />
+                <GeometryDrawing Brush="#FFFF0000" Geometry="F1 M1024,1024z M0,0z M437.894737,410.947368L437.894737,761.263158A26.947368,26.947368,0,1,1,384,761.263158L384,410.947368A26.947368,26.947368,0,0,1,437.894737,410.947368z M640,410.947368L640,761.263158A26.947368,26.947368,0,1,1,586.105263,761.263158L586.105263,410.947368A26.947368,26.947368,0,1,1,640,410.947368z" />
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
     <DrawingImage x:Key="closeAllDrawingImage">
         <DrawingImage.Drawing>
             <DrawingGroup ClipGeometry="M0,0 V1024 H1024 V0 H0 Z">

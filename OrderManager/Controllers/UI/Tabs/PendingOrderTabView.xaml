@@ -11,6 +11,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="../Resource.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <local:BindingProxy x:Key="Proxy" Data="{Binding}" />
         </ResourceDictionary>
     </UserControl.Resources>
     <Grid>
@@ -22,9 +23,11 @@
                         <MenuItem.Icon>
                             <Image Source="{StaticResource assignDrawingImage}"/>
                         </MenuItem.Icon>
-                    </MenuItem-->
+                    </MenuItem>
                     <MenuItem Header="Cancel pending order" Command="{Binding Path=DataContext.Commands.CancelPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}" Background="WhiteSmoke" 
-                              CommandParameter="{Binding Path=DataContext.SelectedPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}">
+                              CommandParameter="{Binding Path=DataContext.SelectedPendingOrder, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ListView}}"-->
+                    <MenuItem Header="Cancel pending order" Command="{Binding Path=Data.Commands.CancelPendingOrder, Source={StaticResource Proxy}}" Background="WhiteSmoke" 
+                              CommandParameter="{Binding Path=Data.SelectedPendingOrder, Source={StaticResource Proxy}}">
                         <MenuItem.Icon>
                             <Image Source="{StaticResource closeCurrentDrawingImage}"/>
                         </MenuItem.Icon>

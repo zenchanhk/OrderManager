@@ -22,6 +22,7 @@ using AmiBroker.Utils;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Management;
+using FastMember;
 
 namespace AmiBroker.Controllers
 {
@@ -120,6 +121,37 @@ namespace AmiBroker.Controllers
             catch (Exception ex)
             {
                 MessageBox.Show("Failed to log message." + "\nException:" + ex.Message, "Log Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+    public static class BaseOrderTypeAccessor
+    {
+        private static Dictionary<string, TypeAccessor> _accessors = new Dictionary<string, TypeAccessor>();
+        
+        public static TypeAccessor GetAccessor(string name, string nameSpace)
+        {
+            if (_accessors.ContainsKey(name))
+                return _accessors[name];
+            else
+            {
+                Type type = Type.GetType(nameSpace + "." + name);
+                TypeAccessor accessor = TypeAccessor.Create(type);
+                _accessors.Add(name, accessor);
+                return accessor;
+            }
+        }
+
+        public static TypeAccessor GetAccessor(object obj)
+        {
+            Type type = obj.GetType();
+            string name = type.FullName;
+            if (_accessors.ContainsKey(name))
+                return _accessors[name];
+            else
+            {                
+                TypeAccessor accessor = TypeAccessor.Create(type);
+                _accessors.Add(name, accessor);
+                return accessor;
             }
         }
     }
@@ -576,6 +608,24 @@ namespace AmiBroker.Controllers
         // only custom class or list/collection will return the value; otherwise, orignal obj will be returned
         public static object GetValueByName(object obj, string name)
         {
+            if (obj == null) return null;
+            if (obj.GetType().Name.Contains("Dictionary"))
+            {
+                //Type[] args = obj.GetType().GetGenericArguments();
+                if (((dynamic)obj).ContainsKey(name))
+                {
+                    //return ((dynamic)obj)[name];
+                }
+                else
+                {
+                    foreach (var item in (dynamic)obj)
+                    {
+                        obj = item.Value;
+                        break;
+                    }
+                }                
+            }
+
             PropertyInfo[] pis = obj.GetType().GetProperties();
             PropertyInfo pi = pis.FirstOrDefault(x => x.Name == name);
             if (pi != null)

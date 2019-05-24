@@ -636,7 +636,7 @@ namespace AmiBroker.Controllers
                 if (item.Children.FirstOrDefault(x => x.Name == "AccountStatus") != null)
                     return oit.FindResource("accountDrawingImage");
             }
-            if (item.Type.Name.ToLower().Contains("dictionary"))
+            if (item.Type != null && item.Type.Name.ToLower().Contains("dictionary"))
             {
                 if (item.Children.FirstOrDefault(x => x.Name == "DisplayName") != null)
                     return oit.FindResource("vendorDrawingImage");
@@ -795,6 +795,8 @@ namespace AmiBroker.Controllers
         {
             //ObservableCollection<IController> appliedAccounts = ((dynamic)parameter)[0] as ObservableCollection<IController>;
             object si = MainViewModel.Instance.SelectedItem;
+            if (si == null) return false;
+
             if (si.GetType() == typeof(SymbolInAction))
             {
                 ObservableCollection<IController> appliedAccounts = ((SymbolInAction)si).AppliedControllers;
@@ -859,6 +861,22 @@ namespace AmiBroker.Controllers
                     text = "Long and Short";
                     break;
             }
+            return text;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    public class DayTradeModeToTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string text = string.Empty;
+            if ((bool)value)
+                text = "DayTrade Mode";
+            else
+                text = "Non-DayTrade Mode";
             return text;
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

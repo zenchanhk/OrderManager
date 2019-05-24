@@ -195,7 +195,21 @@ namespace ControlLib
             }
             return null;
         }
-
+        protected override void OnGotFocus(RoutedEventArgs e)
+        {
+            base.OnGotFocus(e);
+            if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
+            {
+                TraversalRequest tRequest = new TraversalRequest(FocusNavigationDirection.Previous);
+                UIElement keyboardFocus = Keyboard.FocusedElement as UIElement;
+                if (keyboardFocus != null)
+                {
+                    keyboardFocus.MoveFocus(tRequest);
+                }
+            }
+            else
+                PART_TextBox.Focus();
+        }
         private void buttonUp_Click(object sender, RoutedEventArgs e)
         {
             //Value += Increment;
@@ -213,6 +227,7 @@ namespace ControlLib
         }
         private void textBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Tab) return;
             // ignore control key
             if ((Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)) ||
                 (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)))

@@ -45,11 +45,11 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=1}">
                                             <TextBlock Text="Exact GAT" />
                                         </RadioButton>
-                                        <controls:DateTimeEditor x:Name="gat_dtEditor" Value="{Binding GoodAfterTime.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:DateTimeEditor x:Name="gat_dtEditor" Value="{Binding GoodAfterTime.ExactTime}"
                                                  Format="HH:mm:ss" PreviewKeyDown="gt_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
-                                        <controls:NumericUpDown x:Name="gat_ud_1" Value="{Binding GoodAfterTime.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown x:Name="gat_ud_1" Value="{Binding GoodAfterTime.ExactTimeValidDays}"
                                                              PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
@@ -59,7 +59,7 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=2}">
                                             <TextBlock Text="Seconds after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown x:Name="gat_ud_sec" Value="{Binding GoodAfterTime.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown x:Name="gat_ud_sec" Value="{Binding GoodAfterTime.Seconds}"
                                                              MinValue="1" MaxValue="10000" PreviewKeyDown="gt_PreviewKeyDown"
                                                              Width="50" Margin="5, 0" Click="gt_Click" />
                                     </StackPanel>
@@ -67,7 +67,7 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgat" IsChecked="{Binding GoodAfterTime.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=3}">
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown x:Name="gat_ud_bar" Value="{Binding GoodAfterTime.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown x:Name="gat_ud_bar" Value="{Binding GoodAfterTime.Bars}"
                                                              PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              MinValue="1" MaxValue="100"
                                                              Width="50" Margin="5, 0" />
@@ -98,12 +98,12 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgtd" IsChecked="{Binding GoodTilDate.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=1}">
                                             <TextBlock Text="Exact GTD" />
                                         </RadioButton>
-                                        <controls:DateTimeEditor Value="{Binding GoodTilDate.ExactTime, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:DateTimeEditor Value="{Binding GoodTilDate.ExactTime}"
                                                                  x:Name="gtd_dtEditor"
                                                  Format="HH:mm:ss" PreviewKeyDown="gt_PreviewKeyDown"
                                                  Width="60" Margin="4,0,2,0" />
                                         <TextBlock VerticalAlignment="Center" Text="valid in" Margin="2, 0"/>
-                                        <controls:NumericUpDown Value="{Binding GoodTilDate.ExactTimeValidDays, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown Value="{Binding GoodTilDate.ExactTimeValidDays}"
                                                              PreviewKeyDown="gt_PreviewKeyDown" x:Name="gtd_ud_1" Click="gt_Click"
                                                              MinValue="0" MaxValue="10"
                                                              Width="50" Margin="2, 0" />
@@ -113,7 +113,7 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgtd" IsChecked="{Binding GoodTilDate.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=2}">
                                             <TextBlock Text="Seconds after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown Value="{Binding GoodTilDate.Seconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown Value="{Binding GoodTilDate.Seconds}"
                                                              MinValue="1" MaxValue="10000" x:Name="gtd_ud_sec"
                                                              PreviewKeyDown="gt_PreviewKeyDown" Click="gt_Click"
                                                              Width="50" Margin="5, 0" />
@@ -122,7 +122,7 @@
                                         <RadioButton VerticalAlignment="Center" GroupName="ibgtd" IsChecked="{Binding GoodTilDate.SelectedIndex, Converter={StaticResource SelectedIndexToOptionConverter}, ConverterParameter=3}">
                                             <TextBlock Text="Bars after order placed" />
                                         </RadioButton>
-                                        <controls:NumericUpDown Value="{Binding GoodTilDate.Bars, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        <controls:NumericUpDown Value="{Binding GoodTilDate.Bars}"
                                                              PreviewKeyDown="gt_PreviewKeyDown" x:Name="gtd_ud_bar"
                                                              MinValue="1" MaxValue="100" Click="gt_Click"
                                                              Width="50" Margin="5, 0" />
@@ -337,15 +337,31 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Max. open positions: " />
-                        <controls:NumericUpDown Value="{Binding MaxOpenPosition, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                        <controls:NumericUpDown Value="{Binding MaxOpenPosition}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
-                                    ConverterParameter=MaxOpenPosition$3000}" />
+                                    ConverterParameter=MaxOpenPosition$3000}" />                        
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
+                        <TextBlock VerticalAlignment="Center" Text="Max. LONG open positions: " />
+                        <controls:NumericUpDown Value="{Binding MaxLongOpenPosition}" 
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
+                                    MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
+                                    Converter={StaticResource ParentValueToMaxValueConverter},
+                                    ConverterParameter=MaxOpenPosition$1000}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
+                        <TextBlock VerticalAlignment="Center" Text="Max. SHORT open positions: " />
+                        <controls:NumericUpDown Value="{Binding MaxShortOpenPosition}" 
+                                    MinValue="1" Increment="1" Margin="5, 0" Width="70"
+                                    MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
+                                    Converter={StaticResource ParentValueToMaxValueConverter},
+                                    ConverterParameter=MaxOpenPosition$1000}" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="Max. entries per day: " />
-                        <controls:NumericUpDown Value="{Binding MaxEntriesPerDay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                        <controls:NumericUpDown Value="{Binding MaxEntriesPerDay}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
@@ -354,14 +370,14 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3"
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
                         <TextBlock VerticalAlignment="Center" Text="Max. LONG attemps per day: " />
-                        <controls:NumericUpDown Value="{Binding MaxLongAttemps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                        <controls:NumericUpDown Value="{Binding MaxLongAttemps}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="100" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3"
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
                         <TextBlock VerticalAlignment="Center" Text="Max. SHORT attemps per day: " />
-                        <controls:NumericUpDown Value="{Binding MaxShortAttemps, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                        <controls:NumericUpDown Value="{Binding MaxShortAttemps}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="100" />
                     </StackPanel>
@@ -375,7 +391,7 @@
                         <StackPanel Visibility="{Binding IsChecked, ElementName=chkMultiLong, Converter={StaticResource BoolToVisbilityConverter}}"
                                     Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="20,3,3,3">
                             <TextBlock VerticalAlignment="Center" Text="Max. long entries: " />
-                            <controls:NumericUpDown Value="{Binding MaxLongOpen, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            <controls:NumericUpDown Value="{Binding MaxLongOpen}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
@@ -392,7 +408,7 @@
                         <StackPanel Visibility="{Binding IsChecked, ElementName=chkMultiShort, Converter={StaticResource BoolToVisbilityConverter}}"
                                     Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="20,3,3,3">
                             <TextBlock VerticalAlignment="Center" Text="Max. short entries: " />
-                            <controls:NumericUpDown Value="{Binding MaxShortOpen, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                            <controls:NumericUpDown Value="{Binding MaxShortOpen}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
@@ -410,7 +426,7 @@
                                     Orientation="Vertical" HorizontalAlignment="Stretch" Margin="20,3,3,3">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                                 <TextBlock VerticalAlignment="Center" Text="Max. no. of attemps: " />
-                                <controls:NumericUpDown Value="{Binding MaxReEntry, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                <controls:NumericUpDown Value="{Binding MaxReEntry}" 
                                     MinValue="0" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="{Binding DataContext.SelectedItem, ElementName=scriptTabView,
                                     Converter={StaticResource ParentValueToMaxValueConverter},
@@ -419,7 +435,7 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="0,6,0,3">
                                 <TextBlock VerticalAlignment="Center" Text="Re-enter must occur before: " />
-                                <controls:DateTimeEditor Value="{Binding ReEntryBefore, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                <controls:DateTimeEditor Value="{Binding ReEntryBefore}"
                                                                 Format="HH:mm:ss" Margin="5, 0" Width="70" Height="22"
                                                                 VerticalAlignment="Center"/>
                                 <CheckBox VerticalAlignment="Center" Margin="5, 0" IsChecked="{Binding IsNextDay}" >
@@ -435,7 +451,7 @@
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Orientation="Horizontal" Margin="10,3,3,3">
                         <TextBlock VerticalAlignment="Center" Text="PositionSize"/>
-                        <controls:NumericUpDown Value="{Binding DefaultPositionSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                        <controls:NumericUpDown Value="{Binding DefaultPositionSize}" 
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="1000" />
                     </StackPanel>
@@ -569,7 +585,7 @@
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Order Submit Trigger Threshold</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.Threshold, ElementName=scriptTabView}"
-                                                                        MaxValue="200" MinValue="0" Increment="1" Type="Double" Width="80"
+                                                                        MaxValue="200" MinValue="0" Increment="1" Width="80"
                                                                         ToolTip="Define how close to target price (in price)"/>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
@@ -583,7 +599,7 @@
                                                     <ComboBox ItemsSource="{Binding DataContext.StopLossSource, ElementName=scriptTabView}"
                                                               SelectedIndex="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView}"/>
                                                     <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.Stoploss, ElementName=scriptTabView}"
-                                                                            MaxValue="1000" MinValue="0" Increment="1" Type="Integer" Width="50" Margin="3, 0"
+                                                                            MaxValue="1000" MinValue="0" Increment="1" Width="50" Margin="3, 0"
                                                                             Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView,
                                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=0}"/>
                                                     <TextBlock Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossAFL, ElementName=scriptTabView,
@@ -602,28 +618,28 @@
                                             </DockPanel>
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Profit stop levels</TextBlock>
-                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Level, ElementName=scriptTabView}"
-                                                                        MaxValue="5" MinValue="0" Increment="1" Type="Integer" Width="50"/>
+                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.Level, ElementName=scriptTabView}"
+                                                                        MaxValue="5" MinValue="0" Increment="1" Width="50"/>
                                                 <TextBlock Margin="3, 0">(0 means disabled)</TextBlock>
                                             </StackPanel>
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Profit Base Target(perc)</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.ProfitTarget, ElementName=scriptTabView}"
-                                                                        MaxValue="500" MinValue="0" Increment="0.1" Type="Double" Width="40"
+                                                                        MaxValue="500" MinValue="0" Increment="0.1" Width="40"
                                                                         ToolTip="Only if this target is reached, the stop mechanism will be triggered" />
                                                 <TextBlock Margin="3, 0" >Increment</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.TargetIncrement , ElementName=scriptTabView}"
-                                                                        MaxValue="2" MinValue="0" Increment="0.1" Type="Double" Width="40"
+                                                                        MaxValue="2" MinValue="0" Increment="0.1" Width="40"
                                                                         ToolTip="Increment of trigger level: multiplier of target, value from 0.1 to 2"/>
                                             </StackPanel>
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Base Line(perc)</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.BaseLine, ElementName=scriptTabView}"
-                                                                        MaxValue="90" MinValue="1" Increment="1" Type="Double" Width="40"
+                                                                        MaxValue="90" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="After reaching a trigger price, order will be submitted only if dropping down from highest profit" />
                                                 <TextBlock Margin="3, 0">Increment</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.DropIncrement , ElementName=scriptTabView}"
-                                                                        MaxValue="80" MinValue="1" Increment="1" Type="Double" Width="40"
+                                                                        MaxValue="80" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="Increment of dropping-down level, higher trigger level, smaller dropping-down level" />
                                             </StackPanel>
                                             <GroupBox Header="Information">
@@ -636,16 +652,25 @@
                                                         <RowDefinition Height="auto"/>
                                                         <RowDefinition Height="auto"/>
                                                         <RowDefinition Height="auto"/>
+                                                        <RowDefinition Height="auto"/>
+                                                        <RowDefinition Height="auto"/>
                                                     </Grid.RowDefinitions>
                                                     <TextBlock Margin="2" Text="Highest Profit" Grid.Column="0" Grid.Row="0"/>
-                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.HighestProfit, ElementName=scriptTabView}" 
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.HighestProfit, 
+                                                                                    ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
                                                                Grid.Column="1" Grid.Row="0" Background="WhiteSmoke"/>
                                                     <TextBlock Margin="2" Text="Profit Class" Grid.Column="0" Grid.Row="1"/>
                                                     <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.ProfitClass, ElementName=scriptTabView}" 
                                                                Grid.Column="1" Grid.Row="1" Background="WhiteSmoke"/>
                                                     <TextBlock Margin="2" Text="Stop Price" Grid.Column="0" Grid.Row="2"/>
-                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StopPrice, ElementName=scriptTabView}" 
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StopPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
                                                                Grid.Column="1" Grid.Row="2" Background="WhiteSmoke"/>
+                                                    <TextBlock Margin="2" Text="Entry Price" Grid.Column="0" Grid.Row="3"/>
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.EntryPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
+                                                               Grid.Column="1" Grid.Row="3" Background="WhiteSmoke"/>
+                                                    <TextBlock Margin="2" Text="Current Price" Grid.Column="0" Grid.Row="4"/>
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.CurPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
+                                                               Grid.Column="1" Grid.Row="4" Background="WhiteSmoke"/>
                                                 </Grid>
                                             </GroupBox>
                                         </StackPanel>
@@ -680,13 +705,13 @@
                                             <StackPanel Orientation="Horizontal" Margin="3">
                                                 <TextBlock Text="Limit Order Submmit Time" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForLong.LmtOrderTime, ElementName=scriptTabView}"
-                                                                        MaxValue="100" MinValue="0" Increment="1" Type="Integer" Width="70" />
+                                                                        MaxValue="100" MinValue="0" Increment="1" Width="70" />
                                             </StackPanel>
-                                            <TextBlock Text="(How many minutes before End Time)" Margin="3, 0, 3, 3"/>
+                                            <TextBlock Text="(How many seconds before End Time)" Margin="3, 0, 3, 3"/>
                                             <StackPanel Orientation="Horizontal" Margin="3">
-                                                <TextBlock Text="Slippage (Mini Tick)" Margin="0, 0 , 3, 0"/>
+                                                <TextBlock Text="Slippage" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForLong.Slippage, ElementName=scriptTabView}"
-                                                                        MaxValue="10" MinValue="0" Increment="1" Type="Integer" Width="70" />
+                                                                        MaxValue="10" MinValue="0" Increment="1" Width="70" />
                                             </StackPanel>
                                         </StackPanel>
                                         <!--Force Exit Settings-->
@@ -814,7 +839,7 @@
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Order Submit Trigger Threshold</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Threshold, ElementName=scriptTabView}"
-                                                                        MaxValue="200" MinValue="0" Increment="1" Type="Double" Width="80"
+                                                                        MaxValue="200" MinValue="0" Increment="1" Width="80"
                                                                         ToolTip="Define how close to target price (in price)"/>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
@@ -828,7 +853,7 @@
                                                     <ComboBox ItemsSource="{Binding DataContext.StopLossSource, ElementName=scriptTabView}"
                                                               SelectedIndex="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView}"/>
                                                     <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Stoploss, ElementName=scriptTabView}"
-                                                                            MaxValue="1000" MinValue="0" Increment="1" Type="Integer" Width="50" Margin="3, 0"
+                                                                            MaxValue="1000" MinValue="0" Increment="1" Width="50" Margin="3, 0"
                                                                             Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView,
                                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=0}"/>
                                                     <TextBlock Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossAFL, ElementName=scriptTabView,
@@ -848,28 +873,28 @@
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Profit stop levels</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Level, ElementName=scriptTabView}"
-                                                                        MaxValue="5" MinValue="0" Increment="1" Type="Integer" Width="50"/>
+                                                                        MaxValue="5" MinValue="0" Increment="1" Width="50"/>
                                                 <TextBlock Margin="3, 0">(0 means disabled)</TextBlock>
                                             </StackPanel>
                                             
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Profit Base Target(perc)</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.ProfitTarget, ElementName=scriptTabView}"
-                                                                        MaxValue="500" MinValue="0" Increment="0.1" Type="Double" Width="40"
+                                                                        MaxValue="500" MinValue="0" Increment="0.1" Width="40"
                                                                         ToolTip="Only if this target is reached, the stop mechanism will be triggered" />
                                                 <TextBlock Margin="3, 0" >Increment</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.TargetIncrement , ElementName=scriptTabView}"
-                                                                        MaxValue="2" MinValue="0" Increment="0.1" Type="Double" Width="40"
+                                                                        MaxValue="2" MinValue="0" Increment="0.1" Width="40"
                                                                         ToolTip="Increment of trigger level: multiplier of target, value from 0.1 to 2"/>
                                             </StackPanel>
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Base Line(perc)</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.BaseLine, ElementName=scriptTabView}"
-                                                                        MaxValue="90" MinValue="1" Increment="1" Type="Double" Width="40"
+                                                                        MaxValue="90" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="After reaching a trigger price, order will be submitted only if dropping down from highest profit" />
                                                 <TextBlock Margin="3, 0">Increment</TextBlock>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.DropIncrement , ElementName=scriptTabView}"
-                                                                        MaxValue="80" MinValue="1" Increment="1" Type="Double" Width="40"
+                                                                        MaxValue="80" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="Increment of dropping-down level, higher trigger level, smaller dropping-down level" />
                                             </StackPanel>
                                             <GroupBox Header="Information">
@@ -882,16 +907,25 @@
                                                         <RowDefinition Height="auto"/>
                                                         <RowDefinition Height="auto"/>
                                                         <RowDefinition Height="auto"/>
+                                                        <RowDefinition Height="auto"/>
+                                                        <RowDefinition Height="auto"/>
                                                     </Grid.RowDefinitions>
+                                                    <TextBlock Margin="2" Text="Entry Price" Grid.Column="0" Grid.Row="3"/>
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.EntryPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
+                                                               Grid.Column="1" Grid.Row="3" Background="WhiteSmoke"/>
                                                     <TextBlock Margin="2" Text="Highest Profit" Grid.Column="0" Grid.Row="0"/>
-                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.HighestProfit, ElementName=scriptTabView}" 
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.HighestProfit, 
+                                                                                    ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
                                                                Grid.Column="1" Grid.Row="0" Background="WhiteSmoke"/>
                                                     <TextBlock Margin="2" Text="Profit Class" Grid.Column="0" Grid.Row="1"/>
                                                     <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.ProfitClass, ElementName=scriptTabView}" 
                                                                Grid.Column="1" Grid.Row="1" Background="WhiteSmoke"/>
                                                     <TextBlock Margin="2" Text="Stop Price" Grid.Column="0" Grid.Row="2"/>
-                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StopPrice, ElementName=scriptTabView}" 
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StopPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
                                                                Grid.Column="1" Grid.Row="2" Background="WhiteSmoke"/>
+                                                    <TextBlock Margin="2" Text="Current Price" Grid.Column="0" Grid.Row="4"/>
+                                                    <TextBlock Margin="2" Text="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.CurPrice, ElementName=scriptTabView, StringFormat={}{0:0.######}}" 
+                                                               Grid.Column="1" Grid.Row="4" Background="WhiteSmoke"/>
                                                 </Grid>
                                             </GroupBox>
                                         </StackPanel>
@@ -926,13 +960,13 @@
                                             <StackPanel Orientation="Horizontal" Margin="3">
                                                 <TextBlock Text="Limit Order Submmit Time" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForShort.LmtOrderTime, ElementName=scriptTabView}"
-                                                                        MaxValue="100" MinValue="0" Increment="1" Type="Integer" Width="70" />                                                
+                                                                        MaxValue="100" MinValue="0" Increment="1" Width="70" />                                                
                                             </StackPanel>
-                                            <TextBlock Text="(How many minutes before End Time)" Margin="3, 0, 3, 3"/>
+                                            <TextBlock Text="(How many seconds before End Time)" Margin="3, 0, 3, 3"/>
                                             <StackPanel Orientation="Horizontal" Margin="3">
-                                                <TextBlock Text="Slippage (Mini Tick)" Margin="0, 0 , 3, 0"/>
+                                                <TextBlock Text="Slippage (Tick)" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForShort.Slippage, ElementName=scriptTabView}"
-                                                                        MaxValue="10" MinValue="0" Increment="1" Type="Integer" Width="70" />
+                                                                        MaxValue="10" MinValue="0" Increment="1" Width="70" />
                                             </StackPanel>
                                         </StackPanel>
                                         <!--Force Exit Settings-->
@@ -1031,6 +1065,12 @@
                             </TextBlock>
                             <TextBlock Text="{Binding Name, Mode=OneWay}" FontWeight="Bold" FontSize="16" />
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right" >
+                            <TextBlock Text="{Binding DayTradeMode, Converter={StaticResource DayTradeModeToTextConverter}}" 
+                                   FontWeight="Bold" FontSize="16" Background="LightGoldenrodYellow" 
+                                   Padding="5,0" Margin="0,0,3,0" VerticalAlignment="Center"
+                                   />
+                        </StackPanel>
                     </DockPanel>
 
                     <ContentPresenter ContentTemplate="{StaticResource base}" />
@@ -1050,10 +1090,15 @@
                             </TextBlock>
                             <TextBlock Text="{Binding Name, Mode=OneWay}" FontWeight="Bold" FontSize="16" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" >
-                            <TextBlock FontSize="16" Margin="5,0" Text="Type:" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right" >
                             <TextBlock Text="{Binding ActionType, Converter={StaticResource ActionTypeToTextConverter}}" 
-                                               FontWeight="Bold" FontSize="16" Background="Yellow" Padding="5,0" Margin="0,0,3,0" />
+                                       FontWeight="Bold" FontSize="16" Background="Yellow" 
+                                       Padding="5,0" Margin="0,0,3,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" DockPanel.Dock="Right" >
+                            <TextBlock Text="{Binding DayTradeMode, Converter={StaticResource DayTradeModeToTextConverter}}" 
+                                       FontWeight="Bold" FontSize="16" Background="LightGoldenrodYellow" 
+                                       Padding="5,0" Margin="0,0,3,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
 
@@ -1113,6 +1158,14 @@
                             Icon="{Binding Data.ImageRefresh, Source={StaticResource Proxy}}"
                             Command="{Binding Data.Commands.RefreshParameters, Source={StaticResource Proxy}}"
                             CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"/>
+                    <MenuItem Header="Remove from list"
+                            Command="{Binding Data.Commands.DeleteSymbolInAction, Source={StaticResource Proxy}}"
+                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                        <MenuItem.Icon>
+                            <controls:AutoGreyableImage Source="{StaticResource trashDrawingImage}"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                            
                 </ContextMenu>
                 <DataTemplate x:Key="tvItemBase">
                     <Grid>

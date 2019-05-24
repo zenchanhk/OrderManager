@@ -186,7 +186,7 @@
                                 <TextBlock Text="Re-connect attemps interval:"/>
                                 <ctrls:NumericUpDown Value="{Binding ConnectAttempInterval, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      Margin="3, 0" Width="40"
-                                                     Type="Integer" IsEnabled="{Binding IsChecked, ElementName=chk_reconnect}"
+                                                     IsEnabled="{Binding IsChecked, ElementName=chk_reconnect}"
                                                      MinValue="0" MaxValue="1000" Increment="1"/>
                                 <TextBlock Text="seconds."/>
                             </StackPanel>

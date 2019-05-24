@@ -379,7 +379,18 @@ namespace ControlLib
                             arrayItem.Type = arrayItem.GetType();
                             arrayItem.Value = "";
                             node.Children.Add(arrayItem);
-                            BuildTree(value, arrayItem, ((dynamic)obj)[index]);
+                            if (obj.GetType().Name.Contains("HashSet"))
+                            {
+                                object o = null;
+                                foreach (var i in (dynamic)obj)
+                                {
+                                    o = i;
+                                    break;
+                                }
+                                BuildTree(value, arrayItem, o);
+                            }                                
+                            else
+                                BuildTree(value, arrayItem, ((dynamic)obj)[index]);
                             index++;
                         }
                         else
