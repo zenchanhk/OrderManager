@@ -568,8 +568,14 @@ namespace AmiBroker.Controllers
             List<string> sb = new List<string>();
             foreach (AccountStatus acc in Enum.GetValues(typeof(AccountStatus)))
             {
-                if ((status & acc) != 0)
+                if ((status & acc) != 0 && acc != AccountStatus.None)
                     sb.Add(acc.ToString());
+                /*
+                if (acc == AccountStatus.None)
+                {
+                    sb.Add(acc.ToString());
+                    break;
+                }  */                  
             }
             return sb;
         }

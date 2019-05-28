@@ -213,70 +213,75 @@ namespace AmiBroker.OrderManager
                         HighestProfit = Math.Max(HighestProfit, EntryPrice - curPrice);
 
                     // ignore the duplicated signal processing
-                    if (HighestProfit == _highestProfitSinceLastSent) return;
-
-                    int profit_class = HighestProfit / EntryPrice < ProfitTarget / 100 ? 0 :
-                        1 + (int)((HighestProfit / EntryPrice - ProfitTarget / 100) / ProfitTarget / 100 * TargetIncrement);
-                    profit_class = profit_class > Level ? Level : profit_class;
-                    ProfitClass = Math.Max(ProfitClass, profit_class);
-
-                    if (ProfitClass > 0)
+                    if (HighestProfit != _highestProfitSinceLastSent)
                     {
-                        TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(OT_stopProfit);
-                        if (ActionType == ActionType.Long)
+                        int profit_class = HighestProfit / EntryPrice < ProfitTarget / 100 ? 0 :
+                        1 + (int)((HighestProfit / EntryPrice - ProfitTarget / 100) / (ProfitTarget / 100 * TargetIncrement));
+                        profit_class = profit_class > Level ? Level : profit_class;
+                        ProfitClass = Math.Max(ProfitClass, profit_class);
+
+                        if (ProfitClass > 0)
                         {
-                            StopPrice = EntryPrice + HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
-                            if (curPrice <= StopPrice + (float)(Threshold * Strategy.Symbol.MinTick))
+                            TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(OT_stopProfit);
+                            if (ActionType == ActionType.Long)
                             {
-                                accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
-                                accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
-                                bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSLong, DateTime.Now, OT_stopProfit);
-                                if (r) _highestProfitSinceLastSent = HighestProfit;
+                                StopPrice = EntryPrice + HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
+                                if (curPrice <= StopPrice + (float)(Threshold * Strategy.Symbol.MinTick))
+                                {
+                                    accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
+                                    accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
+                                    bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSLong, DateTime.Now, OT_stopProfit);
+                                    if (r) _highestProfitSinceLastSent = HighestProfit;
+                                }
                             }
-                        }
-                        else if (ActionType == ActionType.Short)
-                        {
-                            StopPrice = EntryPrice - HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
-                            if (curPrice >= StopPrice - (float)(Threshold * Strategy.Symbol.MinTick))
+                            else if (ActionType == ActionType.Short)
                             {
-                                accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
-                                accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
-                                bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSShort, DateTime.Now, OT_stopProfit);
-                                if (r) _highestProfitSinceLastSent = HighestProfit;
+                                StopPrice = EntryPrice - HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
+                                if (curPrice >= StopPrice - (float)(Threshold * Strategy.Symbol.MinTick))
+                                {
+                                    accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
+                                    accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
+                                    bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSShort, DateTime.Now, OT_stopProfit);
+                                    if (r) _highestProfitSinceLastSent = HighestProfit;
+                                }
                             }
                         }
                     }
+                    
                 }
                 
                 // stop loss
                 if (Stoploss > 0)
                 {
-                    if (Stoploss == _stoplossLastSent) return;
-
-                    float sp = 0;
-                    TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(OT_stopLoss);
-                    if (ActionType == ActionType.Long)
+                    // ignore duplicated signal processing
+                    if (Stoploss != _stoplossLastSent)
                     {
-                        sp = EntryPrice - (float)(Stoploss * Strategy.Symbol.MinTick);
-                        if (curPrice <= sp + (float)(Threshold * Strategy.Symbol.MinTick))
+                        float sp = 0;
+                        TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(OT_stopLoss);
+                        if (ActionType == ActionType.Long)
                         {
-                            accessor[OT_stopLoss, "LmtPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
-                            accessor[OT_stopLoss, "AuxPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossLong, DateTime.Now, OT_stopLoss);
-                            if (r) _stoplossLastSent = Stoploss;
+                            sp = EntryPrice - (float)(Stoploss * Strategy.Symbol.MinTick);
+                            if (curPrice <= sp + (float)(Threshold * Strategy.Symbol.MinTick))
+                            {
+                                accessor[OT_stopLoss, "LmtPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
+                                accessor[OT_stopLoss, "AuxPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
+                                bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossLong, DateTime.Now, OT_stopLoss);
+                                if (r) _stoplossLastSent = Stoploss;
+                            }
+                        }
+                        else if (ActionType == ActionType.Short)
+                        {
+                            sp = EntryPrice + (float)(Stoploss * Strategy.Symbol.MinTick);
+                            if (curPrice >= sp - (float)(Threshold * Strategy.Symbol.MinTick))
+                            {
+                                accessor[OT_stopLoss, "LmtPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
+                                accessor[OT_stopLoss, "AuxPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
+                                bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossShort, DateTime.Now, OT_stopLoss);
+                                if (r) _stoplossLastSent = Stoploss;
+                            }
                         }
                     }
-                    else if (ActionType == ActionType.Short)
-                    {
-                        sp = EntryPrice + (float)(Stoploss * Strategy.Symbol.MinTick);
-                        if (curPrice >= sp - (float)(Threshold * Strategy.Symbol.MinTick))
-                        {
-                            accessor[OT_stopLoss, "LmtPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
-                            accessor[OT_stopLoss, "AuxPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossShort, DateTime.Now, OT_stopLoss);
-                            if (r) _stoplossLastSent = Stoploss;
-                        }
-                    }
+                    
                 }
             }
         }

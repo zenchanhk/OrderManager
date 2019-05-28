@@ -141,6 +141,11 @@ namespace AmiBroker.Controllers
             return null;
         }
 
+        public bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType)
+        {
+            return false;
+        }
+
         public void CancelOrder(int orderId)
         {
 

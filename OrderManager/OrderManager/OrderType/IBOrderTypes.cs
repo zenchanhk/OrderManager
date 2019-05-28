@@ -598,7 +598,7 @@ namespace AmiBroker.OrderManager
         [Category("Defining Prices")]
         [DisplayName("Trailing Percent")]
         [Description("Trailing Percent")]
-        public float TrailingPercent { get; set; }
+        public string TrailingPercent { get; set; }
         [Category("Defining Prices")]
         [DisplayName("Trail Stop Price")]
         [Description("Trail Stop Price")]

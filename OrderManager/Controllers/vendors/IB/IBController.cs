@@ -608,6 +608,122 @@ namespace AmiBroker.Controllers
 
             return order;
         }
+        public bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType)
+        {
+            try 
+            { 
+                string src = strategy.Script.Name + "." + strategy.Name;
+                OrderInfo oi = strategy.AccountStat[accountInfo.Name].OrderInfos[orderAction].LastOrDefault();
+                if (oi == null)
+                {
+                    mainVM.Log(new Log
+                    {
+                        Source = src,
+                        Text = "Order info cannot be found in [" + accountInfo.Name + "]",
+                        Time = DateTime.Now
+                    });
+                    return false;
+                }
+
+                List<OrderInfo> orderInfos = strategy.AccountStat[accountInfo.Name].OrderInfos[orderAction].Where(x => x.BatchNo == oi.BatchNo).ToList();
+            
+                // get all prices from new OrderType
+                decimal lmtPrice = 0;
+                decimal auxPrice = 0;
+                decimal trailStopPrice = 0;
+                double trailingPercent = 0;
+                
+                TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(orderType);
+                decimal minTick = strategy != null ? strategy.Symbol.MinTick : -1;
+
+                MemberSet members = accessor.GetMembers();
+                for (int i = 0; i < members.Count; i++)
+                {
+                    Member member = members[i];
+                    string fieldName = "LmtPrice";
+                    if (member.Name == fieldName)
+                    {
+                        string str = (string)accessor[orderType, fieldName];
+                        if (string.IsNullOrEmpty(str)) continue;
+                        decimal val = 0;
+                        if (double.TryParse(str, out double d))
+                            val = (decimal)d;
+                        else
+                            continue;
+
+                        lmtPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        continue;
+                    }
+
+                    fieldName = "AuxPrice";
+                    if (member.Name == fieldName)
+                    {
+                        string str = (string)accessor[orderType, fieldName];
+                        if (string.IsNullOrEmpty(str)) continue;
+                        decimal val = 0;
+                        if (double.TryParse(str, out double d))
+                            val = (decimal)d;
+                        else
+                            continue;
+
+                        auxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        continue;
+                    }
+
+                    fieldName = "TrailingPercent";
+                    if (member.Name == fieldName)
+                    {
+                        string str = (string)accessor[orderType, fieldName];
+                        if (string.IsNullOrEmpty(str)) continue;
+                        decimal val = 0;
+                        if (double.TryParse(str, out double d))
+                            val = (decimal)d;
+                        else
+                            continue;
+
+                        trailingPercent = (double)(minTick != -1 ? TruncatePrice(val, minTick) : val);
+                        continue;
+                    }
+
+                    fieldName = "TrailStopPrice";
+                    if (member.Name == fieldName)
+                    {
+                        string str = (string)accessor[orderType, fieldName];
+                        if (string.IsNullOrEmpty(str)) continue;
+                        decimal val = 0;
+                        if (double.TryParse(str, out double d))
+                            val = (decimal)d;
+                        else
+                            continue;
+
+                        trailStopPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        continue;
+                    }
+                }// END of update of order's prices
+
+
+                foreach (var orderInfo in orderInfos)
+                {
+                    Order order = orderInfo.Order;
+                    Contract contract = orderInfo.Contract;                    
+                    Task.Run(() => Client.PlaceOrder(order.OrderId, contract, order));                    
+                }
+
+                mainVM.Log(new Log
+                {
+                    Source = src,
+                    Time = DateTime.Now,
+                    Text = "Orders [ " + string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList()) + " ] modified with new prices:"
+                    + "StopPrice - " + auxPrice + ", LmtPrice - " + lmtPrice,
+                });
+                return true;
+            }
+            catch (Exception ex)
+            {                
+                GlobalExceptionHandler.HandleException("IBController.ModifyOrder", ex);
+                return false;
+            }
+        }
         // modify the price to conform to minTick requirement
         private decimal TruncatePrice(decimal price, decimal minTick, PriceAlignDirection priceAlign = PriceAlignDirection.Floor)
         {
@@ -675,6 +791,7 @@ namespace AmiBroker.Controllers
                 else
                 {
                     order = TransformIBOrder(accountInfo, strategy, orderType, orderAction, out message, posSize);
+                    order.OutsideRth = strategy == null ? true : strategy.OutsideRTH;
                     Orders.Add(batchNo, order);
                 }
                 
@@ -1119,7 +1236,7 @@ namespace AmiBroker.Controllers
                     };
                     if (mainVM.OrderInfoList.Any(x => x.Value.RealOrderId == e.OrderId))
                     {
-                        OrderInfo oi = mainVM.OrderInfoList.First(x => x.Value.RealOrderId == e.OrderId).Value;
+                        OrderInfo oi = mainVM.OrderInfoList.FirstOrDefault(x => x.Value.RealOrderId == e.OrderId).Value;
                         Strategy strategy = oi.Strategy;
                         if (strategy != null)
                             dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
@@ -1389,7 +1506,9 @@ namespace AmiBroker.Controllers
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
                     string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
-                    AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
+                    // ignore future placed order error message
+                    if (!e.ErrorMsg.ToLower().Contains("until"))
+                        AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()

@@ -352,7 +352,7 @@ namespace AmiBroker.Controllers
                     if (orderType == null)
                         orderType = strategy.OrderTypesDic[orderAction].FirstOrDefault(x => x.GetType().BaseType.Name == vendor + "OrderType");
 
-                    if (ValidateSignal(strategy, strategy.AccountStat[account.Name], orderAction, orderType, out message, out warning))
+                    if (ValidateSignal(account, strategy, strategy.AccountStat[account.Name], orderAction, orderType, out message, out warning))
                     {
                         // log after validation
                         mainVM.Log(log);
@@ -444,10 +444,9 @@ namespace AmiBroker.Controllers
             return proc_result;
         }
 
-        private static Task<bool> CancelConflictOrder(Strategy strategy, BaseStat strategyStat, OrderAction action)
-        {
-            
-            OrderInfo oi = strategyStat.OrderInfos[action].Last();
+        private static bool CancelConflictOrder(Strategy strategy, BaseStat strategyStat, OrderAction action)
+        {            
+            OrderInfo oi = strategyStat.OrderInfos[action].LastOrDefault();
             if (oi == null)
             {
                 string msg = "There is a pending " + action.ToString() + " order for strategy - " +
@@ -458,19 +457,31 @@ namespace AmiBroker.Controllers
                     Text = msg,
                     Source = "OrderManager.CancelConflictOrder"
                 });
-                return null;
+                return false;
             }                
             else
             {
                 IController controller = oi.Account.Controller;
-                Task<bool> task = controller.CancelOrderAsync(oi.RealOrderId);
-                return task;
+                //bool result = controller.CancelOrderAsync(oi.RealOrderId).GetAwaiter().GetResult();
+                Task<bool> task = Task.Run<bool>(async () => await controller.CancelOrderAsync(oi.RealOrderId));
+                bool result = task.Result;
+                string msg = "There is a pending " + action.ToString() + " order for strategy - " +
+                            strategy.Name + " being cancelled" + "\n";
+                mainVM.Log(new Log
+                {
+                    Time = DateTime.Now,
+                    Text = msg + " (OrderManager.CancelConflictOrder)",
+                    Source = strategy.Script.Name + "." + strategy.Name
+                });
+                return result;
             }
         }
 
        
         private static List<string> fields = new List<string>() { "LmtPrice", "AuxPrice", "TrailingPercent", "TrailStopPrice" };
-        private static int IsEqualOrderType(BaseOrderType ot1, BaseOrderType ot2, List<string> compared_fields = null)
+        //
+        // -1 means field in ot1 is null, 1 means field in ot2 is null, -10 means both are null
+        private static int IsEqualOrderType(BaseOrderType ot1, BaseOrderType ot2, ref List<int> isNullField, List<string> compared_fields = null)
         {
             //get TypeAccessor
             TypeAccessor accessor1 = BaseOrderTypeAccessor.GetAccessor(ot1);
@@ -481,17 +492,30 @@ namespace AmiBroker.Controllers
             if (compared_fields == null) compared_fields = fields;
             for (int i = 0; i < compared_fields.Count; i++)
             {
-                Member mem1 = members1.First(m => m.Name == compared_fields[i]);
-                Member mem2 = members2.First(m => m.Name == compared_fields[i]);
-                if (mem1 == null) return -100;
-                if (mem2 == null) return -200;
+                Member mem1 = members1.FirstOrDefault(m => m.Name == compared_fields[i]);
+                Member mem2 = members2.FirstOrDefault(m => m.Name == compared_fields[i]);
+                if (mem1 == null && mem2 == null)
+                {
+                    isNullField[i] = -10;
+                    continue;
+                }
+                if (mem1 == null)
+                {
+                    isNullField[i] = -1;
+                    return -1;
+                }
+                if (mem2 == null)
+                {
+                    isNullField[i] = 1;
+                    return -1;
+                }
                 if ((string)accessor1[ot1, compared_fields[i]] != (string)accessor2[ot2, compared_fields[i]])
                     return -1;
             }
 
             return 0;
         }
-        private static bool ValidateSignal(Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, out string message, out string warning)
+        private static bool ValidateSignal(AccountInfo account, Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, out string message, out string warning)
         {
             try
             {
@@ -499,7 +523,8 @@ namespace AmiBroker.Controllers
                 warning = string.Empty;
                 Script script = strategy.Script;
                 BaseStat scriptStat = script.AccountStat[strategyStat.Account.Name];
-                System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
+                IController controller = account.Controller;
+                //System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": validating - " + strategyStat.AccountStatus);
 
                 switch (action)
                 {
@@ -519,8 +544,9 @@ namespace AmiBroker.Controllers
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                             {
-                                BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                                if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
+                                BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                                List<int> nullFields = new List<int>(2);
+                                if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
                                     message = "There is a duplicated APSLong order for strategy - " + strategy.Name;
                                     return false;
@@ -528,7 +554,9 @@ namespace AmiBroker.Controllers
                                 else
                                 {
                                     // cancel the previou APSLong order, and replace with new one
-                                    CancelConflictOrder(strategy, strategyStat, action);
+                                    //CancelConflictOrder(strategy, strategyStat, action);
+                                    controller.ModifyOrder(account, strategy, action, orderType);
+                                    return false;
                                 }                                
                             }                                
 
@@ -562,8 +590,9 @@ namespace AmiBroker.Controllers
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                             {
-                                BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                                if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
+                                BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                                List<int> nullFields = new List<int>(2);
+                                if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
                                     message = "There is a duplicated APSShort order for strategy - " + strategy.Name;
                                     return false;
@@ -571,7 +600,8 @@ namespace AmiBroker.Controllers
                                 else
                                 {
                                     // cancel the previou APSLong order, and replace with new one
-                                    CancelConflictOrder(strategy, strategyStat, action);
+                                    controller.ModifyOrder(account, strategy, action, orderType);
+                                    return false;
                                 }
                             }
 
@@ -601,7 +631,7 @@ namespace AmiBroker.Controllers
                             warning = "There is a pending APSLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong);
                         }
-                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) == 0)
+                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
                         {
                             message = "There is a pending sell order for strategy - " + strategy.Name;
                             return false;
@@ -609,8 +639,9 @@ namespace AmiBroker.Controllers
                         // cancel previous StoplossLong order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                         {
-                            BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                            if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice"}) != 0)
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            List<int> nullFields = new List<int>(2);
+                            if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice"}) != 0)
                             {
                                 message = "There is a duplicated StoplossLong order for strategy - " + strategy.Name;
                                 return false;
@@ -618,7 +649,9 @@ namespace AmiBroker.Controllers
                             else
                             {
                                 // cancel the previou APSLong order, and replace with new one
-                                CancelConflictOrder(strategy, strategyStat, action);
+                                //CancelConflictOrder(strategy, strategyStat, action);
+                                controller.ModifyOrder(account, strategy, action, orderType);
+                                return false;
                             }
                         }
                         break;
@@ -634,7 +667,7 @@ namespace AmiBroker.Controllers
                             warning = "There is a pending APSShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
                         }
-                        if ((strategyStat.AccountStatus & AccountStatus.CoverPending) == 0)
+                        if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                         {
                             message = "There is a pending cover order for strategy - " + strategy.Name;
                             return false;
@@ -642,8 +675,9 @@ namespace AmiBroker.Controllers
                         // cancel previous APSShort order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                         {
-                            BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                            if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            List<int> nullFields = new List<int>(2);
+                            if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                             {
                                 message = "There is a duplicated StoplossShort order for strategy - " + strategy.Name;
                                 return false;
@@ -651,7 +685,9 @@ namespace AmiBroker.Controllers
                             else
                             {
                                 // cancel the previou APSLong order, and replace with new one
-                                CancelConflictOrder(strategy, strategyStat, action);
+                                //CancelConflictOrder(strategy, strategyStat, action);
+                                controller.ModifyOrder(account, strategy, action, orderType);
+                                return false;
                             }
                         }
                         break;
@@ -667,8 +703,9 @@ namespace AmiBroker.Controllers
                                     BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
                                     if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
                                     {
-                                        BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                                        if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "AuxPrice" }) != 0)
+                                        BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                                        List<int> nullFields = new List<int>(2);
+                                        if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "AuxPrice", "LmtPrice" }) != 0)
                                         {
                                             warning = "There is a pending BUY order being cancelled for strategy - " + strategy.Name;
                                             // cancel the previou buy order, and replace with new one
@@ -682,12 +719,45 @@ namespace AmiBroker.Controllers
                         {
                             message = "There is already a LONG position for strategy - " + strategy.Name;
                             return false;
-                        }
+                        }                
+                        //
+                        // modify STOP order if LmtPrice and Stop Price are different
+                        // skip for LIMIT order
                         if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
                         {
-                            message = "There is an pending BUY order for strategy - " + strategy.Name;
-                            return false;
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            if (ot != null)
+                            {
+                                List<int> nullFields = new List<int>(2);
+                                bool isEqual = IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0;
+                                if (isEqual)
+                                {
+                                    message = "There is a duplicated pending LONG order for strategy - " + strategy.Name;
+                                    return false;
+                                }
+                                else
+                                {
+                                    // if Order is a LMT order
+                                    if (nullFields[1] == -1)
+                                    {
+                                        message = "There is a pending LONG order for strategy - " + strategy.Name;
+                                        return false;
+                                    }
+                                    else
+                                    {
+                                        controller.ModifyOrder(account, strategy, action, orderType);
+                                        message = "Modifying a pending LONG STOP order for strategy - " + strategy.Name;
+                                        return false;
+                                    }
+                                }                                
+                            }
+                            else
+                            {
+                                message = "There is a pending LONG order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
+                                return false;
+                            }                            
                         }
+
                         if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
                         {
                             warning = "There is an pending SHORT order for strategy - " + strategy.Name;
@@ -705,8 +775,9 @@ namespace AmiBroker.Controllers
                                     BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
                                     if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0)
                                     {
-                                        BaseOrderType ot = strategyStat.OrderInfos[action].Last()?.OrderType;
-                                        if (ot != null && IsEqualOrderType(ot, orderType, new List<string>() { "AuxPrice" }) != 0)
+                                        BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                                        List<int> nullFields = new List<int>(2);
+                                        if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "AuxPrice", "LmtPrice" }) != 0)
                                         {
                                             warning = "There is a pending SHORT order being cancelled for strategy - " + strategy.Name;
                                             // cancel the previou buy order, and replace with new one

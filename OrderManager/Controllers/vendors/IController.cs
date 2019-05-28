@@ -172,7 +172,7 @@ namespace AmiBroker.Controllers
                 strategyStat.AccountStatus &= ~AccountStatus.Short;
             }
 
-            if (strategyStat.LongPosition == 0)
+            if (strategyStat.LongPosition == 0 && orderAction != OrderAction.Buy)
             {
                 strategyStat.OrderInfos[OrderAction.APSLong].Clear();
                 strategyStat.OrderInfos[OrderAction.StoplossLong].Clear();
@@ -181,7 +181,7 @@ namespace AmiBroker.Controllers
                 scriptStat.LongStrategies.Remove(strategy.Name);
             }
 
-            if (strategyStat.ShortPosition == 0)
+            if (strategyStat.ShortPosition == 0 && orderAction != OrderAction.Short)
             {
                 strategyStat.OrderInfos[OrderAction.APSShort].Clear();
                 strategyStat.OrderInfos[OrderAction.StoplossShort].Clear();
@@ -333,6 +333,7 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
+        bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType);
         Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int batchNo, OrderInfo oi = null, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
         Task<bool> CancelOrderAsync(int orderId);

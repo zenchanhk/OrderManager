@@ -595,7 +595,10 @@ namespace AmiBroker.Controllers
                         if (ex.Message.Contains("cannot access"))
                             MessageBox.Show("Failed to import. The file is being open by another application.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
-
+                    else
+                    {
+                        MessageBox.Show("Failed to import. Description is as follows:\n" + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
             }
         }
@@ -1087,7 +1090,7 @@ namespace AmiBroker.Controllers
                                           "Warning",
                                           MessageBoxButton.YesNo,
                                           MessageBoxImage.Warning, MessageBoxResult.No);
-                controller = mainVM.Controllers.First(x => x.Accounts.Any(y => y.Name == order.Account));
+                controller = mainVM.Controllers.FirstOrDefault(x => x.Accounts.Any(y => y.Name == order.Account));
                 if (controller == null)
                 {
                     MessageBox.Show(string.Format("The controller containing (a/c: {0}) cannot be found, failed to cancel", order.Account),

@@ -98,9 +98,17 @@ namespace AmiBroker.OrderManager
             get { return _pAccountStatus; }
             set {
                 _UpdateField(ref _pAccountStatus, value);
+                Status = string.Join(",", Helper.TranslateAccountStatus(_pAccountStatus));
                 if (SSBase != null && SSBase.GetType() == typeof(Strategy))
                     ((Strategy)SSBase).AFLStatusCallback(value);
             }
+        }
+
+        private string _pStatus;
+        public string Status
+        {
+            get { return _pStatus; }
+            set { _UpdateField(ref _pStatus, value); }
         }
 
         private double _pLongPosition;
@@ -367,6 +375,13 @@ namespace AmiBroker.OrderManager
         {
             get { return _pMaxShortAttemps; }
             set { _UpdateField(ref _pMaxShortAttemps, value); }
+        }
+
+        private bool _pOutsideRTH = false;
+        public bool OutsideRTH
+        {
+            get { return _pOutsideRTH; }
+            set { _UpdateField(ref _pOutsideRTH, value); }
         }
 
         // key is the name of account which is supposed to unique
@@ -824,7 +839,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.BuyPending) != 0)
                     {
                         OrderAction orderAction = OrderAction.Buy;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
@@ -839,7 +854,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.ShortPending) != 0)
                     {
                         OrderAction orderAction = OrderAction.Short;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
@@ -854,7 +869,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.APSLongActivated) != 0)
                     {
                         OrderAction orderAction = OrderAction.APSLong;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
@@ -869,7 +884,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.APSShortActivated) != 0)
                     {
                         OrderAction orderAction = OrderAction.APSShort;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
@@ -884,7 +899,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                     {
                         OrderAction orderAction = OrderAction.StoplossLong;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
@@ -899,7 +914,7 @@ namespace AmiBroker.OrderManager
                     if ((item.Value.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                     {
                         OrderAction orderAction = OrderAction.StoplossShort;
-                        OrderInfo oi = item.Value.OrderInfos[orderAction].Last();
+                        OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
                             controller.CancelOrderAsync(oi.RealOrderId);
                         else
