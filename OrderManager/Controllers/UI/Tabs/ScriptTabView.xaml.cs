@@ -1,19 +1,12 @@
 ﻿using Sdl.MultiSelectComboBox.Themes.Generic;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using AmiBroker.OrderManager;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Collections.ObjectModel;
 using System.Reflection;
-using ControlLib;
-using AmiBroker.OrderManager;
 using System.Windows.Data;
 
 namespace AmiBroker.Controllers

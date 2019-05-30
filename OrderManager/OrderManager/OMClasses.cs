@@ -12,6 +12,7 @@ using System.Windows.Threading;
 using System.Windows;
 using Krs.Ats.IBNet;
 using AmiBroker.Controllers;
+using System.Collections.Concurrent;
 
 namespace AmiBroker.OrderManager
 {   
@@ -31,7 +32,10 @@ namespace AmiBroker.OrderManager
         APSShort = 5,  //adaptive profit stop for short
         StoplossLong=6,
         StoplossShort=7,
-        ForceExit=8
+        PreForceExitLong=8,
+        PreForceExitShort=9,
+        FinalForceExitLong=10,
+        FinalForceExitShort=11
     }
     public enum ClosePositionAction
     {
@@ -98,13 +102,34 @@ namespace AmiBroker.OrderManager
             get { return _pAccountStatus; }
             set {
                 _UpdateField(ref _pAccountStatus, value);
-                Status = string.Join(",", Helper.TranslateAccountStatus(_pAccountStatus));
+                Status = string.Join(", ", Helper.TranslateAccountStatus(_pAccountStatus));
                 if (SSBase != null && SSBase.GetType() == typeof(Strategy))
                     ((Strategy)SSBase).AFLStatusCallback(value);
             }
         }
 
-        private string _pStatus;
+        private double _pLongAvgPrice;
+        public double LongAvgPrice
+        {
+            get { return _pLongAvgPrice; }
+            set { _UpdateField(ref _pLongAvgPrice, value); }
+        }
+
+        private double _pShortAvgPrice;
+        public double ShortAvgPrice
+        {
+            get { return _pShortAvgPrice; }
+            set { _UpdateField(ref _pShortAvgPrice, value); }
+        }
+
+        private double _pCurPrice;
+        public double CurPrice
+        {
+            get { return _pCurPrice; }
+            set { _UpdateField(ref _pCurPrice, value); }
+        }
+
+        private string _pStatus = Helper.TranslateAccountStatus(AccountStatus.None)[0];
         public string Status
         {
             get { return _pStatus; }
@@ -377,7 +402,7 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pMaxShortAttemps, value); }
         }
 
-        private bool _pOutsideRTH = false;
+        private bool _pOutsideRTH = true;
         public bool OutsideRTH
         {
             get { return _pOutsideRTH; }
@@ -385,8 +410,8 @@ namespace AmiBroker.OrderManager
         }
 
         // key is the name of account which is supposed to unique
-        public Dictionary<string, BaseStat> AccountStat { get; set; } = new Dictionary<string, BaseStat>(); // statistics
-
+        public ObservableConcurrentDictionary<string, BaseStat> AccountStat { get; set; } = new ObservableConcurrentDictionary<string, BaseStat>(); // statistics
+        
         private ObservableCollection<BaseOrderType> _buyOT;
         public ObservableCollection<BaseOrderType> BuyOrderTypes {
             get
@@ -496,6 +521,8 @@ namespace AmiBroker.OrderManager
                         ((Strategy)this).AccountsDic.Add(OrderAction.Sell, _longAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.APSLong, _longAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.StoplossLong, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.PreForceExitLong, _longAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.FinalForceExitLong, _longAccounts);
                     }                        
                 }
                 return _longAccounts;
@@ -511,6 +538,8 @@ namespace AmiBroker.OrderManager
                         ((Strategy)this).AccountsDic[OrderAction.Sell] = _longAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.APSLong] = _longAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.StoplossLong] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.PreForceExitLong] = _longAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.FinalForceExitLong] = _longAccounts;
                     }                        
                 }
             }
@@ -530,6 +559,8 @@ namespace AmiBroker.OrderManager
                         ((Strategy)this).AccountsDic.Add(OrderAction.Cover, _shortAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.APSShort, _shortAccounts);
                         ((Strategy)this).AccountsDic.Add(OrderAction.StoplossShort, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.PreForceExitShort, _shortAccounts);
+                        ((Strategy)this).AccountsDic.Add(OrderAction.FinalForceExitShort, _shortAccounts);
                     }
                 }
                 return _shortAccounts;
@@ -545,6 +576,8 @@ namespace AmiBroker.OrderManager
                         ((Strategy)this).AccountsDic[OrderAction.Cover] = _shortAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.APSShort] = _shortAccounts;
                         ((Strategy)this).AccountsDic[OrderAction.StoplossShort] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.PreForceExitShort] = _shortAccounts;
+                        ((Strategy)this).AccountsDic[OrderAction.FinalForceExitShort] = _shortAccounts;
                     }
                 }
             }
@@ -668,7 +701,11 @@ namespace AmiBroker.OrderManager
             ReEntryBefore = null;
             IsNextDay = false;  // indicating if ReEntryBefore is next day for night market
             */
-            AccountStat.Clear();
+            //AccountStat.Clear(); 
+            foreach (var item in AccountStat)
+            {
+                AccountStat.Remove(item.Key);
+            }
             LongAccounts.Clear();
             ShortAccounts.Clear();
             BuyOrderTypes.Clear();
@@ -731,11 +768,15 @@ namespace AmiBroker.OrderManager
             AccountsDic.Add(OrderAction.Sell, LongAccounts);
             AccountsDic.Add(OrderAction.StoplossLong, LongAccounts);
             AccountsDic.Add(OrderAction.APSLong, LongAccounts);
+            AccountsDic.Add(OrderAction.PreForceExitLong, LongAccounts);
+            AccountsDic.Add(OrderAction.FinalForceExitLong, LongAccounts);
 
             AccountsDic.Add(OrderAction.Short, ShortAccounts);
             AccountsDic.Add(OrderAction.Cover, ShortAccounts);
             AccountsDic.Add(OrderAction.APSShort, ShortAccounts);
             AccountsDic.Add(OrderAction.StoplossShort, ShortAccounts);
+            AccountsDic.Add(OrderAction.PreForceExitShort, ShortAccounts);
+            AccountsDic.Add(OrderAction.FinalForceExitShort, ShortAccounts);
 
             OrderTypesDic.Clear();
             OrderTypesDic.Add(OrderAction.Buy, BuyOrderTypes);

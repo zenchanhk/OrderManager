@@ -29,6 +29,10 @@ namespace AmiBroker.Controllers
         APSShortActivated = 256, // adaptive profit stop activated
         StoplossLongActivated = 512,
         StoplossShortActivated = 1024,
+        PreForceExitLongActivated = 2048,
+        PreForceExitShortActivated = 4096,
+        FinalForceExitLongActivated = 8192,
+        FinalForceExitShortActivated = 16384,
     }
     public class AccountStatusOp
     {
@@ -97,6 +101,22 @@ namespace AmiBroker.Controllers
             {
                 strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
             }
+            else if (orderAction == OrderAction.PreForceExitLong)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.PreForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.PreForceExitShort)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.PreForceExitShortActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitLong)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitShort)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitShortActivated;
+            }
         }
 
         // set initial status of OrderAction
@@ -128,6 +148,30 @@ namespace AmiBroker.Controllers
             {
                 strategyStat.AccountStatus |= AccountStatus.APSShortActivated;
             }
+            else if (orderAction == OrderAction.StoplossLong)
+            {
+                strategyStat.AccountStatus |= AccountStatus.StoplossLongActivated;
+            }
+            else if (orderAction == OrderAction.StoplossShort)
+            {
+                strategyStat.AccountStatus |= AccountStatus.StoplossShortActivated;
+            }
+            else if (orderAction == OrderAction.PreForceExitLong)
+            {
+                strategyStat.AccountStatus |= AccountStatus.PreForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.PreForceExitShort)
+            {
+                strategyStat.AccountStatus |= AccountStatus.PreForceExitShortActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitLong)
+            {
+                strategyStat.AccountStatus |= AccountStatus.FinalForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitShort)
+            {
+                strategyStat.AccountStatus |= AccountStatus.FinalForceExitShortActivated;
+            }
         }
         public static void SetPositionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, ref Strategy strategy, OrderAction orderAction)
         {
@@ -152,24 +196,34 @@ namespace AmiBroker.Controllers
             else if (orderAction == OrderAction.APSLong && strategyStat.LongPosition == 0)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
-                strategyStat.AccountStatus &= ~AccountStatus.Long;
-                strategy.AdaptiveProfitStopforLong.Reset();                
             }
             else if (orderAction == OrderAction.APSShort && strategyStat.ShortPosition == 0)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
-                strategyStat.AccountStatus &= ~AccountStatus.Short;
-                strategy.AdaptiveProfitStopforShort.Reset();
             }
             else if (orderAction == OrderAction.StoplossLong && strategyStat.LongPosition == 0)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.StoplossLongActivated;
-                strategyStat.AccountStatus &= ~AccountStatus.Long;
             }
-            else if (orderAction == OrderAction.StoplossLong && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.StoplossShort && strategyStat.ShortPosition == 0)
             {
                 strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
-                strategyStat.AccountStatus &= ~AccountStatus.Short;
+            }
+            else if (orderAction == OrderAction.PreForceExitLong && strategyStat.LongPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.PreForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.PreForceExitShort && strategyStat.ShortPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.PreForceExitShortActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitLong && strategyStat.LongPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitLongActivated;
+            }
+            else if (orderAction == OrderAction.FinalForceExitShort && strategyStat.ShortPosition == 0)
+            {
+                strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitShortActivated;                
             }
 
             if (strategyStat.LongPosition == 0 && orderAction != OrderAction.Buy)
@@ -178,7 +232,13 @@ namespace AmiBroker.Controllers
                 strategyStat.OrderInfos[OrderAction.StoplossLong].Clear();
                 strategyStat.OrderInfos[OrderAction.Buy].Clear();
                 strategyStat.OrderInfos[OrderAction.Sell].Clear();
+                strategyStat.OrderInfos[OrderAction.PreForceExitLong].Clear();
+                strategyStat.OrderInfos[OrderAction.FinalForceExitLong].Clear();
                 scriptStat.LongStrategies.Remove(strategy.Name);
+
+                strategyStat.AccountStatus &= ~AccountStatus.Long;
+                strategy.ForceExitOrderForLong.Reset();
+                strategy.AdaptiveProfitStopforLong.Reset();
             }
 
             if (strategyStat.ShortPosition == 0 && orderAction != OrderAction.Short)
@@ -187,7 +247,13 @@ namespace AmiBroker.Controllers
                 strategyStat.OrderInfos[OrderAction.StoplossShort].Clear();
                 strategyStat.OrderInfos[OrderAction.Short].Clear();
                 strategyStat.OrderInfos[OrderAction.Cover].Clear();
+                strategyStat.OrderInfos[OrderAction.PreForceExitShort].Clear();
+                strategyStat.OrderInfos[OrderAction.FinalForceExitShort].Clear();
                 scriptStat.ShortStrategies.Remove(strategy.Name);
+
+                strategyStat.AccountStatus &= ~AccountStatus.Short;
+                strategy.ForceExitOrderForShort.Reset();
+                strategy.AdaptiveProfitStopforShort.Reset();
             }
         }
         public static void SetAttemps(ref BaseStat strategyStat, OrderAction orderAction)

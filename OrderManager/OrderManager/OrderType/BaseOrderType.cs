@@ -176,26 +176,31 @@ namespace AmiBroker.OrderManager
         {
         }
 
-        private BaseOrderType OT_stopProfit = new IBStopLimitOrder();
-        private BaseOrderType OT_stopLoss = new IBStopLimitOrder();
-
+        [JsonIgnore]
+        public BaseOrderType OT_stopProfit { get; private set; } = new IBStopLimitOrder();
+        [JsonIgnore]
+        public BaseOrderType OT_stopLoss { get; private set; } = new IBStopLimitOrder();
+        
         public AdaptiveProfitStop(SSBase strategy, ActionType actionType, BaseOrderType stpLmtOrder = null)
         {
             Strategy = strategy.GetType() == typeof(Strategy) ? (Strategy)strategy : null;
-            OT_stopProfit = stpLmtOrder == null ? OT_stopProfit : stpLmtOrder;
+            OT_stopProfit = stpLmtOrder == null ? OT_stopProfit : stpLmtOrder;            
             OT_stopLoss = stpLmtOrder == null ? OT_stopLoss : stpLmtOrder.CloneObject();
+            OT_stopProfit.Slippages = new ObservableCollection<CSlippage>();
+            OT_stopProfit.Slippages.Add(new CSlippage { Slippage = 1, PosSize = 1 });
+            OT_stopLoss.Slippages = new ObservableCollection<CSlippage>();
+            OT_stopLoss.Slippages.Add(new CSlippage { Slippage = 1, PosSize = 1 });
             ActionType = actionType;
         }
         
         public void Reset()
-        {
-            /*
+        {            
             EntryPrice = 0;
             _highestProfitSinceLastSent = 0;
             _stoplossLastSent = 0;
             HighestProfit = 0;
             StopPrice = 0;
-            ProfitClass = 0;*/
+            ProfitClass = 0;
         }
 
         private double _highestProfitSinceLastSent = 0;
@@ -203,6 +208,10 @@ namespace AmiBroker.OrderManager
         public void Calc(float curPrice)
         {
             CurPrice = curPrice;
+            foreach (var stat in Strategy.AccountStat)
+            {
+                stat.Value.CurPrice = curPrice;
+            }
             if (EntryPrice > 0)
             {
                 if (Level > 0)
@@ -228,8 +237,8 @@ namespace AmiBroker.OrderManager
                                 StopPrice = EntryPrice + HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
                                 if (curPrice <= StopPrice + (float)(Threshold * Strategy.Symbol.MinTick))
                                 {
-                                    accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
-                                    accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
+                                    accessor[OT_stopProfit, "LmtPrice"] = StopPrice.ToString();
+                                    accessor[OT_stopProfit, "AuxPrice"] = StopPrice.ToString();
                                     bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSLong, DateTime.Now, OT_stopProfit);
                                     if (r) _highestProfitSinceLastSent = HighestProfit;
                                 }
@@ -239,8 +248,8 @@ namespace AmiBroker.OrderManager
                                 StopPrice = EntryPrice - HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
                                 if (curPrice >= StopPrice - (float)(Threshold * Strategy.Symbol.MinTick))
                                 {
-                                    accessor[OT_stopProfit, "LmtPrice"] = ((decimal)StopPrice + Strategy.Symbol.MinTick).ToString();
-                                    accessor[OT_stopProfit, "AuxPrice"] = ((decimal)StopPrice - Strategy.Symbol.MinTick).ToString();
+                                    accessor[OT_stopProfit, "LmtPrice"] = StopPrice.ToString();
+                                    accessor[OT_stopProfit, "AuxPrice"] = StopPrice.ToString();
                                     bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSShort, DateTime.Now, OT_stopProfit);
                                     if (r) _highestProfitSinceLastSent = HighestProfit;
                                 }
@@ -263,8 +272,8 @@ namespace AmiBroker.OrderManager
                             sp = EntryPrice - (float)(Stoploss * Strategy.Symbol.MinTick);
                             if (curPrice <= sp + (float)(Threshold * Strategy.Symbol.MinTick))
                             {
-                                accessor[OT_stopLoss, "LmtPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
-                                accessor[OT_stopLoss, "AuxPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
+                                accessor[OT_stopLoss, "LmtPrice"] = sp.ToString();
+                                accessor[OT_stopLoss, "AuxPrice"] = sp.ToString();
                                 bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossLong, DateTime.Now, OT_stopLoss);
                                 if (r) _stoplossLastSent = Stoploss;
                             }
@@ -274,8 +283,8 @@ namespace AmiBroker.OrderManager
                             sp = EntryPrice + (float)(Stoploss * Strategy.Symbol.MinTick);
                             if (curPrice >= sp - (float)(Threshold * Strategy.Symbol.MinTick))
                             {
-                                accessor[OT_stopLoss, "LmtPrice"] = (sp + (float)Strategy.Symbol.MinTick).ToString();
-                                accessor[OT_stopLoss, "AuxPrice"] = (sp - (float)Strategy.Symbol.MinTick).ToString();
+                                accessor[OT_stopLoss, "LmtPrice"] = sp.ToString();
+                                accessor[OT_stopLoss, "AuxPrice"] = sp.ToString();
                                 bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossShort, DateTime.Now, OT_stopLoss);
                                 if (r) _stoplossLastSent = Stoploss;
                             }
@@ -344,6 +353,11 @@ namespace AmiBroker.OrderManager
             ActionType = actionType;
         }
 
+        public void Reset()
+        {
+            EntryPrice = 0;
+        }
+
         /* 
          * Caveat: if order-placing failed, it won't send again
          * 
@@ -360,18 +374,19 @@ namespace AmiBroker.OrderManager
                 if (Days.Select(x => x.Name).ToList().Contains(wd))
                 {
                     TypeAccessor accessor = BaseOrderTypeAccessor.GetAccessor(OT_pre);
+                    double i = (DateTime.Now - lmt_time).TotalMinutes;
                     if ((DateTime.Now - lmt_time).TotalMinutes < 5 && lmt_time > pre_sent_dt && lmt_time <= DateTime.Now)
                     {
                         if (ActionType == ActionType.Long)
                         {
                             accessor[OT_pre, "LmtPrice"] = (curPrice - (float)Strategy.Symbol.MinTick * Slippage).ToString();
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossLong, DateTime.Now, OT_pre);
+                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.PreForceExitLong, DateTime.Now, OT_pre);
                             if (r) pre_sent_dt = DateTime.Now;
                         }
                         if (ActionType == ActionType.Short)
                         {
                             accessor[OT_pre, "LmtPrice"] = (curPrice + (float)Strategy.Symbol.MinTick * Slippage).ToString();
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossShort, DateTime.Now, OT_pre);
+                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.PreForceExitShort, DateTime.Now, OT_pre);
                             if (r) pre_sent_dt = DateTime.Now;
                         }
                     }
@@ -380,12 +395,12 @@ namespace AmiBroker.OrderManager
                     {
                         if (ActionType == ActionType.Long)
                         {
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossLong, DateTime.Now, OT_final);
+                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.FinalForceExitLong, DateTime.Now, OT_final);
                             if (r) final_sent_dt = DateTime.Now;
                         }
                         if (ActionType == ActionType.Short)
                         {
-                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.StoplossShort, DateTime.Now, OT_final);
+                            bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.FinalForceExitShort, DateTime.Now, OT_final);
                             if (r) final_sent_dt = DateTime.Now;
                         }
                     }

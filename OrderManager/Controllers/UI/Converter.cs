@@ -88,7 +88,96 @@ namespace AmiBroker.Controllers
             throw new NotImplementedException();
         }
     }
+    class AccountStatusToVisConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value != null)
+            {
+                string param = (string)parameter;
+                if (value.GetType() == typeof(AccountStatus))
+                {
+                    AccountStatus status = (AccountStatus)value;
 
+                    if (param == "stopprofit" && (status & AccountStatus.APSLongActivated) == 0
+                        && (status & AccountStatus.APSShortActivated) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "stoploss" && (status & AccountStatus.StoplossLongActivated) == 0
+                        && (status & AccountStatus.StoplossShortActivated) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "forceexit" && (status & AccountStatus.FinalForceExitLongActivated) == 0
+                        && (status & AccountStatus.FinalForceExitShortActivated) == 0
+                        && (status & AccountStatus.PreForceExitLongActivated) == 0
+                        && (status & AccountStatus.PreForceExitShortActivated) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "inpending" && (status & AccountStatus.BuyPending) == 0
+                        && (status & AccountStatus.ShortPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "outpending" && (status & AccountStatus.SellPending) == 0
+                        && (status & AccountStatus.CoverPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "long" && (status & AccountStatus.BuyPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "short" && (status & AccountStatus.ShortPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "sell" && (status & AccountStatus.SellPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "cover" && (status & AccountStatus.CoverPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "cover" && (status & AccountStatus.CoverPending) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "profit" && (status & AccountStatus.Long) == 0 && (status & AccountStatus.Short) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "longprofit" && (status & AccountStatus.Long) == 0)
+                        return Visibility.Collapsed;
+                    else if (param == "shortprofit" && (status & AccountStatus.Short) == 0)
+                        return Visibility.Collapsed;
+                    else
+                        return Visibility.Visible;
+                }
+                else
+                    return Visibility.Collapsed;
+            }
+            else
+                return Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    
+    class AccountStatusToColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value.GetType() == typeof(BaseStat))
+                return false;
+            else
+                return true;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class SelectedItemToFocusableConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value.GetType() == typeof(BaseStat))
+                return false;
+            else
+            return true;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
     class ATAflToNameConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -207,6 +296,44 @@ namespace AmiBroker.Controllers
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+    class PricesToProfitConverter : IMultiValueConverter
+    {
+        public object Convert(object[] value, Type targetType, object parameter, CultureInfo culture)
+        {
+            // 0 - AvgPrice
+            // 1 - CurPrice
+            // 2 - BaseStat
+            // parameter - long or short
+            if (value[0] != DependencyProperty.UnsetValue && value[1] != DependencyProperty.UnsetValue)
+            {
+                if (value[0] != null && value[1] != null)
+                {
+                    double val0 = (double)value[0];
+                    double val1 = (double)value[1];
+                    if (val1 > 0 && val0 > 0)
+                    {
+                        double diff = val1 - val0;
+                        BaseStat stat = value[2] as BaseStat;
+                        if (stat?.SSBase != null)
+                        {
+                            if ((string)parameter == "long")
+                                return Math.Round(stat.SSBase.Symbol.RoundLotSize * stat.LongPosition * diff, 2).ToString();
+                            else
+                                return Math.Round(stat.SSBase.Symbol.RoundLotSize * stat.ShortPosition * diff * -1, 2).ToString();
+                        }
+                    }
+                    else
+                        return "";
+                }
+            }
+            return "";
+        }
+
+        public object[] ConvertBack(object value, Type[] targetType, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }
@@ -635,6 +762,8 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("timezoneDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "AccountStatus") != null)
                     return oit.FindResource("accountDrawingImage");
+                if (item.Children.FirstOrDefault(x => x.Name == "ProfitTarget") != null)
+                    return oit.FindResource("APSDrawingImage");
             }
             if (item.Type != null && item.Type.Name.ToLower().Contains("dictionary"))
             {
@@ -899,9 +1028,11 @@ namespace AmiBroker.Controllers
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            return (bool)value ? 
-                new Image { Source = Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.Cancel, new SolidColorBrush(Util.Color.Red), 16) } :
-                new Image { Source = Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.CheckCircleOutline, new SolidColorBrush(Util.Color.Green), 16) };
+            return (bool)value ?
+                //new Image { Source = Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.Cancel, new SolidColorBrush(Util.Color.Red), 16) } :
+                //new Image { Source = Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.CheckCircleOutline, new SolidColorBrush(Util.Color.Green), 16) };
+                Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.Cancel, new SolidColorBrush(Util.Color.Red), 16) :
+                Util.mdIcons.ToImageSource<MaterialIcons>(MaterialIcons.CheckCircleOutline, new SolidColorBrush(Util.Color.Green), 16);
         }
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {

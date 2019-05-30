@@ -24,6 +24,8 @@ namespace AmiBroker.Controllers
     public class BarInfo
     {
         public int BarCount { get; set; }
+        public DateTime DateTime { get; set; }
+        public float Close { get; set; }
         public bool BuySignal { get; set; }
         public bool SellSignal { get; set; }
         public bool ShortSignal { get; set; }
@@ -142,6 +144,8 @@ namespace AmiBroker.Controllers
         private static int batch_no = 0;
         public static int BatchNo { get { return batch_no++;  } }
 
+        private static Dictionary<string, object> lockOjbs = new Dictionary<string, object>();
+
         private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>();
         // key: ticker name + strategy name + interval
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
@@ -213,8 +217,13 @@ namespace AmiBroker.Controllers
                     {
                         if (!strategy.IsEnabled) continue;
 
-                        if (!lastBarInfo.ContainsKey(symbolName + strategy.Name + AFTimeFrame.Interval()))
-                            lastBarInfo.Add(symbolName + strategy.Name + AFTimeFrame.Interval(), new BarInfo() { BarCount = BarCount });
+                        string key = symbolName + strategy.Name + AFTimeFrame.Interval();
+
+                        if (!lastBarInfo.ContainsKey(key))
+                            lastBarInfo.Add(symbolName + strategy.Name + AFTimeFrame.Interval(), new BarInfo() { BarCount = BarCount, DateTime = logTime });
+
+                        if (!lockOjbs.ContainsKey(key))
+                            lockOjbs.Add(key, new object());
 
                         // fillin prices from AB
                         strategy.CurrentPrices.Clear();
@@ -222,7 +231,6 @@ namespace AmiBroker.Controllers
                         {
                             strategy.CurrentPrices.Add(p.Key, (decimal)p.Value.GetArray()[BarCount - 1]);
                         }
-                        ATAfl a = new ATAfl();
                         
                         // fillin position size from AB
                         strategy.CurrentPosSize.Clear();
@@ -255,58 +263,81 @@ namespace AmiBroker.Controllers
                         // checking signals
                         //
                         bool signal = false;
-                        if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
+                        
+                        var buyTask = new Task(() => { });
+                        var sellTask = new Task(() => { });
+                        var shortTask = new Task(() => { });
+                        var coverTask = new Task(() => { });
+                        var APSLongTask = new Task(() => { });
+                        var APSShortTask = new Task(() => { });
+                        var FELongTask = new Task(() => { });
+                        var FEShortTask = new Task(() => { });
+
+                        lock(lockOjbs[key])
                         {
-                            signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BuySignal != signal)
+                            if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                             {
-                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));                                
-                            }
-                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BuySignal = signal;
+                                signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
+                                if (signal && (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime))
+                                {
+                                    buyTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
+                                }
+                                lastBarInfo[key].BuySignal = signal;
 
 
-                            signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
-                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].SellSignal != signal)
-                            {
-                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
+                                signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
+                                if (signal && (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime))
+                                {
+                                    sellTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
+                                }
+                                lastBarInfo[key].SellSignal = signal;
                             }
-                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].SellSignal = signal;
+                            if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
+                            {
+                                signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
+                                if (signal && (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime))
+                                {
+                                    shortTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
+                                }
+                                lastBarInfo[key].ShortSignal = signal;
+
+                                signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
+                                if (signal && (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime))
+                                {
+                                    coverTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
+                                }
+                                lastBarInfo[key].CoverSignal = signal;
+                            }
+
+
+                            float close = Close[BarCount - 1];
+                            if (close != lastBarInfo[key].Close)
+                            {
+                                //
+                                // checking if Adaptive Profit Stop apply
+                                //
+                                if (strategy.IsAPSAppliedforLong)
+                                    APSLongTask = Task.Run(() => strategy.AdaptiveProfitStopforLong.Calc(close));
+                                if (strategy.IsAPSAppliedforShort)
+                                    APSShortTask = Task.Run(() => strategy.AdaptiveProfitStopforShort.Calc(close));
+
+                                //
+                                // checking if day end exit applied
+                                //
+                                if (strategy.IsForcedExitForLong)
+                                    FELongTask = Task.Run(() => strategy.ForceExitOrderForLong.Run(close));
+                                if (strategy.IsForcedExitForShort)
+                                    FEShortTask = Task.Run(() => strategy.ForceExitOrderForShort.Run(close));
+                            }
+
+                            // store last bar info
+                            lastBarInfo[key].BarCount = BarCount;
+                            lastBarInfo[key].DateTime = logTime;
+                            lastBarInfo[key].Close = close;
+
+                            //Task.WaitAll(new Task[] { buyTask, sellTask, shortTask, coverTask, APSLongTask, APSShortTask, FELongTask, FEShortTask });
                         }
-                        if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
-                        {
-                            signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
-                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].ShortSignal != signal)
-                            {
-                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
-                            }
-                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].ShortSignal = signal;
-
-                            signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
-                            if (signal && lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].CoverSignal != signal)
-                            {
-                                Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
-                            }
-                            lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].CoverSignal = signal;
-                        }
-                        // store BarCount
-                        lastBarInfo[symbolName + strategy.Name + AFTimeFrame.Interval()].BarCount = BarCount;
-
-                        float close = Close[BarCount - 1];
-                        //
-                        // checking if Adaptive Profit Stop apply
-                        //
-                        if (strategy.IsAPSAppliedforLong)
-                            Task.Run(() => strategy.AdaptiveProfitStopforLong.Calc(close));
-                        if (strategy.IsAPSAppliedforShort)
-                            Task.Run(() => strategy.AdaptiveProfitStopforShort.Calc(close));
-
-                        //
-                        // checking if day end exit applied
-                        //
-                        if (strategy.IsForcedExitForLong)
-                            Task.Run(() => strategy.ForceExitOrderForLong.Run(close));
-                        if (strategy.IsForcedExitForShort)
-                            Task.Run(() => strategy.ForceExitOrderForShort.Run(close));
+                        // END of LOCK
                     }
                 }
             }
@@ -463,15 +494,20 @@ namespace AmiBroker.Controllers
             {
                 IController controller = oi.Account.Controller;
                 //bool result = controller.CancelOrderAsync(oi.RealOrderId).GetAwaiter().GetResult();
-                Task<bool> task = Task.Run<bool>(async () => await controller.CancelOrderAsync(oi.RealOrderId));
-                bool result = task.Result;
-                string msg = "There is a pending " + action.ToString() + " order for strategy - " +
-                            strategy.Name + " being cancelled" + "\n";
+                List<OrderInfo> orderInfos = strategyStat.OrderInfos[action].Where(x => x.BatchNo == oi.BatchNo).ToList();
+                bool result = false;
+                foreach (var orderInfo in orderInfos)
+                {
+                    Task<bool> task = Task.Run<bool>(async () => await controller.CancelOrderAsync(orderInfo.RealOrderId));
+                    result = task.Result;
+                }
+                string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList()) 
+                    + "] for strategy - " + strategy.Name + " being cancelled" + "\n";
                 mainVM.Log(new Log
                 {
                     Time = DateTime.Now,
                     Text = msg + " (OrderManager.CancelConflictOrder)",
-                    Source = strategy.Script.Name + "." + strategy.Name
+                    Source = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
                 });
                 return result;
             }
@@ -515,6 +551,12 @@ namespace AmiBroker.Controllers
 
             return 0;
         }
+        /*
+         * Caveat: SELL or COVER cannot be stop order since it will force to exit APS and Stoploss Orders
+         * TODO: 
+         * In case of Sell or Cover Order are stop orders, Sell/Cover orders and APSLong/Short order should
+         * compare STOP price to detemine which one is kept
+         * */
         private static bool ValidateSignal(AccountInfo account, Strategy strategy, BaseStat strategyStat, OrderAction action, BaseOrderType orderType, out string message, out string warning)
         {
             try
@@ -533,12 +575,12 @@ namespace AmiBroker.Controllers
                         {
                             if ((strategyStat.AccountStatus & AccountStatus.Long) == 0)
                             {
-                                message = "There is no a LONG position for strategy - " + strategy.Name;
+                                message += "There is no a LONG position for strategy - " + strategy.Name;
                                 return false;
                             }
                             if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
                             {
-                                message = "There is a pending SELL position for strategy - " + strategy.Name;
+                                message += "There is a pending SELL position for strategy - " + strategy.Name;
                                 return false;
                             }
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
@@ -548,13 +590,13 @@ namespace AmiBroker.Controllers
                                 List<int> nullFields = new List<int>(2);
                                 if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
-                                    message = "There is a duplicated APSLong order for strategy - " + strategy.Name;
+                                    message += "There is a duplicated APSLong order for strategy - " + strategy.Name;
                                     return false;
                                 } 
                                 else
                                 {
-                                    // cancel the previou APSLong order, and replace with new one
-                                    //CancelConflictOrder(strategy, strategyStat, action);
+                                    // modify the APSLong order
+                                    message += "Modifying APSLong order for strategy - " + strategy.Name;
                                     controller.ModifyOrder(account, strategy, action, orderType);
                                     return false;
                                 }                                
@@ -564,13 +606,13 @@ namespace AmiBroker.Controllers
                             if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                             {
                                 CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong);
-                                warning = "There is a pending stoploss order being cancelled";
+                                warning += "There is a pending stoploss LONG order being cancelled";
                             }
                                 
                         }
                         else
                         {
-                            message = "APS Long is not enabled for strategy - " + strategy.Name;
+                            message += "APS Long is not enabled for strategy - " + strategy.Name;
                             return false;
                         }
                         break;
@@ -579,12 +621,12 @@ namespace AmiBroker.Controllers
                         {
                             if ((strategyStat.AccountStatus & AccountStatus.Short) == 0)
                             {
-                                message = "There is no a Short position for strategy - " + strategy.Name;
+                                message += "There is no a Short position for strategy - " + strategy.Name;
                                 return false;
                             }
                             if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                             {
-                                message = "There is a pending Cover position for strategy - " + strategy.Name;
+                                message += "There is a pending Cover position for strategy - " + strategy.Name;
                                 return false;
                             }
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
@@ -594,12 +636,13 @@ namespace AmiBroker.Controllers
                                 List<int> nullFields = new List<int>(2);
                                 if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                                 {
-                                    message = "There is a duplicated APSShort order for strategy - " + strategy.Name;
+                                    message += "There is a duplicated APSShort order for strategy - " + strategy.Name;
                                     return false;
                                 }
                                 else
                                 {
                                     // cancel the previou APSLong order, and replace with new one
+                                    message += "Modifying APSShort order for strategy - " + strategy.Name;
                                     controller.ModifyOrder(account, strategy, action, orderType);
                                     return false;
                                 }
@@ -609,31 +652,31 @@ namespace AmiBroker.Controllers
                             if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                             {
                                 CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort);
-                                warning = "There is a pending stoploss short order being cancelled";
+                                warning += "There is a pending stoploss short order being cancelled";
                             }
 
                         }
                         else
                         {
-                            message = "APS Short is not enabled for strategy - " + strategy.Name;
+                            message += "APS Short is not enabled for strategy - " + strategy.Name;
                             return false;
                         }
                         break;
                     case OrderAction.StoplossLong:
                         if ((strategyStat.AccountStatus & AccountStatus.Long) == 0)
                         {
-                            message = "There is no LONG position for strategy - " + strategy.Name;
+                            message += "There is no LONG position for strategy - " + strategy.Name;
                             return false;
                         }
                         // should not be APSLongActivated, it shuould be executed already
                         if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                         {
-                            warning = "There is a pending APSLong order being cancelled";
+                            warning += "There is a pending APSLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong);
                         }
                         if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
                         {
-                            message = "There is a pending sell order for strategy - " + strategy.Name;
+                            message += "There is a pending sell order for strategy - " + strategy.Name;
                             return false;
                         }
                         // cancel previous StoplossLong order if LmtPrice and Stop Price are different
@@ -643,13 +686,13 @@ namespace AmiBroker.Controllers
                             List<int> nullFields = new List<int>(2);
                             if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice"}) != 0)
                             {
-                                message = "There is a duplicated StoplossLong order for strategy - " + strategy.Name;
+                                message += "There is a duplicated StoplossLong order for strategy - " + strategy.Name;
                                 return false;
                             }
                             else
                             {
                                 // cancel the previou APSLong order, and replace with new one
-                                //CancelConflictOrder(strategy, strategyStat, action);
+                                message += "Modifying StoplossLong order for strategy - " + strategy.Name;
                                 controller.ModifyOrder(account, strategy, action, orderType);
                                 return false;
                             }
@@ -658,18 +701,18 @@ namespace AmiBroker.Controllers
                     case OrderAction.StoplossShort:
                         if ((strategyStat.AccountStatus & AccountStatus.Short) == 0)
                         {
-                            message = "There is no SHORT position for strategy - " + strategy.Name;
+                            message += "There is no SHORT position for strategy - " + strategy.Name;
                             return false;
                         }
                         // should not be APSShortActivated, it shuould be executed already
                         if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                         {
-                            warning = "There is a pending APSShort order being cancelled";
+                            warning += "There is a pending APSShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
                         }
                         if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                         {
-                            message = "There is a pending cover order for strategy - " + strategy.Name;
+                            message += "There is a pending cover order for strategy - " + strategy.Name;
                             return false;
                         }
                         // cancel previous APSShort order if LmtPrice and Stop Price are different
@@ -679,45 +722,22 @@ namespace AmiBroker.Controllers
                             List<int> nullFields = new List<int>(2);
                             if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0)
                             {
-                                message = "There is a duplicated StoplossShort order for strategy - " + strategy.Name;
+                                message += "There is a duplicated StoplossShort order for strategy - " + strategy.Name;
                                 return false;
                             }
                             else
                             {
                                 // cancel the previou APSLong order, and replace with new one
-                                //CancelConflictOrder(strategy, strategyStat, action);
                                 controller.ModifyOrder(account, strategy, action, orderType);
                                 return false;
                             }
                         }
                         break;
                     case OrderAction.Buy:
-                        if (!script.AllowMultiLong)
-                        {                            
-                            // checking for pending StopLimit Order
-                            for (int i = 0; i < script.Strategies.Count; i++)
-                            {
-                                Strategy s = script.Strategies[i];
-                                if (s.AccountStat.ContainsKey(strategyStat.Account.Name))
-                                {
-                                    BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
-                                    if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
-                                    {
-                                        BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
-                                        List<int> nullFields = new List<int>(2);
-                                        if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "AuxPrice", "LmtPrice" }) != 0)
-                                        {
-                                            warning = "There is a pending BUY order being cancelled for strategy - " + strategy.Name;
-                                            // cancel the previou buy order, and replace with new one
-                                            CancelConflictOrder(strategy, strategyStat, action);
-                                        }
-                                    }
-                                }                                                                                          
-                            }
-                        }
+                        
                         if ((strategyStat.AccountStatus & AccountStatus.Long) != 0)
                         {
-                            message = "There is already a LONG position for strategy - " + strategy.Name;
+                            message += "There is already a LONG position for strategy - " + strategy.Name;
                             return false;
                         }                
                         //
@@ -732,18 +752,18 @@ namespace AmiBroker.Controllers
                                 bool isEqual = IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0;
                                 if (isEqual)
                                 {
-                                    message = "There is a duplicated pending LONG order for strategy - " + strategy.Name;
+                                    message += "There is a duplicated pending LONG order for strategy - " + strategy.Name;
                                     return false;
                                 }
                                 else
                                 {
-                                    // if Order is a LMT order
+                                    // if Order is a LMT order, then ignore
                                     if (nullFields[1] == -1)
                                     {
-                                        message = "There is a pending LONG order for strategy - " + strategy.Name;
+                                        message += "There is a pending LONG order for strategy - " + strategy.Name;
                                         return false;
                                     }
-                                    else
+                                    else // if order is a STOP order, then modify
                                     {
                                         controller.ModifyOrder(account, strategy, action, orderType);
                                         message = "Modifying a pending LONG STOP order for strategy - " + strategy.Name;
@@ -753,77 +773,197 @@ namespace AmiBroker.Controllers
                             }
                             else
                             {
-                                message = "There is a pending LONG order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
+                                message += "There is a pending LONG order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
                                 return false;
                             }                            
                         }
 
                         if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
                         {
-                            warning = "There is an pending SHORT order for strategy - " + strategy.Name;
+                            warning += "There is an pending SHORT order for strategy - " + strategy.Name;
+                        }
+
+                        // check other strategies in the same script
+                        if (!script.AllowMultiLong)
+                        {
+                            // checking for pending StopLimit Order
+                            for (int i = 0; i < script.Strategies.Count; i++)
+                            {
+                                Strategy s = script.Strategies[i];
+                                if (s == strategy) continue;
+                                if (s.AccountStat.ContainsKey(strategyStat.Account.Name))
+                                {
+                                    BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
+                                    if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                                    {
+                                        BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                                        // if looped order is STOP LMT order
+                                        if (BaseOrderTypeAccessor.HasProperty(ot, "AuxPrice"))
+                                        {
+                                            warning += "There is a pending Long STOP order being cancelled in another strategy - " + s.Name;
+                                            CancelConflictOrder(s, strategyStat, action);
+                                        }
+                                        else
+                                        {
+                                            // if current order is STOP LMT
+                                            if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                                            {
+                                                message += "There is a pending LONG LMT order in another strategy - " + s.Name
+                                                    + ", and current STOP LMT order will be ignored.";
+                                                return false;
+                                            }
+                                            else
+                                            {
+                                                warning += "There is a pending LONG LMT order being cancelled in another strategy - " + s.Name;
+                                                CancelConflictOrder(s, strategyStat, action);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                         break;
-                    case OrderAction.Short:
+                    case OrderAction.Short:                        
+                        if ((strategyStat.AccountStatus & AccountStatus.Short) != 0)
+                        {
+                            message += "There is already a SHORT position for strategy - " + strategy.Name;
+                            return false;
+                        }
+                        //
+                        // modify STOP order if LmtPrice and Stop Price are different
+                        // skip for LIMIT order
+                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        {
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            if (ot != null)
+                            {
+                                List<int> nullFields = new List<int>(2);
+                                bool isEqual = IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0;
+                                if (isEqual)
+                                {
+                                    message += "There is a duplicated pending SHORT order for strategy - " + strategy.Name;
+                                    return false;
+                                }
+                                else
+                                {
+                                    // if Order is a LMT order, then ignore
+                                    if (nullFields[1] == -1)
+                                    {
+                                        message += "There is a pending SHORT order for strategy - " + strategy.Name;
+                                        return false;
+                                    }
+                                    else // if order is a STOP order, then modify
+                                    {
+                                        message += "Modifying Short STOP Order";
+                                        controller.ModifyOrder(account, strategy, action, orderType);
+                                        return false;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                message += "There is a pending SHORT order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
+                                return false;
+                            }
+                        }
+                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        {
+                            warning += "There is an pending BUY order for strategy - " + strategy.Name;
+                        }
+
+                        // check other strategies in the same script
                         if (!script.AllowMultiShort)
                         {
                             // checking for pending StopLimit Order
                             for (int i = 0; i < script.Strategies.Count; i++)
                             {
                                 Strategy s = script.Strategies[i];
+                                if (s == strategy) continue;
                                 if (s.AccountStat.ContainsKey(strategyStat.Account.Name))
                                 {
                                     BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
                                     if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0)
                                     {
                                         BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
-                                        List<int> nullFields = new List<int>(2);
-                                        if (ot != null && IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "AuxPrice", "LmtPrice" }) != 0)
+                                        // if 
+                                        if (BaseOrderTypeAccessor.HasProperty(ot, "AuxPrice"))
                                         {
-                                            warning = "There is a pending SHORT order being cancelled for strategy - " + strategy.Name;
-                                            // cancel the previou buy order, and replace with new one
-                                            CancelConflictOrder(strategy, strategyStat, action);
+                                            warning += "There is a pending SHORT STOP order being cancelled in another strategy - " + s.Name;
+                                            CancelConflictOrder(s, strategyStat, action);
+                                        }
+                                        else
+                                        {
+                                            // if current order is STOP LMT
+                                            if (BaseOrderTypeAccessor.HasProperty(orderType, "AuxPrice"))
+                                            {
+                                                message += "There is a pending SHORT LMT order in another strategy - " + s.Name
+                                                    + ", and current STOP LMT order will be ignored.";
+                                                return false;
+                                            }
+                                            else
+                                            {
+                                                warning += "There is a pending SHORT LMT order being cancelled in another strategy - " + s.Name;
+                                                CancelConflictOrder(s, strategyStat, action);
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.Short) != 0)
-                        {
-                            message = "There is already a SHORT position for strategy - " + strategy.Name;
-                            return false;
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
-                        {
-                            message = "There is an pending SHORT order for strategy - " + strategy.Name;
-                            return false;
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
-                        {
-                            warning = "There is an pending BUY order for strategy - " + strategy.Name;
                         }
                         break;
                     case OrderAction.Sell:
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                         {
-                            warning = "There is a pending APSLong order being cancelled";
+                            warning += "There is a pending APSLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong);
                         }
                         // Stoploss order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                         {
-                            warning = "There is a pending StoplossLong order being cancelled";
+                            warning += "There is a pending StoplossLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong);
                         }
-
+                        //
+                        // modify STOP order if LmtPrice and Stop Price are different
+                        // skip for LIMIT order
                         if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
                         {
-                            message = "There is an pending sell order for strategy - " + strategy.Name;
-                            return false;
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            if (ot != null)
+                            {
+                                List<int> nullFields = new List<int>(2);
+                                bool isEqual = IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0;
+                                if (isEqual)
+                                {
+                                    message += "There is a duplicated pending SELL order for strategy - " + strategy.Name;
+                                    return false;
+                                }
+                                else
+                                {
+                                    // if Order is a LMT order, then ignore
+                                    if (nullFields[1] == -1)
+                                    {
+                                        message += "There is a pending SELL order for strategy - " + strategy.Name;
+                                        return false;
+                                    }
+                                    else // if order is a STOP order, then modify
+                                    {
+                                        message += "Modifying Sell Order";
+                                        controller.ModifyOrder(account, strategy, action, orderType);
+                                        return false;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                message += "There is a pending SELL order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
+                                return false;
+                            }
                         }
                         if (strategyStat.LongPosition == 0)
                         {
-                            message = "There is no long position for strategy - " + strategy.Name;
+                            message += "There is no long position for strategy - " + strategy.Name;
                             return false;
                         }
                         break;
@@ -831,63 +971,128 @@ namespace AmiBroker.Controllers
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                         {
-                            warning = "There is a pending APSShort order being cancelled";
+                            warning += "There is a pending APSShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
                         }
                         // Stoploss order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                         {
-                            warning = "There is a pending StoplossShort order being cancelled";
+                            warning += "There is a pending StoplossShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort);
                         }
-
+                        //
+                        // modify STOP order if LmtPrice and Stop Price are different
+                        // skip for LIMIT order
                         if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                         {
-                            message = "There is an pending cover order for strategy - " + strategy.Name;
-                            return false;
+                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
+                            if (ot != null)
+                            {
+                                List<int> nullFields = new List<int>(2);
+                                bool isEqual = IsEqualOrderType(ot, orderType, ref nullFields, new List<string>() { "LmtPrice", "AuxPrice" }) != 0;
+                                if (isEqual)
+                                {
+                                    message += "There is a duplicated pending COVER order for strategy - " + strategy.Name;
+                                    return false;
+                                }
+                                else
+                                {
+                                    // if Order is a LMT order, then ignore
+                                    if (nullFields[1] == -1)
+                                    {
+                                        message += "There is a pending COVER order for strategy - " + strategy.Name;
+                                        return false;
+                                    }
+                                    else // if order is a STOP order, then modify
+                                    {
+                                        message += "Modifying Cover Order";
+                                        controller.ModifyOrder(account, strategy, action, orderType);
+                                        return false;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                message += "There is a pending COVER order but related OrderInfo cannot be found - for strategy - " + strategy.Name;
+                                return false;
+                            }
                         }
                         if (strategyStat.ShortPosition == 0)
                         {
-                            message = "There is no short position for strategy - " + strategy.Name;
+                            message += "There is no short position for strategy - " + strategy.Name;
                             return false;
                         }
                         break;
-                    case OrderAction.ForceExit:
+                    case OrderAction.PreForceExitLong:
+                    case OrderAction.FinalForceExitLong:
+                        if (strategyStat.LongPosition == 0)
+                        {
+                            message += "Info[Force Exit Long]: there is no open LONG position for strategy - " + strategy.Name;
+                            return false;
+                        }
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                         {
-                            warning = "There is a pending APSLong order being cancelled";
+                            warning += "There is a pending APSLong order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong);
                         }
                         // Stoploss order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
                         {
-                            warning = "There is a pending StoplossLong order being cancelled";
+                            warning += "There is a pending StoplossLong order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossLong);
+                        }
+                        // Cancel pending sell order has to be cancelled
+                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
+                        {
+                            warning += "There is a pending SELL order being cancelled.\n";
+                            CancelConflictOrder(strategy, strategyStat, OrderAction.Sell);
+                        }
+                        // in case of FinalForceExitLong
+                        if (action == OrderAction.FinalForceExitLong)
+                        {
+                            // Cancel pending PreForceExitLong order has to be cancelled
+                            if ((strategyStat.AccountStatus & AccountStatus.PreForceExitLongActivated) != 0)
+                            {
+                                warning += "There is a pending PreForceExitLong order being cancelled.\n";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitLong);
+                            }
+                        }
+                        break;
+                    case OrderAction.PreForceExitShort:
+                    case OrderAction.FinalForceExitShort:
+                        if (strategyStat.ShortPosition == 0)
+                        {
+                            message += "Info[Force Exit Short]: there is no open SHORT position for strategy - " + strategy.Name;
+                            return false;
                         }
                         // APS order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                         {
-                            warning = "There is a pending APSShort order being cancelled";
+                            warning += "There is a pending APSShort order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
                         }
                         // Stoploss order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
                         {
-                            warning = "There is a pending StoplossShort order being cancelled";
+                            warning += "There is a pending StoplossShort order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.StoplossShort);
-                        }
-                        // Cancel pending sell order has to be cancelled
-                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
-                        {
-                            warning = "There is a pending SELL order being cancelled";
-                            CancelConflictOrder(strategy, strategyStat, OrderAction.Sell);
-                        }
+                        }                        
                         // Cancel pending cover order has to be cancelled
                         if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                         {
-                            warning = "There is a pending COVER order being cancelled";
+                            warning += "There is a pending COVER order being cancelled.\n";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.Cover);
+                        }
+                        // in case of FinalForceExitShort
+                        if (action == OrderAction.FinalForceExitShort)
+                        {
+                            // Cancel pending PreForceExitShort order has to be cancelled
+                            if ((strategyStat.AccountStatus & AccountStatus.PreForceExitShortActivated) != 0)
+                            {
+                                warning += "There is a pending PreForceExitShort order being cancelled.\n";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.PreForceExitShort);
+                            }
                         }
                         break;
                 }

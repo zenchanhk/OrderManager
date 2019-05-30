@@ -610,6 +610,10 @@
                                                                Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.StoplossSelector, ElementName=scriptTabView,
                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=1}"/>
                                                 </StackPanel>
+                                                <StackPanel HorizontalAlignment="Stretch" >
+                                                    <TextBlock VerticalAlignment="Center" Text="Slippage: " />
+                                                    <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.OT_stopLoss.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
+                                                </StackPanel>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
                                                 <Separator Width="10" />
@@ -641,6 +645,10 @@
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.DropIncrement , ElementName=scriptTabView}"
                                                                         MaxValue="80" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="Increment of dropping-down level, higher trigger level, smaller dropping-down level" />
+                                            </StackPanel>
+                                            <StackPanel HorizontalAlignment="Stretch" >
+                                                <TextBlock VerticalAlignment="Center" Text="Slippage: " />
+                                                <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.OT_stopProfit.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
                                             </StackPanel>
                                             <GroupBox Header="Information">
                                                 <Grid>
@@ -705,7 +713,7 @@
                                             <StackPanel Orientation="Horizontal" Margin="3">
                                                 <TextBlock Text="Limit Order Submmit Time" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForLong.LmtOrderTime, ElementName=scriptTabView}"
-                                                                        MaxValue="100" MinValue="0" Increment="1" Width="70" />
+                                                                        MaxValue="3600" MinValue="0" Increment="1" Width="70" />
                                             </StackPanel>
                                             <TextBlock Text="(How many seconds before End Time)" Margin="3, 0, 3, 3"/>
                                             <StackPanel Orientation="Horizontal" Margin="3">
@@ -864,6 +872,10 @@
                                                                Visibility="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.StoplossSelector, ElementName=scriptTabView,
                                                                         Converter={StaticResource StoplossComboToVisConverter}, ConverterParameter=1}"/>
                                                 </StackPanel>
+                                                <StackPanel HorizontalAlignment="Stretch" >
+                                                    <TextBlock VerticalAlignment="Center" Text="Slippage: " />
+                                                    <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.OT_stopLoss.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
+                                                </StackPanel>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
                                                 <Separator Width="10" />
@@ -896,6 +908,10 @@
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.DropIncrement , ElementName=scriptTabView}"
                                                                         MaxValue="80" MinValue="1" Increment="1" Width="40"
                                                                         ToolTip="Increment of dropping-down level, higher trigger level, smaller dropping-down level" />
+                                            </StackPanel>
+                                            <StackPanel HorizontalAlignment="Stretch" >
+                                                <TextBlock VerticalAlignment="Center" Text="Slippage: " />
+                                                <controls:SlippageListView ItemsSource="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.OT_stopProfit.Slippages, ElementName=scriptTabView}" Margin="0, 1"/>
                                             </StackPanel>
                                             <GroupBox Header="Information">
                                                 <Grid>                                                    
@@ -960,7 +976,7 @@
                                             <StackPanel Orientation="Horizontal" Margin="3">
                                                 <TextBlock Text="Limit Order Submmit Time" Margin="0, 0 , 3, 0"/>
                                                 <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.ForceExitOrderForShort.LmtOrderTime, ElementName=scriptTabView}"
-                                                                        MaxValue="100" MinValue="0" Increment="1" Width="70" />                                                
+                                                                        MaxValue="3600" MinValue="0" Increment="1" Width="70" />                                                
                                             </StackPanel>
                                             <TextBlock Text="(How many seconds before End Time)" Margin="3, 0, 3, 3"/>
                                             <StackPanel Orientation="Horizontal" Margin="3">
@@ -1130,23 +1146,27 @@
             <TreeView.ItemContainerStyle>
                 <Style TargetType="{x:Type TreeViewItem}">
                     <Setter Property="FontWeight" Value="Normal" />
+                    <Setter Property="Focusable" Value="{Binding Converter={StaticResource SelectedItemToFocusableConverter}}"/>
                     <Style.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="FontWeight" Value="Bold" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
                         </Trigger>
                     </Style.Triggers>
-                    <Style.Resources>
-                        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="{x:Static SystemColors.HighlightColor}" Opacity=".4" />
-                    </Style.Resources>
+                    <Style.Resources>    
+                        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                            Color="LightBlue" Opacity="0.5" />
+                    </Style.Resources>                    
                 </Style>
             </TreeView.ItemContainerStyle>
             <TreeView.Resources>
                 <ContextMenu x:Key="tv_Menu">
-                    <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"
-                            Icon="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"
+                    <MenuItem Header="{Binding IsEnabled, Converter={StaticResource EnabledToMenuTextConverter}}"                            
                             Command="{Binding Data.Commands.EnableScriptExecution, Source={StaticResource Proxy}}"
-                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}"
-                            />
+                            CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
+                        <MenuItem.Icon>
+                            <controls:AutoGreyableImage Source="{Binding IsEnabled, Converter={StaticResource EnabledToIconConverter}}"/>
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="Close Positions"
                             Command="{Binding Data.Commands.CloseCurrentOpenOrders, Source={StaticResource Proxy}}"
                             CommandParameter="{Binding Data.SelectedItem, Source={StaticResource Proxy}}">
@@ -1167,7 +1187,27 @@
                     </MenuItem>
                             
                 </ContextMenu>
-                <DataTemplate x:Key="tvItemBase">
+                <DataTemplate x:Key="tvItemHead">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                            <ColumnDefinition Width="auto" />
+                        </Grid.ColumnDefinitions>
+                        <Image Source="{Binding Converter={StaticResource SelectedItemToIconConverter}}" 
+                               Width="19" Margin="2" />
+                        <local:IconBlock Icon="Cancel" FontSize="19" Foreground="Red" Margin="0"
+                                         Visibility="{Binding IsEnabled, Converter={StaticResource EnabledToVisConverter}}"/>
+                        <StackPanel Orientation="Horizontal" Grid.Column="1"
+                                    Visibility="{Binding ShowSign, Converter={StaticResource BoolToVisbilityConverter}}">
+                            <local:IconBlock Icon="{Binding IsDirty, Converter={StaticResource IsDirtyToIconConverter}}" 
+                                             Foreground="{Binding IsDirty, Converter={StaticResource IsDirtyToColorConverter}}"
+                                            VerticalAlignment="Center" FontSize="16"
+                                            />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+                <DataTemplate x:Key="tvItemTrail">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="auto" />
@@ -1190,7 +1230,7 @@
                 <HierarchicalDataTemplate ItemsSource="{Binding Scripts}" DataType="{x:Type om:SymbolInAction}">
                     <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
                         <ContentPresenter Content="{Binding}"
-                                          ContentTemplate="{StaticResource tvItemBase}"/>
+                                          ContentTemplate="{StaticResource tvItemHead}"/>
                         <Grid>
                             <TextBlock VerticalAlignment="Center" 
                                    Grid.Column="2" IsHitTestVisible="False"
@@ -1207,22 +1247,183 @@
                 <HierarchicalDataTemplate ItemsSource="{Binding Strategies}" DataType="{x:Type om:Script}">
                     <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
                         <ContentPresenter Content="{Binding}"
-                                          ContentTemplate="{StaticResource tvItemBase}"/>
+                                          ContentTemplate="{StaticResource tvItemHead}"/>
                         <TextBlock VerticalAlignment="Center" 
                                    Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}"
                                    Text="{Binding Name, Mode=OneWay}" />
                     </StackPanel>
                 </HierarchicalDataTemplate>
-                <DataTemplate DataType="{x:Type om:Strategy}">
+                <HierarchicalDataTemplate ItemsSource="{Binding AccountStat.Values}" DataType="{x:Type om:Strategy}">
                     <StackPanel Orientation="Horizontal"  ContextMenu="{StaticResource tv_Menu}">
                         <ContentPresenter Content="{Binding}"
-                                          ContentTemplate="{StaticResource tvItemBase}"/>
+                                          ContentTemplate="{StaticResource tvItemHead}"/>
                         <TextBlock VerticalAlignment="Center" 
                                    Foreground="{Binding IsEnabled, Converter={StaticResource EnabledToColorConverter}}"
                                    Text="{Binding Name, Mode=OneWay}" />
                     </StackPanel>
+                </HierarchicalDataTemplate>
+                <DataTemplate DataType="{x:Type om:BaseStat}">
+                    <Border CornerRadius="3"
+                            BorderBrush="GreenYellow"
+                            Background="LightYellow"
+                            BorderThickness="1"
+                            Padding="2">
+                        <StackPanel>
+                            <Expander IsExpanded="True" FontWeight="SemiBold">
+                                <Expander.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Account.Name}"/>
+                                        <Image Source="{StaticResource upDrawingImage}" 
+                                               ToolTip="Long position"
+                                               Width="17" Margin="2, 0"/>
+                                        <TextBlock Text="{Binding LongPosition}" Margin="0,0,2,0"/>
+                                        <Image Source="{StaticResource downDrawingImage}" 
+                                               ToolTip="Short position"
+                                               Width="17" Margin="2, 0"/>
+                                        <TextBlock Text="{Binding ShortPosition}"/>
+                                    </StackPanel>
+                                </Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Status: "/>
+                                    <TextBlock Text="{Binding Status}"/>                                    
+                                </StackPanel>                                
+                            </Expander>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{StaticResource enterDrawingImage}"     
+                                   ToolTip="Buy/Short order is pending"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=inpending}" 
+                                   Width="21" Margin="0, 0, 2, 0" />
+                                <Border CornerRadius="2"
+                                        BorderBrush="GreenYellow"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=long}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="L" Background="Green"
+                                                   ToolTip="Long Position" VerticalAlignment="Center"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>  
+                                        <TextBlock Text="{Binding LongPosition}"
+                                                   ToolTip="Show pending long position"
+                                                   Margin="2, 1"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border CornerRadius="2"
+                                        BorderBrush="LightBlue"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=short}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="SS" Background="Blue"
+                                                   Foreground="White"
+                                                   ToolTip="Short Position" VerticalAlignment="Center"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>
+                                        <TextBlock Text="{Binding ShortPosition}"
+                                                   ToolTip="Show pending short position"
+                                                   Margin="2, 1"/>
+                                    </StackPanel>
+                                </Border>
+                                <Image Source="{StaticResource exitDrawingImage}"    
+                                   ToolTip="Sell/Cover order is pending"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=outpending}" 
+                                   Width="21" Margin="2" />
+                                <Border CornerRadius="2"
+                                        BorderBrush="GreenYellow"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=sell}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="S" Background="Green"
+                                                   ToolTip="Closing long Position"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>
+                                        <TextBlock Text="{Binding LongPosition}"
+                                                   ToolTip="Show pending sell position"
+                                                   Margin="2, 1"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border CornerRadius="2"
+                                        BorderBrush="LightBlue"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=cover}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Vertical">
+                                        <TextBlock Text="C" Background="Blue"
+                                                   Foreground="White"
+                                                   ToolTip="Closing short position" VerticalAlignment="Center"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>
+                                        <TextBlock Text="{Binding ShortPosition}"
+                                                   ToolTip="Show pending cover position"
+                                                   Margin="2, 1"/>
+                                    </StackPanel>
+                                </Border>
+                                <Image Source="{StaticResource stopprofitDrawingImage}"    
+                                   ToolTip="Adaptive profit stop activated"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=stopprofit}" 
+                                   Width="21" Margin="2" />
+                                <Image Source="{StaticResource stoplossDrawingImage}"   
+                                   ToolTip="Stop loss activated"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=stoploss}" 
+                                   Width="21" Margin="2" />
+                                <Image Source="{StaticResource forceExitDrawingImage}"   
+                                   ToolTip="Force exit activated"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=forceexit}" 
+                                   Width="21" Margin="2" />
+                                <Image Source="{StaticResource profitDrawingImage}"   
+                                   ToolTip="Profit"
+                                   Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=profit}" 
+                                   Width="21" Margin="2" />
+                                <Border CornerRadius="2"
+                                        BorderBrush="GreenYellow"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=longprofit}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="L" Background="Green"
+                                                   ToolTip="Profit for long position"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>
+                                        <TextBlock ToolTip="Show profit for short position"
+                                                   Margin="2, 1">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource PricesToProfitConverter}" Mode="OneWay" ConverterParameter="long">
+                                                    <Binding Path="LongAvgPrice" />
+                                                    <Binding Path="CurPrice" />
+                                                    <Binding Path="." />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                                <Border CornerRadius="2"
+                                        BorderBrush="LightBlue"
+                                        BorderThickness="1"
+                                        VerticalAlignment="Center"
+                                        Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=shortprofit}"
+                                        Margin="0, 0, 2, 0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="SS" Background="Blue"
+                                                   Foreground="White"
+                                                   ToolTip="Profit for short position" VerticalAlignment="Center"  
+                                                   Margin="0, 1, 1, 1" Padding="1, 0"/>
+                                        <TextBlock ToolTip="Show profit for short position"
+                                                   Margin="2, 1">
+                                            <TextBlock.Text>
+                                                <MultiBinding Converter="{StaticResource PricesToProfitConverter}" Mode="OneWay" ConverterParameter="short">
+                                                    <Binding Path="ShortAvgPrice" />
+                                                    <Binding Path="CurPrice" />
+                                                    <Binding Path="." />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </DataTemplate>
-                
             </TreeView.Resources>
         </TreeView>
         <ScrollViewer Grid.Column="1" Grid.Row="0" Margin="5" Name="contentSV">
