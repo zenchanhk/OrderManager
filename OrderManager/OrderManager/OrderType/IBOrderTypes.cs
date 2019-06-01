@@ -39,6 +39,8 @@ namespace AmiBroker.OrderManager
         WAR=11,
         BAG=12
     }    
+
+    
 	public class GoodTime : INotifyPropertyChanged
     {
         public event PropertyChangedEventHandler PropertyChanged;
@@ -182,7 +184,7 @@ namespace AmiBroker.OrderManager
 	}
     public class IBOrderType : BaseOrderType
     {
-        public string Name { get; set; }
+        //public string Name { get; set; }
         public static string Broker { get; set; } = "Interactive Brokers Order";
 
         private bool _pTransmit = true;
@@ -371,6 +373,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             OrderType = OrderType.MarketIfTouched;
             Name = "Market If Touched";
+            RealPrices.Add("AuxPrice", 0);
         }
     }
 
@@ -424,6 +427,7 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.Limit;
             Name = "Limit Order";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 
@@ -453,6 +457,8 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.LimitIfTouched;
             Name = "Limit If Touched";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("AuxPrice", 0);
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 
@@ -473,6 +479,7 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.LimitOnClose;
             Name = "Limit On Close";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 
@@ -494,6 +501,7 @@ namespace AmiBroker.OrderManager
             Tif = TimeInForce.MarketOnOpen;
             Name = "Limit On Open";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 
@@ -546,6 +554,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             OrderType = OrderType.Stop;
             Name = "Stop Order";
+            RealPrices.Add("AuxPrice", 0);
         }
     }
 
@@ -574,6 +583,8 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.StopLimit;
             Name = "Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("AuxPrice", 0);
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 
@@ -590,6 +601,7 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.FUT);
             OrderType = OrderType.StopWithProtection;
             Name = "Stop with Protection";
+            RealPrices.Add("AuxPrice", 0);
         }
     }
 
@@ -616,6 +628,8 @@ namespace AmiBroker.OrderManager
             Products.Add(IBContractType.WAR);
             OrderType = OrderType.TrailingStop;
             Name = "Trailing Stop";
+            RealPrices.Add("TrailStopPrice", 0);
+            RealPrices.Add("TrailingPercent", 0);
         }
     }
 
@@ -650,6 +664,9 @@ namespace AmiBroker.OrderManager
             OrderType = OrderType.TrailingStopLimit;
             Name = "Trailing Stop Limit";
             Slippages = new ObservableCollection<CSlippage>();
+            RealPrices.Add("TrailStopPrice", 0);
+            RealPrices.Add("AuxPercent", 0);
+            RealPrices.Add("LmtPrice", 0);
         }
     }
 }

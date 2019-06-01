@@ -30,6 +30,9 @@
                     <CheckBox IsChecked="{Binding Transmit}" Margin="10,3,3,3" >
                         <TextBlock Text="Transmit immediately" />
                     </CheckBox>
+                    <CheckBox IsChecked="{Binding ReplaceAllowed}" Margin="10,3,3,3" >
+                        <TextBlock Text="Replace older pending order with new one" />
+                    </CheckBox>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <GroupBox HorizontalAlignment="Stretch">
                             <GroupBox.Header>
@@ -381,6 +384,12 @@
                                     MinValue="1" Increment="1" Margin="5, 0" Width="70"
                                     MaxValue="100" />
                     </StackPanel>
+                    <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" Orientation="Horizontal"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
+                        <TextBlock Text="Execution Priority:" />
+                        <controls:NumericUpDown Value="{Binding Priority}" Margin="5, 0" Width="70"
+                                                MaxValue="20" MinValue="1" Increment="1"/>
+                    </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" 
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"
                                 IsEnabled="{Binding DataContext.SelectedItem, ElementName=scriptTabView, 
@@ -444,6 +453,13 @@
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>-->
+                    <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3"
+                                Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}">
+                        <CheckBox IsChecked="{Binding OrderReplaceAllowed}" >
+                            <TextBlock Text="Allow new order to replace oldest pending order among strategies" />
+                        </CheckBox>
+                    </StackPanel>
+                    
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3">
                         <CheckBox IsChecked="{Binding ReverseSignalForcesExit}" >
                             <TextBlock Text="Reverse signal force exit" />

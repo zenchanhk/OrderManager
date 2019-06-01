@@ -37,6 +37,11 @@ namespace AmiBroker.Controllers
     public class AccountStatusOp
     {
         //private readonly static List<string> PendingStatus = ["PreSubmitted"];
+        private readonly static OrderAction[] ShortExitAction = { OrderAction.APSShort, OrderAction.FinalForceExitShort,
+            OrderAction.Cover, OrderAction.PreForceExitShort, OrderAction.StoplossShort };
+        private readonly static OrderAction[] LongExitAction = { OrderAction.APSLong, OrderAction.FinalForceExitLong,
+            OrderAction.Sell, OrderAction.PreForceExitLong, OrderAction.StoplossLong };
+
         public static void RevertActionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, string strategyName, OrderAction orderAction, bool cancelled = false)
         {
             if (orderAction == OrderAction.Buy)
@@ -226,34 +231,51 @@ namespace AmiBroker.Controllers
                 strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitShortActivated;                
             }
 
-            if (strategyStat.LongPosition == 0 && orderAction != OrderAction.Buy)
+            string msg = string.Empty;
+            if (strategyStat.LongPosition == 0 && LongExitAction.Contains(orderAction))
             {
+                /*
                 strategyStat.OrderInfos[OrderAction.APSLong].Clear();
                 strategyStat.OrderInfos[OrderAction.StoplossLong].Clear();
                 strategyStat.OrderInfos[OrderAction.Buy].Clear();
                 strategyStat.OrderInfos[OrderAction.Sell].Clear();
                 strategyStat.OrderInfos[OrderAction.PreForceExitLong].Clear();
-                strategyStat.OrderInfos[OrderAction.FinalForceExitLong].Clear();
+                strategyStat.OrderInfos[OrderAction.FinalForceExitLong].Clear();*/
                 scriptStat.LongStrategies.Remove(strategy.Name);
 
                 strategyStat.AccountStatus &= ~AccountStatus.Long;
                 strategy.ForceExitOrderForLong.Reset();
                 strategy.AdaptiveProfitStopforLong.Reset();
+
+                msg = "Long cleared, OrderAction:" + orderAction.ToString();
             }
 
-            if (strategyStat.ShortPosition == 0 && orderAction != OrderAction.Short)
+            if (strategyStat.ShortPosition == 0 && ShortExitAction.Contains(orderAction))
             {
+                /*
                 strategyStat.OrderInfos[OrderAction.APSShort].Clear();
                 strategyStat.OrderInfos[OrderAction.StoplossShort].Clear();
                 strategyStat.OrderInfos[OrderAction.Short].Clear();
                 strategyStat.OrderInfos[OrderAction.Cover].Clear();
                 strategyStat.OrderInfos[OrderAction.PreForceExitShort].Clear();
-                strategyStat.OrderInfos[OrderAction.FinalForceExitShort].Clear();
+                strategyStat.OrderInfos[OrderAction.FinalForceExitShort].Clear();*/
                 scriptStat.ShortStrategies.Remove(strategy.Name);
 
                 strategyStat.AccountStatus &= ~AccountStatus.Short;
                 strategy.ForceExitOrderForShort.Reset();
                 strategy.AdaptiveProfitStopforShort.Reset();
+
+                msg = "Short cleared, OrderAction:" + orderAction.ToString();
+            }
+
+            if (!string.IsNullOrEmpty(msg))
+            {
+                MainViewModel.Instance.Log(new Log
+                {
+                    Text = msg,
+                    Time = DateTime.Now,
+                    Source = strategy.Symbol.Name + "." + strategy.Name
+                });
             }
         }
         public static void SetAttemps(ref BaseStat strategyStat, OrderAction orderAction)

@@ -77,7 +77,8 @@ namespace AmiBroker.Controllers
     }
     public class IBController : IController, INotifyPropertyChanged
     {
-        private readonly object lockObj = new object();
+        private readonly object idLock = new object();
+        //private readonly object ibLock = new object();
         // there is one instance for one account, so lock should not be static
         //private readonly AsyncLock m_lock = new AsyncLock();
         private int OrderIdCount = 0;
@@ -346,13 +347,13 @@ namespace AmiBroker.Controllers
             }
         }
         private void Request()
-        { 
-            Client.RequestManagedAccts();            
-            Client.RequestAllOpenOrders();
-            Client.RequestAutoOpenOrders(true);
-            Client.RequestPositions();    // notify to swich reqAccountUpdates() to update portfolio
-            //Client.r(1, "All", AccountSummaryTags.GetAllTags());
-            //ClientSocket.reqAccountUpdates();            
+        {
+                Client.RequestManagedAccts();
+                Client.RequestAllOpenOrders();
+                Client.RequestAutoOpenOrders(true);
+                Client.RequestPositions();    // notify to swich reqAccountUpdates() to update portfolio
+                                              //Client.r(1, "All", AccountSummaryTags.GetAllTags());
+                                              //ClientSocket.reqAccountUpdates(); 
         }
 
         private void eh_Position(object sender, PositionEventArgs e)
@@ -360,7 +361,10 @@ namespace AmiBroker.Controllers
             // get portfolio data
            
             if (last_req_account != e.Account)
-                Client.RequestAccountUpdates(true, e.Account);
+            {
+                    Client.RequestAccountUpdates(true, e.Account);
+            }
+                
         }
         /// <summary>
         /// 
@@ -486,6 +490,7 @@ namespace AmiBroker.Controllers
 
                     orgLmtPrice = val;
                     order.LimitPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    orderType.RealPrices[fieldName] = val;
                     continue;
                 }
 
@@ -501,6 +506,7 @@ namespace AmiBroker.Controllers
                         val = strategy.CurrentPrices[str];
 
                     order.AuxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    orderType.RealPrices[fieldName] = val;
                     continue;
                 }
 
@@ -515,7 +521,8 @@ namespace AmiBroker.Controllers
                     else
                         val = strategy.CurrentPrices[str];
 
-                    order.AuxPrice =val;
+                    order.TrailingPercent = (double)val;
+                    orderType.RealPrices[fieldName] = val;
                     continue;
                 }
 
@@ -530,7 +537,8 @@ namespace AmiBroker.Controllers
                     else
                         val = strategy.CurrentPrices[str];
 
-                    order.AuxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    order.TrailStopPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                    orderType.RealPrices[fieldName] = val;
                     continue;
                 }
             }
@@ -628,7 +636,7 @@ namespace AmiBroker.Controllers
                     return false;
                 }
 
-                List<OrderInfo> orderInfos = strategy.AccountStat[accountInfo.Name].OrderInfos[orderAction].Where(x => x.BatchNo == oi.BatchNo).ToList();
+                IEnumerable<OrderInfo> orderInfos = strategy.AccountStat[accountInfo.Name].OrderInfos[orderAction].Where(x => x.BatchNo == oi.BatchNo);
             
                 // get all prices from new OrderType
                 decimal lmtPrice = -1;
@@ -652,7 +660,7 @@ namespace AmiBroker.Controllers
                         if (double.TryParse(str, out double d))
                             val = (decimal)d;
                         else
-                            continue;
+                            val = strategy.CurrentPrices[str];
 
                         lmtPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
                         continue;
@@ -667,7 +675,7 @@ namespace AmiBroker.Controllers
                         if (double.TryParse(str, out double d))
                             val = (decimal)d;
                         else
-                            continue;
+                            val = strategy.CurrentPrices[str];
 
                         auxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
                         continue;
@@ -682,7 +690,7 @@ namespace AmiBroker.Controllers
                         if (double.TryParse(str, out double d))
                             val = (decimal)d;
                         else
-                            continue;
+                            val = strategy.CurrentPrices[str];
 
                         trailingPercent = (double)(minTick != -1 ? TruncatePrice(val, minTick) : val);
                         continue;
@@ -697,7 +705,7 @@ namespace AmiBroker.Controllers
                         if (double.TryParse(str, out double d))
                             val = (decimal)d;
                         else
-                            continue;
+                            val = strategy.CurrentPrices[str];
 
                         trailStopPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
                         continue;
@@ -705,7 +713,7 @@ namespace AmiBroker.Controllers
                 }// END of update of order's prices
 
                 // The size of slippages of original and new must be equal
-                if (orderInfos.Count != orderType.Slippages.Count || oi.OrderType.Slippages.Count != orderType.Slippages.Count)
+                if (orderInfos.Count() != orderType.Slippages.Count || oi.OrderType.Slippages.Count != orderType.Slippages.Count)
                 {
                     mainVM.Log(new Log
                     {
@@ -716,10 +724,9 @@ namespace AmiBroker.Controllers
                     return false;
                 }
 
-                for (int i = 0; i < orderInfos.Count; i++)
-                {
-                    OrderInfo orderInfo = orderInfos[i];
-                    CSlippage slippage = orderType.Slippages[i];
+
+                foreach (var orderInfo in orderInfos)
+                {  
                     Order order = orderInfo.Order;
                     if (auxPrice > 0)
                         order.AuxPrice = auxPrice;
@@ -728,9 +735,18 @@ namespace AmiBroker.Controllers
                     if (trailStopPrice > 0)
                         order.TrailStopPrice = trailStopPrice;
                     if (lmtPrice > 0)
-                        order.LimitPrice = lmtPrice + minTick * slippage.Slippage;
+                    {
+                        if (order.Action == ActionSide.Buy)
+                            order.LimitPrice = lmtPrice + minTick * orderInfo.Slippage;
+                        if (order.Action == ActionSide.Sell)
+                            order.LimitPrice = lmtPrice - minTick * orderInfo.Slippage;
+                    }
+                        
                     Contract contract = orderInfo.Contract;                    
-                    Task.Run(() => Client.PlaceOrder(order.OrderId, contract, order));                    
+                    Task.Run(() => {
+                            Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
+                            orderInfo.Order = order; }
+                    );                    
                 }
 
                 mainVM.Log(new Log
@@ -775,7 +791,7 @@ namespace AmiBroker.Controllers
                 if (oi0 != null)
                 {
                     int oid = 0;
-                    lock (lockObj)
+                    lock (idLock)
                     {
                         oid = OrderIdCount++;
                         Client.PlaceOrder(oid, oi0.Contract, oi0.Order);
@@ -958,7 +974,7 @@ namespace AmiBroker.Controllers
                             if (!ConnParam.IsMulti)
                             {
                                 //using (await m_lock.LockAsync())
-                                lock(lockObj)
+                                lock(idLock)
                                 {
                                     orderId = OrderIdCount++;
                                     Client.PlaceOrder(orderId, contract, order);
@@ -970,7 +986,7 @@ namespace AmiBroker.Controllers
                             {
                                 // if multi instances are running, valid order id must be obtained from IB server
                                 // this will degrade the performance seriously
-                                orderId = await reqIdsAsync();
+                                orderId = await reqIdsAsync();   
                                 Client.PlaceOrder(orderId, contract, order);
                                 olog.RealOrderId = orderId;
                                 olog.OrderId = ConnParam.AccName + orderId;
@@ -1023,7 +1039,7 @@ namespace AmiBroker.Controllers
                         if (!ConnParam.IsMulti)
                         {
                             //using (await m_lock.LockAsync())
-                            lock (lockObj)
+                            lock (idLock)
                             {
                                 orderId = OrderIdCount++;
                                 Client.PlaceOrder(orderId, contract, order);
@@ -1090,7 +1106,7 @@ namespace AmiBroker.Controllers
         }
         public void CancelOrder(int orderId)
         {
-            Client.CancelOrder(orderId);
+                Client.CancelOrder(orderId);
         }
         public async Task<bool> CancelOrderAsync(int orderId)
         {
@@ -1508,8 +1524,8 @@ namespace AmiBroker.Controllers
                     BaseStat scriptStat = oi.Strategy.Script.AccountStat[oi.Account.Name];
                     string prevStatus = string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus));
                     // ignore future placed order error message
-                    if (!e.ErrorMsg.ToLower().Contains("until"))
-                        AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
+                    //if (!e.ErrorMsg.ToLower().Contains("until"))
+                    //    AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
                     Dispatcher.FromThread(OrderManager.UIThread).Invoke(() =>
                     {
                         mainVM.Log(new Log()

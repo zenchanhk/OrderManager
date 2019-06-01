@@ -818,6 +818,13 @@ namespace AmiBroker.OrderManager
         [JsonIgnore]
         public Dictionary<string, decimal> CurrentPosSize { get; } = new Dictionary<string, decimal>();
 
+        private int _pPriority = 1;
+        public int Priority
+        {
+            get { return _pPriority; }
+            set { _UpdateField(ref _pPriority, value); }
+        }
+
         // prices including AuxPrice, StopPrice and LmtPrice
         // store names of price from AFL script
         [JsonIgnore]
@@ -849,15 +856,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Sell;
                         double posSize = item.Value.LongPosition * Symbol.RoundLotSize;
 
-                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize).ContinueWith(
-                            result =>
-                            {
-                                // should be done in IBController.eh_OrderStatus()
-                                //item.Value.LongPosition = 0;
-                                //BaseStat status = AccountStat[item.Key];
-                                //AccountStatusOp.SetPositionStatus(ref status, orderAction);
-                            }
-                        );                        
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize);                       
                     }
 
                     if (item.Value.ShortPosition > 0
@@ -866,15 +865,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Cover;
                         double posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
 
-                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize).ContinueWith(
-                            result =>
-                            {
-                                // should be done in IBController.eh_OrderStatus()
-                                //item.Value.ShortPosition = 0;
-                                //BaseStat status = AccountStat[item.Key];
-                                //AccountStatusOp.SetPositionStatus(ref status, orderAction);
-                            }
-                        );
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize);
                     }
 
                     if ((item.Value.AccountStatus & AccountStatus.BuyPending) != 0)
@@ -1010,6 +1001,7 @@ namespace AmiBroker.OrderManager
             IsAPSAppliedforShort = strategy.IsAPSAppliedforShort;
             IsForcedExitForLong = strategy.IsForcedExitForLong;
             IsForcedExitForShort = strategy.IsForcedExitForShort;
+            
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -1088,12 +1080,14 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pBarsHandled, value); }
         }
 
-        private DateTime _pLastBarTime;
-        public DateTime LastBarTime
+        // allow new order to replace a pending order
+        private bool _pOrderReplaceAllowed = true;
+        public bool OrderReplaceAllowed
         {
-            get { return _pLastBarTime; }
-            set { _UpdateField(ref _pLastBarTime, value); }
+            get { return _pOrderReplaceAllowed; }
+            set { _UpdateField(ref _pOrderReplaceAllowed, value); }
         }
+
         [JsonIgnore]
         public ATAfl DayStart { get; set; } // reset LongAttemps and ShortAttemps
         public ObservableCollection<Strategy> Strategies { get; set; } = new ObservableCollection<Strategy>();
@@ -1102,11 +1096,7 @@ namespace AmiBroker.OrderManager
         public new bool IsEnabled
         {
             get { return _pIsEnabled; }
-            set {
-                foreach (var strategy in Strategies)
-                {
-                    strategy.IsEnabled = value;
-                }
+            set {               
                 _UpdateField(ref _pIsEnabled, value);
             }
         }

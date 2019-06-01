@@ -23,6 +23,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Management;
 using FastMember;
+using AmiBroker.OrderManager;
 
 namespace AmiBroker.Controllers
 {
@@ -172,7 +173,7 @@ namespace AmiBroker.Controllers
             return members.Any(x => x.Name == propName);
         }
 
-        public static object GetValueByName(object obj, string propName)
+        public static string GetValueByName(object obj, string propName)
         {
             Type type = obj.GetType();
             string name = type.FullName;
@@ -187,9 +188,56 @@ namespace AmiBroker.Controllers
             }
             MemberSet members = accessor.GetMembers();
             if (members.Any(x => x.Name == propName))
-                return accessor[obj, propName];
+                return (string)accessor[obj, propName];
             else
                 return null;
+        }
+
+        public static List<string> GetValueByName(object obj, string[] propNames)
+        {
+            Type type = obj.GetType();
+            string name = type.FullName;
+            TypeAccessor accessor = null;
+            if (_accessors.ContainsKey(name))
+                accessor = _accessors[name];
+            else
+            {
+                TypeAccessor ta = TypeAccessor.Create(type);
+                _accessors.Add(name, ta);
+                accessor = ta;
+            }
+            MemberSet members = accessor.GetMembers();
+            List<string> result = new List<string>();
+            foreach (string propName in propNames)
+            {
+                if (members.Any(x => x.Name == propName))
+                    result.Add((string)accessor[obj, propName]);
+                else
+                    result.Add(null);
+            }
+            return result;
+        }
+
+        public static decimal GetPriceByName(Strategy s, string name)
+        {
+            decimal d = 0;
+            if (!decimal.TryParse(name, out d))
+                d = s.CurrentPrices[name];
+            return d;
+        }
+
+        public static List<decimal> GetPriceByName(Strategy s, List<string> names)
+        {
+            List<decimal> result = new List<decimal>();
+            decimal d = 0;
+            foreach (var name in names)
+            {
+                if (decimal.TryParse(name, out d))
+                    result.Add(d);
+                else
+                    result.Add(s.CurrentPrices[name]);
+            }
+            return result;
         }
     }
     public static class StringExt
@@ -353,6 +401,7 @@ namespace AmiBroker.Controllers
             List<string> lines = new List<string>();
             StringBuilder sb = new StringBuilder();
             PropertyInfo[] propertyInfos = null;
+            char separator = ';';
             if (listView.Items.Count > 0)
             {
                 object item = listView.Items[0];
@@ -369,15 +418,25 @@ namespace AmiBroker.Controllers
                     {
                         for (int i = 0; i < propertyInfos.Length; i++)
                         {
-                            sb.Append(propertyInfos[i].Name + ",");
+                            sb.Append(propertyInfos[i].Name + separator);
                         }
                         lines.Add(sb.ToString());
                         sb.Clear();
                     }
                     for (int i = 0; i < propertyInfos.Length; i++)
                     {
-                        
-                        sb.Append(propertyInfos[i].GetValue(it)?.ToString() + ",");                        
+                        var val = propertyInfos[i].GetValue(it);
+                        if (val != null)
+                        {
+                            if (val.GetType() == typeof(DateTime))
+                                sb.Append(((DateTime)val).ToString("dd/MMM/yyyy HH:mm:ss.fff") + separator);
+                            else
+                                sb.Append(propertyInfos[i].GetValue(it)?.ToString() + separator);
+                        }
+                        else
+                        {
+                            sb.Append(separator);
+                        }
                     }
                     lines.Add(sb.ToString());
                     sb.Clear();

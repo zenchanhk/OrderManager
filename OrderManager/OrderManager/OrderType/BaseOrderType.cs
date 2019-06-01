@@ -419,7 +419,7 @@ namespace AmiBroker.OrderManager
                 handler(this, new PropertyChangedEventArgs(name));
             }
         }
-        string Name { get; set; }   // Should be unique globally
+        public string Name { get; set; }   // Should be unique globally
 
         [Category("Miscellaneous")]
         [DisplayName("Position Size")]
@@ -456,10 +456,12 @@ namespace AmiBroker.OrderManager
                 GoodAfterTime.TimeZone = value;
             }
         }
+        public bool ReplaceAllowed { get; set; } = true;
         public GoodTime GoodTilDate { get; set; } = new GoodTime();
         public GoodTime GoodAfterTime { get; set; } = new GoodTime();  // yyyyMMdd HH:mm:ss
         public ObservableCollection<CSlippage> Slippages { get; set; }
-
+        [JsonIgnore]
+        public Dictionary<string, decimal> RealPrices { get; } = new Dictionary<string, decimal>();
         public BaseOrderType()
         {
             GoodAfterTime.DateTimeFormat = DateTimeFormat;

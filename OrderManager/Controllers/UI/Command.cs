@@ -891,7 +891,48 @@ namespace AmiBroker.Controllers
 
         public void Execute(object item)
         {
-            if (item != null) ((dynamic)item).IsEnabled = !((dynamic)item).IsEnabled;
+            if (item != null)
+            {
+                if (item.GetType() == typeof(Strategy))
+                    ((dynamic)item).IsEnabled = !((dynamic)item).IsEnabled;
+                else
+                {
+                    MessageBoxResult result = MessageBox.Show("Would you like to enable/disable the sub-items?",
+                        "Question", MessageBoxButton.YesNoCancel, MessageBoxImage.Question, MessageBoxResult.No);
+                    switch (result)
+                    {
+                        case MessageBoxResult.Cancel:
+                            return;
+                        case MessageBoxResult.No:
+                            ((dynamic)item).IsEnabled = !((dynamic)item).IsEnabled;
+                            break;
+                        case MessageBoxResult.Yes:
+                            if (item.GetType() == typeof(SymbolInAction))
+                            {
+                                SymbolInAction symbol = item as SymbolInAction;
+                                symbol.IsEnabled = !symbol.IsEnabled;
+                                foreach (var script in symbol.Scripts)
+                                {
+                                    script.IsEnabled = symbol.IsEnabled;
+                                    foreach (var strategy in script.Strategies)
+                                    {
+                                        strategy.IsEnabled = symbol.IsEnabled;
+                                    }
+                                }
+                            }
+                            if (item.GetType() == typeof(Script))
+                            {
+                                Script script = item as Script;
+                                script.IsEnabled = !script.IsEnabled;
+                                foreach (var strategy in script.Strategies)
+                                {
+                                    strategy.IsEnabled = script.IsEnabled;
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
         }
     }
     public class RestoreLayout : ICommand
