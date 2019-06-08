@@ -663,6 +663,7 @@ namespace AmiBroker.Controllers
                             val = strategy.CurrentPrices[str];
 
                         lmtPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        orderType.RealPrices[fieldName] = val;
                         continue;
                     }
 
@@ -678,6 +679,7 @@ namespace AmiBroker.Controllers
                             val = strategy.CurrentPrices[str];
 
                         auxPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        orderType.RealPrices[fieldName] = val;
                         continue;
                     }
 
@@ -693,6 +695,7 @@ namespace AmiBroker.Controllers
                             val = strategy.CurrentPrices[str];
 
                         trailingPercent = (double)(minTick != -1 ? TruncatePrice(val, minTick) : val);
+                        orderType.RealPrices[fieldName] = val;
                         continue;
                     }
 
@@ -708,6 +711,7 @@ namespace AmiBroker.Controllers
                             val = strategy.CurrentPrices[str];
 
                         trailStopPrice = minTick != -1 ? TruncatePrice(val, minTick) : val;
+                        orderType.RealPrices[fieldName] = val;
                         continue;
                     }
                 }// END of update of order's prices
@@ -737,15 +741,20 @@ namespace AmiBroker.Controllers
                     if (lmtPrice > 0)
                     {
                         if (order.Action == ActionSide.Buy)
-                            order.LimitPrice = lmtPrice + minTick * orderInfo.Slippage;
+                            order.LimitPrice = lmtPrice + minTick * orderInfo.OrderLog.Slippage;
                         if (order.Action == ActionSide.Sell)
-                            order.LimitPrice = lmtPrice - minTick * orderInfo.Slippage;
+                            order.LimitPrice = lmtPrice - minTick * orderInfo.OrderLog.Slippage;
                     }
-                        
+
+                    // re-calc the quantity to prevent partially filled order being modified with original quantity
+                    order.TotalQuantity = (oi.OrderLog.PosSize - (int)oi.Filled) * oi.Strategy.Symbol.RoundLotSize;
                     Contract contract = orderInfo.Contract;                    
                     Task.Run(() => {
-                            Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
-                            orderInfo.Order = order; }
+                        Client.PlaceOrder(orderInfo.RealOrderId, contract, order);
+                        orderInfo.Order = order;
+                        orderInfo.OrderType = orderType;
+                        orderInfo.PlacedTime = DateTime.Now;
+                    }
                     );                    
                 }
 
@@ -764,6 +773,72 @@ namespace AmiBroker.Controllers
                 return false;
             }
         }
+        
+        // Modify incompleted order as Market Order
+        public bool ModifyOrder(OrderInfo oi)
+        {
+            try
+            {
+                IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Where(x => x.BatchNo == oi.BatchNo);
+
+                int quantity = 0;
+                foreach (var orderInfo in orderInfos)
+                {
+                    if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
+                    {
+                        quantity += orderInfo.OrderStatus != null ? (int)orderInfo.OrderStatus.Remaining :
+                                orderInfo.OrderLog.PosSize * orderInfo.Strategy.Symbol.RoundLotSize;
+                    }
+                }
+
+                Order order = oi.Order.CloneObject();
+                order.TotalQuantity = quantity;
+                order.OrderType = OrderType.Market;
+
+                Task.Run(() => {
+                    int id = 0;
+                    OrderLog olog = oi.OrderLog.CloneObject();
+                    lock (idLock)
+                    {
+                        id = this.OrderIdCount++;
+
+                        // update orderlog with new property values
+                        olog.OrderId = ConnParam.AccName + id;
+                        olog.RealOrderId = id;
+                        olog.OrderSentTime = DateTime.Now;
+                        olog.PosSize = quantity / oi.Strategy.Symbol.RoundLotSize;
+
+                        OrderInfo info = new OrderInfo
+                        {
+                            RealOrderId = id,
+                            OrderId = olog.OrderId,
+                            BatchNo = OrderManager.BatchNo,
+                            Strategy = oi.Strategy,
+                            Account = oi.Account,
+                            OrderAction = oi.OrderAction,
+                            Contract = oi.Contract,
+                            Order = order,
+                            OrderType = oi.OrderType,
+                            OrderLog = olog
+                        };
+
+                        OrderManager.AddBatchPosSize(oi.Account.Name + info.BatchNo, id, quantity / oi.Strategy.Symbol.RoundLotSize);
+                        oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction].Add(info);
+                        mainVM.OrderInfoList.Add(olog.OrderId, info);
+
+                        Client.PlaceOrder(id, oi.Contract, order);
+                    }
+                }
+                );
+                return true;
+            }
+            catch (Exception ex)
+            {
+                GlobalExceptionHandler.HandleException("IBController.ModifyOrder(as Market)", ex);
+                return false;
+            }
+            
+        }
         // modify the price to conform to minTick requirement
         private decimal TruncatePrice(decimal price, decimal minTick, PriceAlignDirection priceAlign = PriceAlignDirection.Floor)
         {
@@ -780,11 +855,12 @@ namespace AmiBroker.Controllers
         /// TODO:
         /// 
         public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
-            OrderAction orderAction, int batchNo, OrderInfo oi0 = null, double? posSize = null, Contract security = null,
+            OrderAction orderAction, int batchNo, double? posSize = null, Contract security = null,
             bool errorSuppressed = false, bool addToInfoList = true)
         {
             try
-            {                
+            {        
+                /*
                 // When a long position opened, 
                 // If there is a future short order, position size must be added for reverse exit
                 // oi saves the short order info
@@ -806,16 +882,16 @@ namespace AmiBroker.Controllers
                     if (strategy != null && addToInfoList)
                     {
                         OrderInfo oi1 = oi0.CloneObject();
-                        oi1.IsReversedOrder = true;
                         MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi1);
+                        oi0.Strategy.AccountStat[oi0.Account.Name].OrderInfos[oi0.OrderAction].Add(oi1);
                     }
 
                     List<OrderLog> logs = new List<OrderLog>();
                     logs.Add(olog);
                     return logs;
-                }
+                }*/
 
-                OrderLog orderLog = new OrderLog();
+                
                 string message = string.Empty;
                 Order order = new Order();
                 // original limit price
@@ -836,7 +912,8 @@ namespace AmiBroker.Controllers
                     order.OutsideRth = strategy == null ? true : strategy.OutsideRTH;
                     Orders.Add(batchNo, order);
                 }
-                
+
+                OrderLog orderLog = new OrderLog();
                 orderLog.Error = message;
                 if (message != string.Empty && !errorSuppressed)
                 {
@@ -969,29 +1046,7 @@ namespace AmiBroker.Controllers
                                 order.LimitPrice = _orgLmtP - slippage.Slippage * strategy.Symbol.MinTick;
                             }
 
-                            // sent order
-                            int orderId = 0;
-                            if (!ConnParam.IsMulti)
-                            {
-                                //using (await m_lock.LockAsync())
-                                lock(idLock)
-                                {
-                                    orderId = OrderIdCount++;
-                                    Client.PlaceOrder(orderId, contract, order);
-                                    olog.RealOrderId = orderId;
-                                    olog.OrderId = ConnParam.AccName + orderId;
-                                }
-                            }
-                            else
-                            {
-                                // if multi instances are running, valid order id must be obtained from IB server
-                                // this will degrade the performance seriously
-                                orderId = await reqIdsAsync();   
-                                Client.PlaceOrder(orderId, contract, order);
-                                olog.RealOrderId = orderId;
-                                olog.OrderId = ConnParam.AccName + orderId;
-                            }
-
+                            // update OrderLog
                             olog.OrgPrice = orgLmtPrice;
                             olog.LmtPrice = order.LimitPrice;
                             olog.AuxPrice = order.AuxPrice;
@@ -1003,28 +1058,77 @@ namespace AmiBroker.Controllers
                             // add to orderLogs as return value
                             orderLogs.Add(olog);
 
-                            // add into list immediately to prevent from adding later than error hanlding,
-                            // which leads to order status cannot be reverted as expected
-                            if (strategy != null && addToInfoList)
+                            // sent order
+                            int orderId = 0;
+                            if (!ConnParam.IsMulti)
                             {
-                                OrderInfo oi = new OrderInfo
+                                //using (await m_lock.LockAsync())
+                                lock(idLock)
                                 {
-                                    RealOrderId = olog.RealOrderId,
-                                    OrderId = olog.OrderId,
-                                    BatchNo = batchNo,
-                                    Strategy = strategy,
-                                    Account = accountInfo,
-                                    OrderAction = orderAction,
-                                    PosSize = olog.PosSize,
-                                    Slippage = (int)olog.Slippage,
-                                    PlacedTime = olog.OrderSentTime,
-                                    Contract = contract,
-                                    Order = order,
-                                    OrderType = orderType
-                                };
-                                MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi);
+                                    orderId = OrderIdCount++;
+                                    
+                                    olog.RealOrderId = orderId;
+                                    olog.OrderId = ConnParam.AccName + orderId;
+
+                                    // add into list immediately to prevent from adding later than error hanlding,
+                                    // which leads to order status cannot be reverted as expected
+                                    if (strategy != null && addToInfoList)
+                                    {
+                                        OrderInfo oi = new OrderInfo
+                                        {
+                                            RealOrderId = olog.RealOrderId,
+                                            OrderId = olog.OrderId,
+                                            BatchNo = batchNo,
+                                            Strategy = strategy,
+                                            Account = accountInfo,
+                                            OrderAction = orderAction,
+                                            //TotalPosSize = ttlPosSize,
+                                            Contract = contract,
+                                            Order = order,
+                                            OrderType = orderType,
+                                            OrderLog = olog
+                                        };
+                                        OrderManager.AddBatchPosSize(accountInfo.Name + oi.BatchNo, olog.RealOrderId, olog.PosSize);
+                                        MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi);
+                                    }
+
+                                    // place order
+                                    Client.PlaceOrder(orderId, contract, order);
+                                }
                             }
-                            
+                            else
+                            {
+                                // if multi instances are running, valid order id must be obtained from IB server
+                                // this will degrade the performance seriously
+                                orderId = await reqIdsAsync();   
+                                
+                                olog.RealOrderId = orderId;
+                                olog.OrderId = ConnParam.AccName + orderId;
+
+                                // add into list immediately to prevent from adding later than error hanlding,
+                                // which leads to order status cannot be reverted as expected
+                                if (strategy != null && addToInfoList)
+                                {
+                                    OrderInfo oi = new OrderInfo
+                                    {
+                                        RealOrderId = olog.RealOrderId,
+                                        OrderId = olog.OrderId,
+                                        BatchNo = batchNo,
+                                        Strategy = strategy,
+                                        Account = accountInfo,
+                                        OrderAction = orderAction,
+                                        //TotalPosSize = ttlPosSize,
+                                        Contract = contract,
+                                        Order = order,
+                                        OrderType = orderType,
+                                        OrderLog = olog
+                                    };
+                                    OrderManager.AddBatchPosSize(accountInfo.Name + oi.BatchNo, olog.RealOrderId, olog.PosSize);
+                                    MainViewModel.Instance.OrderInfoList.Add(olog.OrderId, oi);
+                                }
+
+                                Client.PlaceOrder(orderId, contract, order);
+                            }
                         }
                     }
                     else
@@ -1036,15 +1140,44 @@ namespace AmiBroker.Controllers
                         else
                             order.TotalQuantity = (int)orderType.TotalQuantity;
 
+                        // update OrderLog
+                        orderLog.OrderSentTime = DateTime.Now;
+                        // strategy.PosSize cannot be used here because PosSize may not equal to that number.
+                        orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : order.TotalQuantity;
+                        orderLogs.Add(orderLog);
+
                         if (!ConnParam.IsMulti)
                         {
                             //using (await m_lock.LockAsync())
                             lock (idLock)
                             {
                                 orderId = OrderIdCount++;
-                                Client.PlaceOrder(orderId, contract, order);
+                                
                                 orderLog.RealOrderId = orderId;
                                 orderLog.OrderId = ConnParam.AccName + orderId;
+
+                                // add into list immediately to prevent from adding later than error hanlding,
+                                // which leads to order status cannot be reverted as expected
+                                if (strategy != null && addToInfoList)
+                                {
+                                    OrderInfo oi = new OrderInfo
+                                    {
+                                        RealOrderId = orderLog.RealOrderId,
+                                        OrderId = orderLog.OrderId,
+                                        BatchNo = batchNo,
+                                        Strategy = strategy,
+                                        Account = accountInfo,
+                                        OrderAction = orderAction,
+                                        Contract = contract,
+                                        Order = order,
+                                        OrderType = orderType,
+                                        OrderLog = orderLog
+                                    };
+                                    OrderManager.AddBatchPosSize(accountInfo.Name + oi.BatchNo, orderLog.RealOrderId, orderLog.PosSize);
+                                    MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
+                                }
+
+                                Client.PlaceOrder(orderId, contract, order);
                             }
                         }
                         else
@@ -1052,37 +1185,34 @@ namespace AmiBroker.Controllers
                             // if multi instances are running, valid order id must be obtained from IB server
                             // this will degrade the performance seriously
                             orderId = await reqIdsAsync();
-                            Client.PlaceOrder(orderId, contract, order);
+                            
                             orderLog.RealOrderId = orderId;
                             orderLog.OrderId = ConnParam.AccName + orderId;
-                        }
-                        orderLog.OrderSentTime = DateTime.Now;
-                        // strategy.PosSize cannot be used here because PosSize may not equal to that number.
-                        orderLog.PosSize = strategy != null ? (int)(order.TotalQuantity / strategy.Symbol.RoundLotSize) : order.TotalQuantity;
-                        orderLog.Slippage = null;
-                        orderLogs.Add(orderLog);
 
-                        // add into list immediately to prevent from adding later than error hanlding,
-                        // which leads to order status cannot be reverted as expected
-                        if (strategy != null && addToInfoList)
-                        {
-                            OrderInfo oi = new OrderInfo
+                            // add into list immediately to prevent from adding later than error hanlding,
+                            // which leads to order status cannot be reverted as expected
+                            if (strategy != null && addToInfoList)
                             {
-                                RealOrderId = orderLog.RealOrderId,
-                                OrderId = orderLog.OrderId,
-                                BatchNo = batchNo,
-                                Strategy = strategy,
-                                Account = accountInfo,
-                                OrderAction = orderAction,
-                                PosSize = orderLog.PosSize,
-                                Slippage = orderLog.Slippage != null ? (int)orderLog.Slippage : 0,
-                                PlacedTime = orderLog.OrderSentTime,
-                                Contract = contract,
-                                Order = order,
-                                OrderType = orderType
-                            };
-                            MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
+                                OrderInfo oi = new OrderInfo
+                                {
+                                    RealOrderId = orderLog.RealOrderId,
+                                    OrderId = orderLog.OrderId,
+                                    BatchNo = batchNo,
+                                    Strategy = strategy,
+                                    Account = accountInfo,
+                                    OrderAction = orderAction,
+                                    Contract = contract,
+                                    Order = order,
+                                    OrderType = orderType,
+                                    OrderLog = orderLog
+                                };
+                                OrderManager.AddBatchPosSize(accountInfo.Name + oi.BatchNo, orderLog.RealOrderId, orderLog.PosSize);
+                                MainViewModel.Instance.OrderInfoList.Add(orderLog.OrderId, oi);
+                            }
+
+                            Client.PlaceOrder(orderId, contract, order);
                         }
+
                         
                     }
 
@@ -1126,6 +1256,58 @@ namespace AmiBroker.Controllers
                 },
                 CancellationToken.None, orderId);
                 return c;
+            }
+            catch (Exception ex)
+            {
+                //throw ex;
+                GlobalExceptionHandler.HandleException("IBControler.CancelOrderAsync", ex);
+                return false;
+            }
+        }
+
+        //
+        // cancel orders with same batch no
+        //
+        public async Task<bool> CancelOrdersAsync(OrderInfo oi)
+        {
+            try
+            {
+                IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction]
+                    .Where(x => x.BatchNo == oi.BatchNo);
+                foreach (var orderInfo in orderInfos)
+                {
+                    if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
+                    {
+                        await CancelOrderAsync(orderInfo.RealOrderId);
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                //throw ex;
+                GlobalExceptionHandler.HandleException("IBControler.CancelOrderAsync", ex);
+                return false;
+            }
+        }
+
+        //
+        // cancel orders with same batch no
+        //
+        public bool CancelOrders(OrderInfo oi)
+        {
+            try
+            {
+                IEnumerable<OrderInfo> orderInfos = oi.Strategy.AccountStat[oi.Account.Name].OrderInfos[oi.OrderAction]
+                    .Where(x => x.BatchNo == oi.BatchNo);
+                foreach (var orderInfo in orderInfos)
+                {
+                    if ((orderInfo.OrderStatus != null && orderInfo.OrderStatus.Remaining > 0) || orderInfo.OrderStatus == null)
+                    {
+                        Client.CancelOrder(orderInfo.RealOrderId);
+                    }
+                }
+                return true;
             }
             catch (Exception ex)
             {
@@ -1255,7 +1437,7 @@ namespace AmiBroker.Controllers
                         Strategy strategy = oi.Strategy;
                         if (strategy != null)
                             dOrder.Strategy = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
-                                            + "." + oi.Slippage;
+                                            + "." + oi.OrderLog.Slippage;
 
                     }
                     mainVM.Orders.Insert(0, dOrder);
@@ -1306,6 +1488,48 @@ namespace AmiBroker.Controllers
                 if (dOrder != null)
                 {
                     OrderInfo oi = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId];
+                    
+                    // prevent duplicated order status
+                    DisplayedOrder displayedOrder = mainVM.UpdatedOrders.LastOrDefault(x => x.Filled == dOrder.Filled &&
+                                                          x.RealOrderId == e.OrderId && 
+                                                          x.Remaining == dOrder.Remaining);
+
+                    // in case partially filled order canceled, PartiallyFilled and Canceled will be issued with same filled and remaining
+                    bool duplicatedFound = false;
+
+                    if (displayedOrder != null)
+                    {
+                        if (displayedOrder.Status == OrderStatus.PreSubmitted)
+                        {
+                            Order o = mainVM.OrderInfoList[ConnParam.AccName + e.OrderId].Order;
+                            dOrder.StopPrice = o.AuxPrice;
+                            dOrder.LmtPrice = o.LimitPrice;
+                        }
+                        // previous status: partially filled
+                        // current status: canceled
+                        // will result in same filled and canceled amount
+                        // need flaggin here
+                        if (displayedOrder.Status != e.Status && (e.Status == OrderStatus.ApiCancelled || e.Status == OrderStatus.Canceled)
+                            && (dOrder.Status == OrderStatus.PartiallyFilled || dOrder.Status == OrderStatus.Filled))
+                        {
+                            duplicatedFound = true;
+                            mainVM.UpdatedOrders.Add(dOrder);
+                        }                            
+                        else
+                        {
+                            mainVM.MinorLog(new Log()
+                            {
+                                Text = string.Format("Duplicated order status found for order Id: {0:0}, filled: {0:1}, remaining: {0:2}, current status:{3}, previous status:{4}",
+                                                e.OrderId, e.Filled, e.Remaining, e.Status, displayedOrder.Status),
+                                Source = "IB API(order status event)",
+                                Time = DateTime.Now
+                            });
+                            return;
+                        }                        
+                    }
+                    else
+                        mainVM.UpdatedOrders.Add(dOrder);
+
                     oi.OrderStatus = dOrder;
                     BaseStat strategyStat = oi.Strategy.AccountStat[oi.Account.Name];
                     Script script = oi.Strategy.Script;
@@ -1313,7 +1537,7 @@ namespace AmiBroker.Controllers
                     AdaptiveProfitStop apsLong = oi.Strategy.AdaptiveProfitStopforLong;
                     AdaptiveProfitStop apsShort = oi.Strategy.AdaptiveProfitStopforShort;
                     BaseStat scriptStat = script.AccountStat[oi.Account.Name];
-                    dOrder.PlacedTime = oi.PlacedTime;
+                    dOrder.PlacedTime = oi.OrderLog.OrderSentTime;
                     switch (dOrder.Status)
                     {
                         case OrderStatus.PendingSubmit:
@@ -1322,13 +1546,25 @@ namespace AmiBroker.Controllers
                             break;
                         case OrderStatus.ApiCancelled:
                         case OrderStatus.Canceled:
-                            AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction, true);
-                            break;
                         case OrderStatus.Filled:
                         case OrderStatus.PartiallyFilled:
                             int filled = (int)Math.Round(dOrder.Filled / script.Symbol.RoundLotSize, 0);   
                             int remaining = (int)Math.Round(dOrder.Remaining / script.Symbol.RoundLotSize, 0);
-                            if (oi.PosSize - oi.Filled > remaining)
+                            
+                            // update batch PosSize
+                            if (dOrder.Status == OrderStatus.ApiCancelled || dOrder.Status == OrderStatus.Canceled)
+                            {
+                                // if duplicated found, only remaining will be passed as canceled amount
+                                // since filled has been passed when PartiallyFilled issued
+                                if (duplicatedFound)
+                                    OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, 0, 0, remaining);
+                                else
+                                    OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, 0, remaining);
+                            }                                
+                            else
+                                OrderManager.AddBatchPosSize(oi.Account.Name + oi.BatchNo, oi.RealOrderId, 0, filled, remaining);
+
+                            if (oi.OrderLog.PosSize - oi.Filled > remaining && !duplicatedFound)
                             {
                                 oi.Filled += filled;
                                 if (oi.OrderAction == OrderAction.Buy)
@@ -1455,11 +1691,17 @@ namespace AmiBroker.Controllers
                                     strategyStat.ShortPosition -= filled;
                                     scriptStat.ShortPosition -= filled;
                                 }
-                                AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, oi.OrderAction);
-                                AccountStatusOp.SetPositionStatus(ref strategyStat, ref scriptStat, ref strategy, oi.OrderAction);
-                            }                            
+                                
+                                // Update Account Status
+                                if (dOrder.Status == OrderStatus.Filled || dOrder.Status == OrderStatus.PartiallyFilled)
+                                    AccountStatusOp.SetPositionStatus(ref strategyStat, ref scriptStat, ref strategy, oi.OrderAction, oi.BatchNo, oi);
+                            }
+
+                            // update account status if canceled
+                            if (dOrder.Status == OrderStatus.ApiCancelled || dOrder.Status == OrderStatus.Canceled)
+                                AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, ref strategy, oi.OrderAction, oi.BatchNo, true);
                             break;
-                    }
+                    }                    
                 }                    
             }
             else
@@ -1533,7 +1775,7 @@ namespace AmiBroker.Controllers
                             Time = DateTime.Now,
                             Text = e.ErrorMsg + "(OrderId:" + oi.OrderId + ", previous status:[" + prevStatus
                             + "], current status:[" + string.Join(",", Helper.TranslateAccountStatus(strategyStat.AccountStatus)) + "])",
-                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage
+                            Source = oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage
                         });
                     });
                 }
@@ -1545,7 +1787,7 @@ namespace AmiBroker.Controllers
                         {
                             Time = DateTime.Now,
                             Text = e.ErrorMsg + "(OrderId:" + oi.OrderId + ", error: account status not found)",
-                            Source = oi.Strategy != null ? oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.Slippage : "Source not found, may be issued mannually."
+                            Source = oi.Strategy != null ? oi.Strategy.Script.Symbol.Name + "." + oi.Strategy.Name + "." + oi.OrderLog.Slippage : "Source not found, may be issued mannually."
                         });
                     });
                 }
@@ -1635,7 +1877,7 @@ namespace AmiBroker.Controllers
             strategy.BuyOrderTypes.Add(orderType);
             int bn = OrderManager.BatchNo;
             
-            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, bn, null, null, null, true, false);
+            await PlaceOrder(Accounts[0], strategy, orderType, OrderAction.Buy, bn, null, null, true, false);
             Log log1 = new Log { Time = DateTime.Now, Text = "Faked order1 placed." };
             mainVM.Log(log1);
             //Client.CancelOrder(ol1.OrderId);

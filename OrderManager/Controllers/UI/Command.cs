@@ -85,7 +85,7 @@ namespace AmiBroker.Controllers
                 if (mainVM.OrderInfoList.ContainsKey(order.OrderId))
                 {
                     OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
-                    if (oi.Filled == oi.PosSize)
+                    if (oi.Filled == oi.OrderLog.PosSize)
                         return false;
                 }                    
             }
@@ -1115,7 +1115,7 @@ namespace AmiBroker.Controllers
                                           MessageBoxButton.YesNo,
                                           MessageBoxImage.Warning, MessageBoxResult.No);
                 OrderInfo oi = mainVM.OrderInfoList[order.OrderId];
-                if (oi.Filled == oi.PosSize)
+                if (oi.Filled == oi.OrderLog.PosSize)
                 {
                     MessageBox.Show(string.Format("This order {0} has been filled, failed to cancel", order.OrderId),
                                           "Error",
@@ -1150,9 +1150,9 @@ namespace AmiBroker.Controllers
             {             
                 try
                 {
-                    bool result = await controller.CancelOrderAsync(order.RealOrderId);
-                    if (!result)
-                        MessageBox.Show("Cancel order failed", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    controller.CancelOrder(order.RealOrderId);
+                    //if (!result)
+                    //    MessageBox.Show("Cancel order failed", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 catch (Exception ex)
                 {
@@ -1228,14 +1228,14 @@ namespace AmiBroker.Controllers
                     for (int i = 0; i <= (int)(Math.Abs(symbol.Position) / symbolInAction.MaxOrderSize); i++)
                     {
                         orderType.TotalQuantity = Math.Min(symbolInAction.MaxOrderSize, Math.Abs(symbol.Position) - symbolInAction.MaxOrderSize * i);
-                        controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, null, Math.Abs(symbol.Position), symbol.Contract);
+                        controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(symbol.Position), symbol.Contract);
                         if (Math.Abs(symbol.Position) <= symbolInAction.MaxOrderSize * (i + 1)) break;
                     }
                 }
                 else
                 {
                     orderType.TotalQuantity = Math.Abs(symbol.Position);
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, null, Math.Abs(symbol.Position), symbol.Contract);
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(symbol.Position), symbol.Contract);
                 }
 
                 // reset all AccoutStat under that symbol
@@ -1298,7 +1298,7 @@ namespace AmiBroker.Controllers
                     if (symbol.Position > 0) orderAction = OrderAction.Sell;
                     if (symbol.Position < 0) orderAction = OrderAction.Cover;
                     int bn = OrderManager.BatchNo;
-                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, null, Math.Abs(symbol.Position), symbol.Contract);
+                    controller.PlaceOrder(accountInfo, null, orderType, orderAction, bn, Math.Abs(symbol.Position), symbol.Contract);
                 }
                 foreach (SymbolInAction symbol in mainVM.SymbolInActions)
                 {

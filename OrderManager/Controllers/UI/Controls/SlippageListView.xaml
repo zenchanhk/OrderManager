@@ -36,6 +36,13 @@
                                                 />
                     </StackPanel>
                 </Button>
+                <Button Name="btnDelAll" Height="20" Width="20" Margin="0,2" Click="BtnDelAll_Click">
+                    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <controls:AutoGreyableImage Source="{StaticResource clearDrawingImage}" Width="17"
+                                                    Margin="0"
+                                                />
+                    </StackPanel>
+                </Button>
             </StackPanel>
             <ListView Name="lv" ItemsSource="{Binding ItemsSource, ElementName=slippageLV}">
                 <ListView.View>

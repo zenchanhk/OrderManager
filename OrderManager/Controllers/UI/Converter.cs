@@ -752,7 +752,8 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("definitionDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "DisplayName") != null)
                     return oit.FindResource("vendorDrawingImage");
-                if (item.Children.FirstOrDefault(x => x.Name == "Slippage") != null)
+                if (item.Children.FirstOrDefault(x => x.Name == "Slippage") != null ||
+                    item.Children.FirstOrDefault(x => x.Name == "Slippages") != null)
                     return oit.FindResource("OrderTypeDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "Controller") != null)
                     return oit.FindResource("accountDrawingImage");
@@ -764,6 +765,8 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("accountDrawingImage");
                 if (item.Children.FirstOrDefault(x => x.Name == "ProfitTarget") != null)
                     return oit.FindResource("APSDrawingImage");
+                if (item.Children.FirstOrDefault(x => x.Name == "StopBreakTime") != null)
+                    return oit.FindResource("actionAfterFailDrawingImage");
             }
             if (item.Type != null && item.Type.Name.ToLower().Contains("dictionary"))
             {
@@ -771,6 +774,8 @@ namespace AmiBroker.Controllers
                     return oit.FindResource("vendorDrawingImage");
                 if (item.Name == "AccountStat")
                     return oit.FindResource("statusDrawingImage");
+                if (item.Name.ToLower().Contains("actionafter"))
+                    return oit.FindResource("actionAfterFailDrawingImage");
             }
                 return drawingImage;
         }

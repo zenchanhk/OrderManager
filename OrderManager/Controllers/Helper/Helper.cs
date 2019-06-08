@@ -221,6 +221,8 @@ namespace AmiBroker.Controllers
         public static decimal GetPriceByName(Strategy s, string name)
         {
             decimal d = 0;
+            if (string.IsNullOrEmpty(name)) return d;
+
             if (!decimal.TryParse(name, out d))
                 d = s.CurrentPrices[name];
             return d;
@@ -232,10 +234,15 @@ namespace AmiBroker.Controllers
             decimal d = 0;
             foreach (var name in names)
             {
-                if (decimal.TryParse(name, out d))
-                    result.Add(d);
+                if (string.IsNullOrEmpty(name))
+                    result.Add(0);
                 else
-                    result.Add(s.CurrentPrices[name]);
+                {
+                    if (decimal.TryParse(name, out d))
+                        result.Add(d);
+                    else
+                        result.Add(s.CurrentPrices[name]);
+                }                
             }
             return result;
         }
@@ -715,11 +722,12 @@ namespace AmiBroker.Controllers
             if (obj.GetType().Name.Contains("Dictionary"))
             {
                 //Type[] args = obj.GetType().GetGenericArguments();
+                /*
                 if (((dynamic)obj).ContainsKey(name))
                 {
                     //return ((dynamic)obj)[name];
                 }
-                else
+                else*/
                 {
                     foreach (var item in (dynamic)obj)
                     {

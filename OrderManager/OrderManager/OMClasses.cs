@@ -11,7 +11,6 @@ using System.Reflection;
 using System.Windows.Threading;
 using System.Windows;
 using Krs.Ats.IBNet;
-using AmiBroker.Controllers;
 using System.Collections.Concurrent;
 
 namespace AmiBroker.OrderManager
@@ -24,18 +23,19 @@ namespace AmiBroker.OrderManager
     }
     public enum OrderAction
     {
-        Buy=0,
-        Sell=1,
-        Short=2,
-        Cover=3,
-        APSLong=4,  //adaptive profit stop for long
+        None = -1,
+        Buy = 0,
+        Sell = 1,
+        Short = 2,
+        Cover = 3,
+        APSLong = 4,  //adaptive profit stop for long
         APSShort = 5,  //adaptive profit stop for short
-        StoplossLong=6,
-        StoplossShort=7,
-        PreForceExitLong=8,
-        PreForceExitShort=9,
-        FinalForceExitLong=10,
-        FinalForceExitShort=11
+        StoplossLong = 6,
+        StoplossShort = 7,
+        PreForceExitLong = 8,
+        PreForceExitShort = 9,
+        FinalForceExitLong = 10,
+        FinalForceExitShort = 11
     }
     public enum ClosePositionAction
     {
@@ -49,21 +49,20 @@ namespace AmiBroker.OrderManager
         public int RealOrderId { get; set; }    // order id
         public string OrderId { get; set; }     // controller name + order id
         public int BatchNo { get; set; }
-        public double PosSize { get; set; }
+        //public double PosSize { get; set; }
+        //public double TotalPosSize { get; set; }    // total position size for strategy
         public double Filled { get; set; }
         public Strategy Strategy { get; set; }
-        public int Slippage { get; set; }
         public AccountInfo Account { get; set; }
-        //public List<OrderStatus> Status { get; set; } = new List<OrderStatus>();
         public OrderAction OrderAction { get; set; }
         public DisplayedOrder OrderStatus { get; set; }
         public string Error { get; set; }
         public DateTime PlacedTime { get; set; }
-        public bool IsReversedOrder { get; set; }
-        public int NoOfRef { get; set; } = 0;  // the number of referenced by reverse signal exit
+
         public Contract Contract = null;
         public Order Order = null;
         public BaseOrderType OrderType = null;
+        public OrderLog OrderLog = null;
     }
     public sealed class Entry : IEquatable<Entry>
     {
@@ -216,12 +215,65 @@ namespace AmiBroker.OrderManager
         }
     }
     
+    /*
+     * StopBreakTime: time when stop price breaks out
+     * WaitingDuration: duration after stop price reached (stop limit order) or order placed (limit order)
+     * DropTick: the ticks away from limit price
+     * */
+    public class ActionAfterParam : NotifyPropertyChangedBase
+    {
+
+        private bool? _pIsTriggered = null;
+        [JsonIgnore]
+        public bool? IsTriggered
+        {
+            get { return _pIsTriggered; }
+            set { _UpdateField(ref _pIsTriggered, value);
+                if (value != null && (bool)value)
+                    StopBreakTime = DateTime.Now;
+                if (value == null || !(bool)value)
+                    StopBreakTime = null;
+            }
+        }
+             
+        [JsonIgnore]
+        public DateTime? StopBreakTime
+        {
+            get;
+            private set;
+        }
+
+        private int _pWaitingDuration = 0;
+        public int HoldDuration
+        {
+            get { return _pWaitingDuration; }
+            set { _UpdateField(ref _pWaitingDuration, value); }
+        }
+
+        private decimal _pDropTick = 0;
+        public decimal DropTick
+        {
+            get { return _pDropTick; }
+            set { _UpdateField(ref _pDropTick, value); }
+        }
+    }
+
     public class SSBase : NotifyPropertyChangedBase
     {
         public SSBase()
         {            
             LongAccounts.CollectionChanged += Accounts_CollectionChanged;
             ShortAccounts.CollectionChanged += Accounts_CollectionChanged;
+
+            LongActionAfter.Add(OrderAction.Buy, new ActionAfterParam());
+            LongActionAfter.Add(OrderAction.Sell, new ActionAfterParam());
+            LongActionAfter.Add(OrderAction.APSLong, new ActionAfterParam());
+            LongActionAfter.Add(OrderAction.StoplossLong, new ActionAfterParam());
+
+            ShortActionAfter.Add(OrderAction.Short, new ActionAfterParam());
+            ShortActionAfter.Add(OrderAction.Cover, new ActionAfterParam());
+            ShortActionAfter.Add(OrderAction.APSShort, new ActionAfterParam());
+            ShortActionAfter.Add(OrderAction.StoplossShort, new ActionAfterParam());
         }
 
         private void Accounts_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -408,6 +460,10 @@ namespace AmiBroker.OrderManager
             get { return _pOutsideRTH; }
             set { _UpdateField(ref _pOutsideRTH, value); }
         }
+        
+        public ObservableConcurrentDictionary<OrderAction, ActionAfterParam> LongActionAfter { get; set; } = new ObservableConcurrentDictionary<OrderAction, ActionAfterParam>();
+        
+        public ObservableConcurrentDictionary<OrderAction, ActionAfterParam> ShortActionAfter { get; set; } = new ObservableConcurrentDictionary<OrderAction, ActionAfterParam>();
 
         // key is the name of account which is supposed to unique
         public ObservableConcurrentDictionary<string, BaseStat> AccountStat { get; set; } = new ObservableConcurrentDictionary<string, BaseStat>(); // statistics
@@ -833,12 +889,220 @@ namespace AmiBroker.OrderManager
         public Dictionary<string, ATAfl> PricesATAfl { get; } = new Dictionary<string, ATAfl>();        
         [JsonIgnore]
         public Dictionary<string, decimal> CurrentPrices { get; } = new Dictionary<string, decimal>();
-
-        /*
-        // store names of stoploss from AFL script
         [JsonIgnore]
-        public List<string> Stoploss { get; set; } = new List<string>();*/
+        public bool StatusChanged { get; set; } = false;
+        public void ResetLongActionAfterParam(OrderAction orderAction = OrderAction.None)
+        {
+            if (orderAction != OrderAction.None)
+            {
+                if (LongActionAfter.ContainsKey(orderAction))
+                {
+                    LongActionAfter[orderAction].IsTriggered = null;
+                }
+            }
+            else
+            {
+                foreach (var item in LongActionAfter)
+                {
+                    item.Value.IsTriggered = null;
+                }
+            }
+        }
+        public void ResetShortActionAfterParam(OrderAction orderAction = OrderAction.None)
+        {
+            if (orderAction != OrderAction.None)
+            {
+                if (ShortActionAfter.ContainsKey(orderAction))
+                {
+                    ShortActionAfter[orderAction].IsTriggered = null;
+                }
+            }
+            else
+            {
+                foreach (var item in ShortActionAfter)
+                {
+                    item.Value.IsTriggered = null;
+                }
+            }
+        }
+        /*
+         * 
+         * */
+        public void CheckLongPendingOrders(float curPrice)
+        {
+            foreach (var stat in AccountStat)
+            {
+                BaseStat baseStat = stat.Value;
+                OrderInfo oi = null;
+                //IEnumerable<OrderInfo> orderInfos = null;
+                OrderAction activeOrderAction = OrderAction.None;
 
+                if (ActionType == ActionType.Long || ActionType == ActionType.LongAndShort)
+                {
+                    if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0 &&
+                    (LongActionAfter[OrderAction.Buy].HoldDuration > 0 ||
+                    LongActionAfter[OrderAction.Buy].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.Buy;
+                        oi = baseStat.OrderInfos[OrderAction.Buy].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.Buy].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.APSLongActivated) != 0 &&
+                    (LongActionAfter[OrderAction.APSLong].HoldDuration > 0 ||
+                    LongActionAfter[OrderAction.APSLong].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.APSLong;
+                        oi = baseStat.OrderInfos[OrderAction.APSLong].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.APSLong].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0 &&
+                    (LongActionAfter[OrderAction.StoplossLong].HoldDuration > 0 ||
+                    LongActionAfter[OrderAction.StoplossLong].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.StoplossLong;
+                        oi = baseStat.OrderInfos[OrderAction.StoplossLong].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.StoplossLong].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.SellPending) != 0 &&
+                    (LongActionAfter[OrderAction.Sell].HoldDuration > 0 ||
+                    LongActionAfter[OrderAction.Sell].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.Sell;
+                        oi = baseStat.OrderInfos[OrderAction.Sell].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.Sell].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+
+                    if (oi != null)
+                    {
+                        if (LongActionAfter[activeOrderAction].IsTriggered == null)
+                        {
+                            bool isStopOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "AuxPrice");
+                            if ((isStopOT && curPrice >= (float)oi.Order.AuxPrice) || !isStopOT)
+                                LongActionAfter[activeOrderAction].IsTriggered = true;
+                        }
+
+                        IController controller = baseStat.Account.Controller;
+                        string message = string.Empty;
+                        decimal basePrice = oi.OrderLog.OrgPrice;
+                        bool cond_point = curPrice - (float)basePrice > (float)(LongActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && LongActionAfter[activeOrderAction].DropTick > 0;
+                        bool cond_timeout = LongActionAfter[activeOrderAction].StopBreakTime != null ? (DateTime.Now - (DateTime)LongActionAfter[activeOrderAction].StopBreakTime).TotalSeconds >= LongActionAfter[activeOrderAction].HoldDuration && LongActionAfter[activeOrderAction].HoldDuration > 0 : false;
+                        if (cond_point || cond_timeout)
+                        {
+                            if (activeOrderAction == OrderAction.Buy)
+                            {
+                                controller.CancelOrders(oi);
+                                message += string.Format("Batch Id[{0}] has been cancelled due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                    cond_timeout ? "timeout" : cond_point ? "drop too fast" : "unknown reason");
+                            }
+                            else
+                            {
+                                controller.CancelOrders(oi);
+                                controller.ModifyOrder(oi);
+                                message += string.Format("Batch Id[{0}] has modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                    cond_timeout ? "timeout" : cond_point ? "drop too fast" : "unknown reason");
+                            }
+                        }
+
+                        // log message
+                        if (!string.IsNullOrEmpty(message))
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Text = message,
+                                Source = Symbol.Name + "." + Name + "[CheckLongPendingOrders]",
+                                Time = DateTime.Now
+                            });
+                    }
+                }                
+            }
+        }
+
+        public void CheckShortPendingOrders(float curPrice)
+        {   
+            foreach (var stat in AccountStat)
+            {
+                BaseStat baseStat = stat.Value;
+                OrderInfo oi = null;
+                //IEnumerable<OrderInfo> orderInfos = null;
+                OrderAction activeOrderAction = OrderAction.None;
+
+                if (ActionType == ActionType.Short || ActionType == ActionType.LongAndShort)
+                {
+                    if ((baseStat.AccountStatus & AccountStatus.ShortPending) != 0 &&
+                    (ShortActionAfter[OrderAction.Short].HoldDuration > 0 ||
+                    ShortActionAfter[OrderAction.Short].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.Short;
+                        oi = baseStat.OrderInfos[OrderAction.Short].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.Short].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.APSShortActivated) != 0 &&
+                    (ShortActionAfter[OrderAction.APSShort].HoldDuration > 0 ||
+                    ShortActionAfter[OrderAction.APSShort].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.APSShort;
+                        oi = baseStat.OrderInfos[OrderAction.APSShort].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.APSShort].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0 &&
+                    (ShortActionAfter[OrderAction.StoplossShort].HoldDuration > 0 ||
+                    ShortActionAfter[OrderAction.StoplossShort].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.StoplossShort;
+                        oi = baseStat.OrderInfos[OrderAction.StoplossShort].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.StoplossShort].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+                    if ((baseStat.AccountStatus & AccountStatus.CoverPending) != 0 &&
+                    (ShortActionAfter[OrderAction.Cover].HoldDuration > 0 ||
+                    ShortActionAfter[OrderAction.Cover].DropTick > 0))
+                    {
+                        activeOrderAction = OrderAction.Cover;
+                        oi = baseStat.OrderInfos[OrderAction.Cover].LastOrDefault();
+                        //orderInfos = oi != null ? baseStat.OrderInfos[OrderAction.Cover].Where(x => x.BatchNo == oi.BatchNo) : null;
+                    }
+
+                    if (oi != null)
+                    {
+                        if (ShortActionAfter[activeOrderAction].IsTriggered == null)
+                        {
+                            bool isStopOT = BaseOrderTypeAccessor.HasProperty(oi.OrderType, "AuxPrice");
+                            if ((isStopOT && curPrice <= (float)oi.Order.AuxPrice) || !isStopOT)
+                                ShortActionAfter[activeOrderAction].IsTriggered = true;
+                        }
+
+                        IController controller = baseStat.Account.Controller;
+                        string message = string.Empty;
+                        decimal basePrice = oi.OrderLog.OrgPrice;
+                        bool cond_timeout = ShortActionAfter[activeOrderAction].StopBreakTime != null ? (DateTime.Now - (DateTime)ShortActionAfter[activeOrderAction].StopBreakTime).TotalSeconds >= ShortActionAfter[activeOrderAction].HoldDuration && ShortActionAfter[activeOrderAction].HoldDuration > 0 : false;
+                        bool cond_point = (float)basePrice - curPrice > (float)(ShortActionAfter[activeOrderAction].DropTick * Symbol.MinTick) && ShortActionAfter[activeOrderAction].DropTick > 0;
+                        if (cond_point || cond_timeout)
+                        {
+                            if (activeOrderAction == OrderAction.Short)
+                            {
+                                controller.CancelOrders(oi);
+                                message += string.Format("Batch Id[{0}] has been cancelled due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                    cond_timeout ? "timeout" : cond_point ? "raise too fast" : "unknown reason");
+                            }
+                            else
+                            {
+                                controller.CancelOrders(oi);
+                                controller.ModifyOrder(oi);
+                                message += string.Format("Batch Id[{0}] has modified as MarketOrder due to {2}, strategy - {1}", oi.BatchNo, Name,
+                                    cond_timeout ? "timeout" : cond_point ? "raise too fast" : "unknown reason");
+                            }                           
+                        }
+
+                        // log message
+                        if (!string.IsNullOrEmpty(message))
+                            MainViewModel.Instance.Log(new Log
+                            {
+                                Text = message,
+                                Source = Symbol.Name + "." + Name + "[CheckShortPendingOrders]",
+                                Time = DateTime.Now
+                            });
+                    }
+                }
+            }     
+        }
         public void CloseAllPositions(ClosePositionAction closePositionAction = ClosePositionAction.CloseAllPositions)
         {
             List<Log> logs = new List<Log>();
@@ -856,7 +1120,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Sell;
                         double posSize = item.Value.LongPosition * Symbol.RoundLotSize;
 
-                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize);                       
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, posSize);                       
                     }
 
                     if (item.Value.ShortPosition > 0
@@ -865,7 +1129,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Cover;
                         double posSize = item.Value.ShortPosition * Symbol.RoundLotSize;
 
-                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, null, posSize);
+                        controller.PlaceOrder(item.Value.Account, this, orderType, orderAction, Controllers.OrderManager.BatchNo, posSize);
                     }
 
                     if ((item.Value.AccountStatus & AccountStatus.BuyPending) != 0)
@@ -873,7 +1137,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Buy;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -888,7 +1152,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.Short;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -903,7 +1167,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.APSLong;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -918,7 +1182,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.APSShort;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -933,7 +1197,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.StoplossLong;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -948,7 +1212,7 @@ namespace AmiBroker.OrderManager
                         OrderAction orderAction = OrderAction.StoplossShort;
                         OrderInfo oi = item.Value.OrderInfos[orderAction].LastOrDefault();
                         if (oi != null)
-                            controller.CancelOrderAsync(oi.RealOrderId);
+                            controller.CancelOrders(oi);
                         else
                             MainViewModel.Instance.Log(new Log
                             {
@@ -997,11 +1261,15 @@ namespace AmiBroker.OrderManager
             MaxShortAttemps = strategy.MaxShortAttemps;
             ReverseSignalForcesExit = strategy.ReverseSignalForcesExit;
             DefaultPositionSize = strategy.DefaultPositionSize;
+            Priority = strategy.Priority;
+
             IsAPSAppliedforLong = strategy.IsAPSAppliedforLong;
             IsAPSAppliedforShort = strategy.IsAPSAppliedforShort;
             IsForcedExitForLong = strategy.IsForcedExitForLong;
             IsForcedExitForShort = strategy.IsForcedExitForShort;
-            
+
+            LongActionAfter = strategy.LongActionAfter.CloneObject();
+            ShortActionAfter = strategy.ShortActionAfter.CloneObject();
             /*
             AllowReEntry = strategy.AllowReEntry;
             ReEntryBefore = strategy.ReEntryBefore;
@@ -1016,11 +1284,16 @@ namespace AmiBroker.OrderManager
                 AdaptiveProfitStopforShort = strategy.AdaptiveProfitStopforShort;
                 AdaptiveProfitStopforShort.Strategy = this;
                 AdaptiveProfitStopforShort.ActionType = ActionType.Short;
+                /*
+                AdaptiveProfitStopforShort.ModifyThreshold = strategy.AdaptiveProfitStopforShort.ModifyThreshold;
+                AdaptiveProfitStopforShort.SubmitThreshold = strategy.AdaptiveProfitStopforShort.SubmitThreshold;
+                AdaptiveProfitStopforShort.OT_stopProfit = strategy.AdaptiveProfitStopforShort.OT_stopProfit.CloneObject();
+                AdaptiveProfitStopforShort.OT_stopLoss = strategy.AdaptiveProfitStopforShort.OT_stopLoss.CloneObject();*/
 
                 ForceExitOrderForShort = strategy.ForceExitOrderForShort;
                 ForceExitOrderForShort.Strategy = this;
                 ForceExitOrderForShort.ActionType = ActionType.Short;
-
+                
                 foreach (AccountInfo acc in strategy.ShortAccounts)
                 {
                     AccountInfo tmp = Script.Symbol.AccountCandidates.FirstOrDefault(x => x.Name == acc.Name);
@@ -1041,6 +1314,11 @@ namespace AmiBroker.OrderManager
                 AdaptiveProfitStopforLong = strategy.AdaptiveProfitStopforLong;
                 AdaptiveProfitStopforLong.Strategy = this;
                 AdaptiveProfitStopforLong.ActionType = ActionType.Long;
+                /*
+                AdaptiveProfitStopforLong.ModifyThreshold = strategy.AdaptiveProfitStopforLong.ModifyThreshold;
+                AdaptiveProfitStopforLong.SubmitThreshold = strategy.AdaptiveProfitStopforLong.SubmitThreshold;
+                AdaptiveProfitStopforLong.OT_stopProfit = strategy.AdaptiveProfitStopforLong.OT_stopProfit.CloneObject();
+                AdaptiveProfitStopforLong.OT_stopLoss = strategy.AdaptiveProfitStopforLong.OT_stopLoss.CloneObject();*/
 
                 ForceExitOrderForLong = strategy.ForceExitOrderForLong;
                 ForceExitOrderForLong.Strategy = this;
@@ -1149,8 +1427,10 @@ namespace AmiBroker.OrderManager
             */
             AllowMultiShort = script.AllowMultiShort;
             MaxShortOpen = script.MaxShortOpen;
+            MaxShortOpenPosition = script.MaxShortOpenPosition;
             AllowMultiLong = script.AllowMultiLong;
             MaxLongOpen = script.MaxLongOpen;
+            MaxLongOpenPosition = script.MaxLongOpenPosition;
             BuyOrderTypes = script.BuyOrderTypes;
             SellOrderTypes = script.SellOrderTypes;
             ShortOrderTypes = script.ShortOrderTypes;
@@ -1161,6 +1441,9 @@ namespace AmiBroker.OrderManager
             AdaptiveProfitStopforShort = script.AdaptiveProfitStopforShort;
             ForceExitOrderForLong = script.ForceExitOrderForLong;
             ForceExitOrderForShort = script.ForceExitOrderForShort;
+
+            LongActionAfter = script.LongActionAfter;
+            ShortActionAfter = script.ShortActionAfter;
 
             _RaisePropertyChanged("ShortOrderTypes");
             _RaisePropertyChanged("CoverOrderTypes");
@@ -1252,6 +1535,9 @@ namespace AmiBroker.OrderManager
                 strategy.ForceExitOrderForShort = ForceExitOrderForShort.CloneObject();
                 strategy.ForceExitOrderForShort.Strategy = strategy;
                 strategy.ForceExitOrderForShort.ActionType = ActionType.Short;
+
+                strategy.LongActionAfter = LongActionAfter.CloneObject();
+                strategy.ShortActionAfter = ShortActionAfter.CloneObject();
                 /*
                 strategy.AllowReEntry = AllowReEntry;
                 strategy.ReEntryBefore = ReEntryBefore;
@@ -1348,10 +1634,10 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pMaxOrderSize, value); }
         }
 
-        private float _pRoundLotSize = 1;
+        private int _pRoundLotSize = 1;
         [Category("Details")]
         [DisplayName("Round Lot Size")]
-        public float RoundLotSize
+        public int RoundLotSize
         {
             get { return _pRoundLotSize; }
             set { _UpdateField(ref _pRoundLotSize, value); }

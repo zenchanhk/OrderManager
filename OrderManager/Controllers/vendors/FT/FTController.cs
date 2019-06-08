@@ -135,7 +135,7 @@ namespace AmiBroker.Controllers
         public void Disconnect() { IsConnected = false; ConnectionStatus = "Disconnected"; }
         public void DisconnectByManual() { Disconnect(); }
         public async Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
-            OrderAction orderAction, int batchNo, OrderInfo oi0, double? posSize = null, Contract security = null, 
+            OrderAction orderAction, int batchNo, double? posSize = null, Contract security = null, 
             bool errorSuppressed = false, bool addToInfoList = true)
         {
             return null;
@@ -145,12 +145,21 @@ namespace AmiBroker.Controllers
         {
             return false;
         }
-
+        public bool ModifyOrder(OrderInfo oi) { return true; }
         public void CancelOrder(int orderId)
         {
 
         }
+        public bool CancelOrders(OrderInfo oi)
+        {
+            return false;
+        }
         public async Task<bool> CancelOrderAsync(int orderId)
+        {
+            return false;
+        }
+
+        public async Task<bool> CancelOrdersAsync(OrderInfo oi)
         {
             return false;
         }

@@ -36,7 +36,7 @@ namespace AmiBroker.Controllers
     {
         public int RealOrderId { get; set; }  // order id
         public string OrderId { get; set; }    // controller name + order id
-        public int? Slippage { get; set; }
+        public int Slippage { get; set; }
         public decimal OrgPrice { get; set; }
         public decimal LmtPrice { get; set; }
         public decimal AuxPrice { get; set; }
@@ -46,6 +46,76 @@ namespace AmiBroker.Controllers
         public string Message { get; set; }
         public string Error { get; set; }
         public DateTime OrderSentTime { get; set; }
+    }
+    public class OrderPosSize
+    {
+        public int Total { get; set; }
+        public int Filled { get; set; }
+        public int Remaining { get; set; }
+        public int Canceled { get; set; }
+    }
+    public class BatchPosSize
+    {
+        // key is OrderId
+        private Dictionary<int, OrderPosSize> AllPosSizes = new Dictionary<int, OrderPosSize>();
+        public int Total { get; private set; }
+        public int Remaining { get; private set; }
+        public int Filled { get; private set; }
+        public int Canceled { get; private set; }
+
+        public void AddNew(int orderId, int total)
+        {
+            if (AllPosSizes.ContainsKey(orderId))
+            {
+                Total += total;
+                Remaining += total;
+            }
+            else
+            {
+                AllPosSizes.Add(orderId, new OrderPosSize { Total = total, Filled = 0, Remaining = total });
+                Total += total;
+                Remaining += total;
+            }
+            MainViewModel.Instance.MinorLog(new Log
+            {
+                Text = string.Format("total:{0}, Total:{1}, Remaining:{2}", total, Total, Remaining),
+                Source = orderId.ToString(),
+                Time = DateTime.Now
+            });
+        }
+        public void Add(int orderId, int total, int filled = 0, int remaining = 0, int canceled = 0)
+        {
+            int prev_re = -1;
+            int prev_filled = -1;
+            if (AllPosSizes.ContainsKey(orderId))
+            {
+                prev_re = -AllPosSizes[orderId].Remaining;
+                prev_filled = -AllPosSizes[orderId].Filled;
+                if (canceled > 0)
+                {
+                    Remaining -= canceled;
+                    Canceled += canceled;
+                }
+                else
+                    Remaining += -AllPosSizes[orderId].Remaining + remaining;
+
+                Filled += -AllPosSizes[orderId].Filled + filled;
+                AllPosSizes[orderId].Remaining = remaining;
+                AllPosSizes[orderId].Filled = filled;
+                AllPosSizes[orderId].Canceled = canceled;
+            }
+            else
+                throw new Exception(string.Format("OrderId {0} cannot be found in AllPosSize", orderId));
+
+            MainViewModel.Instance.MinorLog(new Log
+            {
+                Text = string.Format("OrderId {4} -- total:{0}, filled:{1}, remaining:{2}, canceled:{3}, Remaining:{5}, Filled:{6}" +
+                "prev_re:{7}, prev_filled:{8}", 
+                    total, filled, remaining, canceled, orderId, Remaining, Filled, prev_re, prev_filled),
+                Source = orderId.ToString(),
+                Time = DateTime.Now
+            });
+        }
     }
     public class OrderManager : IndicatorBase
     {
@@ -143,13 +213,40 @@ namespace AmiBroker.Controllers
         }*/
         // batch no is used for identifying the orders sent in group
         private static int batch_no = 0;
-        public static int BatchNo { get { return batch_no++;  } }
+        public static int BatchNo {
+            get
+            {
+                return batch_no++;
+            }
+        }
+
+        // store PosSize for each BatchNo + AccountName = key
+        public static Dictionary<string, BatchPosSize> BatchPosSize { get; } = new Dictionary<string, BatchPosSize>();
 
         private static Dictionary<string, object> lockOjbs = new Dictionary<string, object>();
 
         private static Dictionary<string, DateTime> lastBarDateTime = new Dictionary<string, DateTime>();
         // key: ticker name + strategy name + interval
         private static Dictionary<string, BarInfo> lastBarInfo = new Dictionary<string, BarInfo>();
+
+        public static void AddBatchPosSize(string key, int orderId, int total, int filled=0, int remaining=0, int canceled=0)
+        {
+            if (BatchPosSize.ContainsKey(key))
+            {   
+                if (filled == 0 && remaining == 0 && canceled == 0)
+                    BatchPosSize[key].AddNew(orderId, total);
+                else
+                    BatchPosSize[key].Add(orderId, total, filled, remaining, canceled);
+            }
+            else
+            {
+                if (total == 0)
+                    throw new Exception("Cannot add total zero to BatchPosSize");
+                BatchPosSize.Add(key, new BatchPosSize());
+                BatchPosSize[key].AddNew(orderId, total);
+            }                
+        }
+        
         [ABMethod]
         public void IBC(string scriptName)
         {
@@ -225,6 +322,13 @@ namespace AmiBroker.Controllers
                         if (!lockOjbs.ContainsKey(key))
                             lockOjbs.Add(key, new object());
 
+                        // check pending order
+                        float close = Close[BarCount - 1];
+                        if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
+                            Task.Run(() => strategy.CheckLongPendingOrders(close));
+                        if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
+                            Task.Run(() => strategy.CheckShortPendingOrders(close));
+
                         // fillin prices from AB
                         //strategy.CurrentPrices.Clear();
                         lastBarInfo[key].IsPricesEqual = true;
@@ -287,12 +391,13 @@ namespace AmiBroker.Controllers
                         var FELongTask = new Task(() => { });
                         var FEShortTask = new Task(() => { });
 
-                        lock(lockOjbs[key])
+                        //lock(lockOjbs[key])
                         {
                             if (strategy.ActionType == ActionType.Long || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.BuySignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime || !lastBarInfo[key].IsPricesEqual))
+                                if (signal && (lastBarInfo[key].BuySignal != signal || lastBarInfo[key].DateTime != logTime 
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
                                 {
                                     buyTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Buy, logTime));
                                 }
@@ -300,7 +405,8 @@ namespace AmiBroker.Controllers
 
 
                                 signal = string.IsNullOrEmpty(strategy.SellSignal.Name) ? false : ATFloat.IsTrue(strategy.SellSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime || !lastBarInfo[key].IsPricesEqual))
+                                if (signal && (lastBarInfo[key].SellSignal != signal || lastBarInfo[key].DateTime != logTime 
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
                                 {
                                     sellTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Sell, logTime));
                                 }
@@ -309,22 +415,26 @@ namespace AmiBroker.Controllers
                             if (strategy.ActionType == ActionType.Short || strategy.ActionType == ActionType.LongAndShort)
                             {
                                 signal = ATFloat.IsTrue(strategy.ShortSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime || !lastBarInfo[key].IsPricesEqual))
+                                if (signal && (lastBarInfo[key].ShortSignal != signal || lastBarInfo[key].DateTime != logTime 
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
                                 {
                                     shortTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Short, logTime));
                                 }
                                 lastBarInfo[key].ShortSignal = signal;
 
                                 signal = string.IsNullOrEmpty(strategy.CoverSignal.Name) ? false : ATFloat.IsTrue(strategy.CoverSignal.GetArray()[BarCount - 1]);
-                                if (signal && (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime || !lastBarInfo[key].IsPricesEqual))
+                                if (signal && (lastBarInfo[key].CoverSignal != signal || lastBarInfo[key].DateTime != logTime 
+                                    || !lastBarInfo[key].IsPricesEqual || strategy.StatusChanged))
                                 {
                                     coverTask = Task.Run(() => ProcessSignal(script, strategy, OrderAction.Cover, logTime));
                                 }
                                 lastBarInfo[key].CoverSignal = signal;
                             }
 
+                            // reset StatusChanged
+                            strategy.StatusChanged = false;
 
-                            float close = Close[BarCount - 1];
+                            //float close = Close[BarCount - 1];
                             if (close != lastBarInfo[key].Close)
                             {
                                 //
@@ -389,7 +499,7 @@ namespace AmiBroker.Controllers
                 string warning = string.Empty;
 
                 // batch no used for optimization (no need to transform order for different account)
-                int batchNo = BatchNo;                
+                int batchNo = -1;                
                 foreach (var account in strategy.AccountsDic[orderAction])
                 {
                     // get order type
@@ -399,6 +509,8 @@ namespace AmiBroker.Controllers
 
                     if (ValidateSignal(account, strategy, strategy.AccountStat[account.Name], orderAction, orderType, out message, out warning))
                     {
+                        if (batchNo == -1)
+                            batchNo = BatchNo;
                         // log after validation
                         mainVM.Log(log);
                                                     
@@ -406,7 +518,7 @@ namespace AmiBroker.Controllers
                         {
                             BaseStat strategyStat = strategy.AccountStat[account.Name];
                             BaseStat scriptStat = script.AccountStat[account.Name];
-                            AccountStatusOp.SetActionStatus(ref strategyStat, ref scriptStat, strategy.Name, orderAction);
+                            AccountStatusOp.SetActionInitStatus(ref strategyStat, ref scriptStat, ref strategy, orderAction);
                             AccountStatusOp.SetAttemps(ref strategyStat, orderAction);
                             System.Diagnostics.Debug.WriteLine(DateTime.Now.ToLongTimeString() + ": setting - " + strategyStat.AccountStatus);
                             // IMPORTANT
@@ -440,13 +552,13 @@ namespace AmiBroker.Controllers
                                         else
                                         {
                                             strategyStat = strategy.AccountStat[account.Name];
-                                            AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, strategy.Name, orderAction);
+                                            AccountStatusOp.RevertActionStatus(ref strategyStat, ref scriptStat, ref strategy, orderAction, batchNo);
                                             MainViewModel.Instance.Log(new Log
                                             {
                                                 Time = DateTime.Now,
-                                                Text = "Error: " + orderLog.Error,
+                                                Text = "Plaing Order Error: " + orderLog.Error,
                                                 Source = script.Symbol.Name + "." + script.Name + "." + strategy.Name
-                                                    + (orderLog.Slippage != null ? "." + orderLog.Slippage : "")
+                                                    + "." + orderLog.Slippage
                                             });
                                             // only return false only if PlaceOrder fails
                                             proc_result = false;
@@ -490,40 +602,48 @@ namespace AmiBroker.Controllers
         }
 
         private static bool CancelConflictOrder(Strategy strategy, BaseStat strategyStat, OrderAction action)
-        {            
-            OrderInfo oi = strategyStat.OrderInfos[action].LastOrDefault();
-            if (oi == null)
+        {
+            try
             {
-                string msg = "There is a pending " + action.ToString() + " order for strategy - " +
-                            strategy.Name + ", but no order info found" + "\n";
-                mainVM.Log(new Log
+                OrderInfo oi = strategyStat.OrderInfos[action].LastOrDefault();
+                if (oi == null)
                 {
-                    Time = DateTime.Now,
-                    Text = msg,
-                    Source = "OrderManager.CancelConflictOrder"
-                });
-                return false;
-            }                
-            else
-            {
-                IController controller = oi.Account.Controller;
-                List<OrderInfo> orderInfos = strategyStat.OrderInfos[action].Where(x => x.BatchNo == oi.BatchNo).ToList();
-                bool result = true;
-                foreach (var orderInfo in orderInfos)
-                {
-                    Task<bool> task = Task.Run<bool>(async () => await controller.CancelOrderAsync(orderInfo.RealOrderId));
-                    if (!task.Result) result = false;
+                    string msg = "There is a pending " + action.ToString() + " order for strategy - " +
+                                strategy.Name + ", but no order info found" + "\n";
+                    mainVM.Log(new Log
+                    {
+                        Time = DateTime.Now,
+                        Text = msg,
+                        Source = "OrderManager.CancelConflictOrder"
+                    });
+                    return false;
                 }
-                string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList()) 
-                    + "] for strategy - " + strategy.Name + " being cancelled" + "\n";
-                mainVM.Log(new Log
+                else
                 {
-                    Time = DateTime.Now,
-                    Text = msg + " (OrderManager.CancelConflictOrder)",
-                    Source = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
-                });
-                return result;
+                    IController controller = oi.Account.Controller;
+                    List<OrderInfo> orderInfos = strategyStat.OrderInfos[action].Where(x => x.BatchNo == oi.BatchNo).ToList();
+                    bool result = true;
+                    foreach (var orderInfo in orderInfos)
+                    {
+                        controller.CancelOrder(orderInfo.RealOrderId);
+                    }
+                    string msg = "There are pending " + action.ToString() + " orders [" + string.Join(", ", orderInfos.Select(x => x.RealOrderId).ToList())
+                        + "] for strategy - " + strategy.Name + " being cancelled" + "\n";
+                    mainVM.Log(new Log
+                    {
+                        Time = DateTime.Now,
+                        Text = msg + " (OrderManager.CancelConflictOrder)",
+                        Source = strategy.Symbol.Name + "." + strategy.Script.Name + "." + strategy.Name
+                    });
+                    return result;
+                }
             }
+            catch (Exception ex)
+            {
+                GlobalExceptionHandler.HandleException("OrderManger.ProcessSignal", ex);
+                return false;
+            }
+            
         }
 
         
@@ -550,15 +670,35 @@ namespace AmiBroker.Controllers
                     case OrderAction.APSLong:
                         if (strategy.IsAPSAppliedforLong)
                         {
-                            if ((strategyStat.AccountStatus & AccountStatus.Long) == 0)
+                            //if ((strategyStat.AccountStatus & AccountStatus.Long) == 0)
+                            if (strategyStat.LongPosition == 0)
                             {
                                 message += "There is no a LONG position for strategy - " + strategy.Name;
                                 return false;
                             }
+                            // partially filled
+                            if (strategyStat.LongPosition > 0 && (strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                            {
+                                warning += "There is a partially filled BUY order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.Buy);
+                            }
+                            // pending sell order: compare limit price to decide which one is kept
                             if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
                             {
-                                message += "There is a pending SELL position for strategy - " + strategy.Name;
-                                return false;
+                                OrderInfo oi = strategyStat.OrderInfos[OrderAction.Sell].LastOrDefault();
+                                decimal sellPrice = oi.OrderLog.OrgPrice;
+                                string lmtP = BaseOrderTypeAccessor.GetValueByName(orderType, "LmtPrice");
+                                decimal apsPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, lmtP);
+                                if (sellPrice > apsPrice)
+                                {
+                                    message += string.Format("There is a pending SELL with higher Limit Price: {0}", sellPrice);
+                                    return false;
+                                }
+                                else
+                                {
+                                    warning += string.Format("There is a pending SELL with lower Limit Price: {0} being cancelled\n", sellPrice);
+                                    CancelConflictOrder(strategy, strategyStat, OrderAction.Sell);
+                                }
                             }
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
@@ -597,15 +737,34 @@ namespace AmiBroker.Controllers
                     case OrderAction.APSShort:
                         if (strategy.IsAPSAppliedforShort)
                         {
-                            if ((strategyStat.AccountStatus & AccountStatus.Short) == 0)
+                            if (strategyStat.ShortPosition == 0)
                             {
                                 message += "There is no a Short position for strategy - " + strategy.Name;
                                 return false;
                             }
+                            // partially filled
+                            if (strategyStat.ShortPosition > 0 && (strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                            {
+                                warning += "There is a partially filled SHORT order being cancelled";
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.Short);
+                            }
+                            // pending cover order: compare limit price to decide which one is kept
                             if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
                             {
-                                message += "There is a pending Cover position for strategy - " + strategy.Name;
-                                return false;
+                                OrderInfo oi = strategyStat.OrderInfos[OrderAction.Cover].LastOrDefault();
+                                decimal coverPrice = oi.OrderLog.OrgPrice;
+                                string lmtP = BaseOrderTypeAccessor.GetValueByName(orderType, "LmtPrice");
+                                decimal apsPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, lmtP);
+                                if (coverPrice < apsPrice)
+                                {
+                                    message += string.Format("There is a pending Cover with lower Limit Price: {0}", coverPrice);
+                                    return false;
+                                }
+                                else
+                                {
+                                    warning += string.Format("There is a pending Cover with higher Limit Price: {0} being cancelled\n", coverPrice);
+                                    CancelConflictOrder(strategy, strategyStat, OrderAction.Cover);
+                                }
                             }
                             // cancel previous APSLong order if LmtPrice and Stop Price are different
                             if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
@@ -642,21 +801,40 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.StoplossLong:
-                        if ((strategyStat.AccountStatus & AccountStatus.Long) == 0)
+                        if (strategyStat.LongPosition == 0)
                         {
                             message += "There is no LONG position for strategy - " + strategy.Name;
                             return false;
+                        }
+                        // partially filled
+                        if (strategyStat.LongPosition > 0 && (strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        {
+                            warning += "There is a partially filled BUY order being cancelled";
+                            CancelConflictOrder(strategy, strategyStat, OrderAction.Buy);
+                        }
+                        // pending sell order: compare limit price to decide which one is kept
+                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
+                        {
+                            OrderInfo oi = strategyStat.OrderInfos[OrderAction.Sell].LastOrDefault();
+                            decimal sellPrice = oi.OrderLog.OrgPrice;
+                            string lmtP = BaseOrderTypeAccessor.GetValueByName(orderType, "LmtPrice");
+                            decimal apsPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, lmtP);
+                            if (sellPrice > apsPrice)
+                            {
+                                message += string.Format("There is a pending SELL with higher Limit Price: {0}", sellPrice);
+                                return false;
+                            }
+                            else
+                            {
+                                warning += string.Format("There is a pending SELL with lower Limit Price: {0} being cancelled\n", sellPrice);
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.Sell);
+                            }
                         }
                         // should not be APSLongActivated, it shuould be executed already
                         if ((strategyStat.AccountStatus & AccountStatus.APSLongActivated) != 0)
                         {
                             warning += "There is a pending APSLong order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSLong);
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.SellPending) != 0)
-                        {
-                            message += "There is a pending sell order for strategy - " + strategy.Name;
-                            return false;
                         }
                         // cancel previous StoplossLong order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossLongActivated) != 0)
@@ -679,21 +857,40 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.StoplossShort:
-                        if ((strategyStat.AccountStatus & AccountStatus.Short) == 0)
+                        if (strategyStat.ShortPosition == 0)
                         {
-                            message += "There is no SHORT position for strategy - " + strategy.Name;
+                            message += "There is no a Short position for strategy - " + strategy.Name;
                             return false;
+                        }
+                        // partially filled
+                        if (strategyStat.ShortPosition > 0 && (strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        {
+                            warning += "There is a partially filled SHORT order being cancelled";
+                            CancelConflictOrder(strategy, strategyStat, OrderAction.Short);
+                        }
+                        // pending cover order: compare limit price to decide which one is kept
+                        if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
+                        {
+                            OrderInfo oi = strategyStat.OrderInfos[OrderAction.Cover].LastOrDefault();
+                            decimal coverPrice = oi.OrderLog.OrgPrice;
+                            string lmtP = BaseOrderTypeAccessor.GetValueByName(orderType, "LmtPrice");
+                            decimal apsPrice = BaseOrderTypeAccessor.GetPriceByName(strategy, lmtP);
+                            if (coverPrice < apsPrice)
+                            {
+                                message += string.Format("There is a pending Cover with lower Limit Price: {0}", coverPrice);
+                                return false;
+                            }
+                            else
+                            {
+                                warning += string.Format("There is a pending Cover with higher Limit Price: {0} being cancelled\n", coverPrice);
+                                CancelConflictOrder(strategy, strategyStat, OrderAction.Cover);
+                            }
                         }
                         // should not be APSShortActivated, it shuould be executed already
                         if ((strategyStat.AccountStatus & AccountStatus.APSShortActivated) != 0)
                         {
                             warning += "There is a pending APSShort order being cancelled";
                             CancelConflictOrder(strategy, strategyStat, OrderAction.APSShort);
-                        }
-                        if ((strategyStat.AccountStatus & AccountStatus.CoverPending) != 0)
-                        {
-                            message += "There is a pending cover order for strategy - " + strategy.Name;
-                            return false;
                         }
                         // cancel previous APSShort order if LmtPrice and Stop Price are different
                         if ((strategyStat.AccountStatus & AccountStatus.StoplossShortActivated) != 0)
@@ -717,13 +914,13 @@ namespace AmiBroker.Controllers
                         break;
                     case OrderAction.Buy:
                         
-                        if ((strategyStat.AccountStatus & AccountStatus.Long) != 0)
+                        if (strategyStat.LongPosition > 0)
                         {
                             message += "There is already a LONG position for strategy - " + strategy.Name;
                             return false;
                         }
 
-                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0)
+                        if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0 && strategyStat.LongPosition == 0)
                         {
                             if (!orderType.ReplaceAllowed)
                             {
@@ -739,7 +936,8 @@ namespace AmiBroker.Controllers
                                     {
                                         List<string> list0 = BaseOrderTypeAccessor.GetValueByName(orderType, stpLmt);
                                         List<decimal> prices0 = BaseOrderTypeAccessor.GetPriceByName(strategy, list0);
-                                        bool isEqual = prices0[0] == ot.RealPrices[stpLmt[0]] && prices0[1] == ot.RealPrices[stpLmt[1]];
+                                        bool isEqual = (ot.RealPrices.ContainsKey(stpLmt[0]) ? prices0[0] == ot.RealPrices[stpLmt[0]] : true) &&
+                                            (ot.RealPrices.ContainsKey(stpLmt[1]) ? prices0[1] == ot.RealPrices[stpLmt[1]] : true);
                                         if (!isEqual)
                                         {
                                             message += "Modifying Long STOP Order";
@@ -780,24 +978,24 @@ namespace AmiBroker.Controllers
                         {
                             if (script.OrderReplaceAllowed)
                             {
-                                // replace the oldest one with lower execution priority
-                                foreach (string sn in scriptStat.LongPendingStrategies)
+                                // replace the one with lowest execution priority
+                                var result = from name in scriptStat.LongPendingStrategies
+                                             join s1 in script.Strategies on name equals s1.Name
+                                             where s1.AccountStat.ContainsKey(strategyStat.Account.Name) && s1.Priority <= strategy.Priority
+                                             orderby s1.Priority                                             
+                                             select s1;
+                                
+                                Strategy s = result?.FirstOrDefault(x => x.AccountStat[strategyStat.Account.Name].LongPosition == 0 &&
+                                (x.AccountStat[strategyStat.Account.Name].AccountStatus & AccountStatus.BuyPending) != 0);
+                                if (s != null)
                                 {
-                                    Strategy s = script.Strategies.FirstOrDefault(x => x.Name == sn);
-                                    if (s != null && s.AccountStat.ContainsKey(strategyStat.Account.Name) &&
-                                        s.Priority <= strategy.Priority)
-                                    {
-                                        BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
-                                        if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
-                                        {
-                                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
-                                            if (ot == null)
-                                                continue;
-                                            warning += "There is a pending Long order being cancelled in another strategy - " + s.Name;
-                                            CancelConflictOrder(s, strategyStat, action);
-                                            break;
-                                        }
-                                    }
+                                    warning += "There is a pending Long order being cancelled in another strategy - " + s.Name;
+                                    CancelConflictOrder(s, strategyStat, action);
+                                }
+                                else
+                                {
+                                    message += "Cannot found pending order with lower execution priority";
+                                    return false;
                                 }
                             }
                             else
@@ -810,13 +1008,13 @@ namespace AmiBroker.Controllers
                         }
                         break;
                     case OrderAction.Short:                        
-                        if ((strategyStat.AccountStatus & AccountStatus.Short) != 0)
+                        if (strategyStat.ShortPosition > 0)
                         {
                             message += "There is already a SHORT position for strategy - " + strategy.Name;
                             return false;
                         }
                        
-                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0)
+                        if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0 && strategyStat.ShortPosition == 0)
                         {
                             if (!orderType.ReplaceAllowed)
                             {
@@ -832,7 +1030,9 @@ namespace AmiBroker.Controllers
                                     {
                                         List<string> list0 = BaseOrderTypeAccessor.GetValueByName(orderType, stpLmt);
                                         List<decimal> prices0 = BaseOrderTypeAccessor.GetPriceByName(strategy, list0);
-                                        bool isEqual = prices0[0] == ot.RealPrices[stpLmt[0]] && prices0[1] == ot.RealPrices[stpLmt[1]];
+                                        //bool isEqual = prices0[0] == ot.RealPrices[stpLmt[0]] && prices0[1] == ot.RealPrices[stpLmt[1]];
+                                        bool isEqual = (ot.RealPrices.ContainsKey(stpLmt[0]) ? prices0[0] == ot.RealPrices[stpLmt[0]] : true) &&
+                                            (ot.RealPrices.ContainsKey(stpLmt[1]) ? prices0[1] == ot.RealPrices[stpLmt[1]] : true);
                                         if (!isEqual)
                                         {
                                             message += "Modifying Short STOP Order";
@@ -872,24 +1072,24 @@ namespace AmiBroker.Controllers
                         {
                             if (script.OrderReplaceAllowed)
                             {
-                                // replace the lastest one
-                                foreach (string sn in scriptStat.ShortPendingStrategies)
+                                // replace the one with lowest execution priority
+                                var result = from name in scriptStat.LongPendingStrategies
+                                             join s1 in script.Strategies on name equals s1.Name
+                                             where s1.AccountStat.ContainsKey(strategyStat.Account.Name) && s1.Priority <= strategy.Priority
+                                             orderby s1.Priority
+                                             select s1;
+
+                                Strategy s = result?.FirstOrDefault(x => x.AccountStat[strategyStat.Account.Name].ShortPosition == 0 &&
+                                (x.AccountStat[strategyStat.Account.Name].AccountStatus & AccountStatus.ShortPending) != 0);
+                                if (s != null)
                                 {
-                                    Strategy s = script.Strategies.FirstOrDefault(x => x.Name == sn);
-                                    if (s != null && s.AccountStat.ContainsKey(strategyStat.Account.Name) &&
-                                        s.Priority <= strategy.Priority)
-                                    {
-                                        BaseStat baseStat = s.AccountStat[strategyStat.Account.Name];
-                                        if ((baseStat.AccountStatus & AccountStatus.BuyPending) != 0)
-                                        {
-                                            BaseOrderType ot = strategyStat.OrderInfos[action].LastOrDefault()?.OrderType;
-                                            if (ot == null)
-                                                continue;
-                                            warning += "There is a pending SHORT order being cancelled in another strategy - " + s.Name;
-                                            CancelConflictOrder(s, strategyStat, action);
-                                            break;
-                                        }
-                                    }
+                                    warning += "There is a pending Short order being cancelled in another strategy - " + s.Name;
+                                    CancelConflictOrder(s, strategyStat, action);
+                                }
+                                else
+                                {
+                                    message += "Cannot found pending order with lower execution priority";
+                                    return false;
                                 }
                             }
                             else
@@ -924,7 +1124,8 @@ namespace AmiBroker.Controllers
                             {
                                 List<string> list0 = BaseOrderTypeAccessor.GetValueByName(orderType, stpLmt);
                                 List<decimal> prices0 = BaseOrderTypeAccessor.GetPriceByName(strategy, list0);
-                                bool isEqual = prices0[0] == ot.RealPrices[stpLmt[0]] && prices0[1] == ot.RealPrices[stpLmt[1]];
+                                bool isEqual = (ot.RealPrices.ContainsKey(stpLmt[0]) ? prices0[0] == ot.RealPrices[stpLmt[0]] : true) &&
+                                            (ot.RealPrices.ContainsKey(stpLmt[1]) ? prices0[1] == ot.RealPrices[stpLmt[1]] : true);
                                 if (isEqual)
                                 {
                                     message += "There is a duplicated pending SELL order for strategy - " + strategy.Name;
@@ -981,7 +1182,8 @@ namespace AmiBroker.Controllers
                             {
                                 List<string> list0 = BaseOrderTypeAccessor.GetValueByName(orderType, stpLmt);
                                 List<decimal> prices0 = BaseOrderTypeAccessor.GetPriceByName(strategy, list0);
-                                bool isEqual = prices0[0] == ot.RealPrices[stpLmt[0]] && prices0[1] == ot.RealPrices[stpLmt[1]];
+                                bool isEqual = (ot.RealPrices.ContainsKey(stpLmt[0]) ? prices0[0] == ot.RealPrices[stpLmt[0]] : true) &&
+                                            (ot.RealPrices.ContainsKey(stpLmt[1]) ? prices0[1] == ot.RealPrices[stpLmt[1]] : true);
                                 if (isEqual)
                                 {
                                     message += "There is a duplicated pending COVER order for strategy - " + strategy.Name;
@@ -1128,7 +1330,7 @@ namespace AmiBroker.Controllers
                     {
                         if (strategy.MaxLongOpenPosition <= sl)
                             message += "Max. LONG open position(strategy) reached.\n";
-                        if (script.MaxLongOpenPosition < scriptLE + scriptLP)
+                        if (script.MaxLongOpenPosition <= scriptLE + scriptLP)
                             message += "Max. LONG open position(script) reached.\n";
                     }
 
@@ -1136,7 +1338,7 @@ namespace AmiBroker.Controllers
                     {
                         if (strategy.MaxShortOpenPosition <= ss)
                             message += "Max. SHORT open position(strategy) reached.\n";
-                        if (script.MaxShortOpenPosition < scriptSE + scriptSP)
+                        if (script.MaxShortOpenPosition <= scriptSE + scriptSP)
                             message += "Max. SHORT open position(script) reached.\n";
                     }
                 }
@@ -1185,10 +1387,10 @@ namespace AmiBroker.Controllers
             {
                 bool isAdded = false;
                 SymbolInAction symbol = null;
-                Dispatcher.FromThread(UIThread).Invoke(() =>
+                Dispatcher.FromThread(UIThread).Invoke(new System.Action(() =>
                 {
                     isAdded = MainViewModel.Instance.AddSymbol(AFInfo.Name(), AFTimeFrame.Interval() / 60, out symbol);
-                });
+                }), DispatcherPriority.Background, null);
 
                 if (symbol != null)
                 {

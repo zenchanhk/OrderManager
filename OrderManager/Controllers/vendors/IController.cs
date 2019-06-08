@@ -16,7 +16,7 @@ using Krs.Ats.IBNet;
 
 namespace AmiBroker.Controllers
 {
-    public enum AccountStatus
+    public enum AccountStatus 
     {
         None=1,
         BuyPending=2,
@@ -33,6 +33,15 @@ namespace AmiBroker.Controllers
         PreForceExitShortActivated = 4096,
         FinalForceExitLongActivated = 8192,
         FinalForceExitShortActivated = 16384,
+        /*
+        BuyPartiallyFilled = 32768,
+        ShortPartiallyFilled = 65536,
+        SellPartiallyFilled = 131072,
+        CoverPartiallyFilled = 262144,
+        APSLongPartiallyFilled = 524288,
+        APSShortPartiallyFilled = 1048576,
+        StoplossLongPartiallyFilled = 2097152,
+        StoplossShortPartiallyFilled = 4194304,*/
     }
     public class AccountStatusOp
     {
@@ -42,69 +51,99 @@ namespace AmiBroker.Controllers
         private readonly static OrderAction[] LongExitAction = { OrderAction.APSLong, OrderAction.FinalForceExitLong,
             OrderAction.Sell, OrderAction.PreForceExitLong, OrderAction.StoplossLong };
 
-        public static void RevertActionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, string strategyName, OrderAction orderAction, bool cancelled = false)
+        public static void RevertActionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, ref Strategy strategy, OrderAction orderAction, int batchNo, bool cancelled = false)
         {
+            string strategyName = strategy.Name;
+            strategy.StatusChanged = true; 
             if (orderAction == OrderAction.Buy)
-            {
-                strategyStat.AccountStatus &= ~AccountStatus.BuyPending;
-                scriptStat.LongPendingStrategies.Remove(strategyName);
+            {                
+                if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0 && strategyStat.LongPosition > 0
+                    && OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus |= AccountStatus.Long;
+                    strategyStat.AccountStatus &= ~AccountStatus.BuyPending;
+                    scriptStat.LongStrategies.Add(strategyName);
+                    scriptStat.LongPendingStrategies.Remove(strategyName);
+                }
+                if ((strategyStat.AccountStatus & AccountStatus.BuyPending) != 0 && strategyStat.LongPosition == 0
+                    && OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.BuyPending;
+                    scriptStat.LongPendingStrategies.Remove(strategyName);
+                }    
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetLongActionAfterParam(OrderAction.Buy);
+                }
             }
             else if (orderAction == OrderAction.Short)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
-                scriptStat.ShortPendingStrategies.Remove(strategyName);
+                if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0 && strategyStat.ShortPosition > 0
+                    && OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus |= AccountStatus.Short;
+                    strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
+                    scriptStat.ShortStrategies.Add(strategyName);
+                    scriptStat.ShortPendingStrategies.Remove(strategyName);
+                }
+                if ((strategyStat.AccountStatus & AccountStatus.ShortPending) != 0 && strategyStat.ShortPosition == 0
+                    && OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
+                    scriptStat.ShortPendingStrategies.Remove(strategyName);
+                }
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetShortActionAfterParam(OrderAction.Short);
+                }
             }
             else if (orderAction == OrderAction.Sell)
-            {
-                if (strategyStat.LongPosition == 0)
+            {                
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
                 {
                     strategyStat.AccountStatus &= ~AccountStatus.SellPending;
-                }
-                else
-                {
-                    foreach (OrderInfo orderInfo in strategyStat.OrderInfos[orderAction])
-                    {
-                        // 1. remaining > 0
-                        // 2. no error
-                        // 3. not cancelled
-                        if (orderInfo.PosSize > orderInfo.Filled && string.IsNullOrEmpty(orderInfo.Error) && !cancelled)
-                            return;
-                    }
-                    strategyStat.AccountStatus &= ~AccountStatus.SellPending;
+                    strategy.ResetLongActionAfterParam(OrderAction.Sell);
                 }
             }
             else if (orderAction == OrderAction.Cover)
             {
-                if (strategyStat.ShortPosition == 0)
-                    strategyStat.AccountStatus &= ~AccountStatus.CoverPending;
-                else
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
                 {
-                    foreach (OrderInfo orderInfo in strategyStat.OrderInfos[orderAction])
-                    {
-                        // 1. remaining > 0
-                        // 2. no error
-                        // 3. not cancelled
-                        if (orderInfo.PosSize > orderInfo.Filled && string.IsNullOrEmpty(orderInfo.Error) && !cancelled)
-                            return;
-                    }
                     strategyStat.AccountStatus &= ~AccountStatus.CoverPending;
+                    strategy.ResetShortActionAfterParam(OrderAction.Cover);
                 }
             }
             else if (orderAction == OrderAction.APSLong)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetLongActionAfterParam(OrderAction.APSLong);
+                    strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
+                }
             }
             else if (orderAction == OrderAction.APSShort)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetShortActionAfterParam(OrderAction.APSShort);
+                    strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
+                }
             }
             else if (orderAction == OrderAction.StoplossLong)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.StoplossLongActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetLongActionAfterParam(OrderAction.StoplossLong);
+                    strategyStat.AccountStatus &= ~AccountStatus.StoplossLongActivated;
+                }
             }
             else if (orderAction == OrderAction.StoplossShort)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategy.ResetShortActionAfterParam(OrderAction.StoplossShort);
+                    strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
+                }
             }
             else if (orderAction == OrderAction.PreForceExitLong)
             {
@@ -122,44 +161,55 @@ namespace AmiBroker.Controllers
             {
                 strategyStat.AccountStatus &= ~AccountStatus.FinalForceExitShortActivated;
             }
+            
         }
 
         // set initial status of OrderAction
-        public static void SetActionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, string strategyName, OrderAction orderAction)
+        public static void SetActionInitStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, ref Strategy strategy, OrderAction orderAction)
         {
+            string strategyName = strategy.Name;
+            strategy.StatusChanged = true;
             if (orderAction == OrderAction.Buy)
             {
                 strategyStat.AccountStatus |= AccountStatus.BuyPending;
                 scriptStat.LongPendingStrategies.Add(strategyName);
+                strategy.ResetLongActionAfterParam(OrderAction.Buy);
             }
             else if (orderAction == OrderAction.Short)
             {
                 strategyStat.AccountStatus |= AccountStatus.ShortPending;
                 scriptStat.ShortPendingStrategies.Add(strategyName);
+                strategy.ResetShortActionAfterParam(OrderAction.Short);
             }
             else if (orderAction == OrderAction.Sell)
             {
                 strategyStat.AccountStatus |= AccountStatus.SellPending;
+                strategy.ResetLongActionAfterParam(OrderAction.Sell);
             }
             else if (orderAction == OrderAction.Cover)
             {
                 strategyStat.AccountStatus |= AccountStatus.CoverPending;
+                strategy.ResetShortActionAfterParam(OrderAction.Cover);
             }
             else if (orderAction == OrderAction.APSLong)
             {
                 strategyStat.AccountStatus |= AccountStatus.APSLongActivated;
+                strategy.ResetLongActionAfterParam(OrderAction.APSLong);
             }
             else if (orderAction == OrderAction.APSShort)
             {
                 strategyStat.AccountStatus |= AccountStatus.APSShortActivated;
+                strategy.ResetShortActionAfterParam(OrderAction.APSShort);
             }
             else if (orderAction == OrderAction.StoplossLong)
             {
                 strategyStat.AccountStatus |= AccountStatus.StoplossLongActivated;
+                strategy.ResetLongActionAfterParam(OrderAction.StoplossLong);
             }
             else if (orderAction == OrderAction.StoplossShort)
             {
                 strategyStat.AccountStatus |= AccountStatus.StoplossShortActivated;
+                strategy.ResetShortActionAfterParam(OrderAction.StoplossShort);
             }
             else if (orderAction == OrderAction.PreForceExitLong)
             {
@@ -178,41 +228,92 @@ namespace AmiBroker.Controllers
                 strategyStat.AccountStatus |= AccountStatus.FinalForceExitShortActivated;
             }
         }
-        public static void SetPositionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, ref Strategy strategy, OrderAction orderAction)
+
+        // batchNO = -1 ONLY occurs under manually assignment of existing positions
+        public static void SetPositionStatus(ref BaseStat strategyStat, ref BaseStat scriptStat, ref Strategy strategy, OrderAction orderAction, int batchNo = -1, OrderInfo oi = null)
         {
+            strategy.StatusChanged = true;
             if (orderAction == OrderAction.Buy)
             {
-                strategyStat.AccountStatus |= AccountStatus.Long;
-                scriptStat.LongStrategies.Add(strategy.Name);
+                if (batchNo == -1)
+                {
+                    strategyStat.AccountStatus |= AccountStatus.Long;
+                }
+                else 
+                {
+                    if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                    {
+                        strategyStat.AccountStatus &= ~AccountStatus.BuyPending;                        
+                        scriptStat.LongPendingStrategies.Remove(strategy.Name);
+                        if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Filled > 0)
+                        {
+                            strategyStat.AccountStatus |= AccountStatus.Long;
+                            scriptStat.LongStrategies.Add(strategy.Name);
+                        }
+                    }                        
+                }                
             }
             else if (orderAction == OrderAction.Short)
             {
-                strategyStat.AccountStatus |= AccountStatus.Short;
-                scriptStat.ShortStrategies.Add(strategy.Name);
+                if (batchNo == -1)
+                {
+                    strategyStat.AccountStatus |= AccountStatus.Short;
+                }
+                else
+                {
+                    if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                    {
+                        strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
+                        scriptStat.ShortPendingStrategies.Remove(strategy.Name);
+                        if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Filled > 0)
+                        {
+                            strategyStat.AccountStatus |= AccountStatus.Short;
+                            scriptStat.ShortStrategies.Add(strategy.Name);
+                        }
+                    }
+                }
             }
-            else if (orderAction == OrderAction.Sell && strategyStat.LongPosition == 0)
+            else if (orderAction == OrderAction.Sell)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.Long;                
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.SellPending;
+                }
             }
-            else if (orderAction == OrderAction.Cover && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.Cover)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.Short;                
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.CoverPending;
+                }
             }
-            else if (orderAction == OrderAction.APSLong && strategyStat.LongPosition == 0)
+            else if (orderAction == OrderAction.APSLong)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.APSLongActivated;
+                }
             }
-            else if (orderAction == OrderAction.APSShort && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.APSShort)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.APSShortActivated;
+                }
             }
-            else if (orderAction == OrderAction.StoplossLong && strategyStat.LongPosition == 0)
+            else if (orderAction == OrderAction.StoplossLong)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.StoplossLongActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.StoplossLongActivated;
+                }
             }
-            else if (orderAction == OrderAction.StoplossShort && strategyStat.ShortPosition == 0)
+            else if (orderAction == OrderAction.StoplossShort)
             {
-                strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
+                if (OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
+                {
+                    strategyStat.AccountStatus &= ~AccountStatus.StoplossShortActivated;
+                }
             }
             else if (orderAction == OrderAction.PreForceExitLong && strategyStat.LongPosition == 0)
             {
@@ -232,7 +333,8 @@ namespace AmiBroker.Controllers
             }
 
             string msg = string.Empty;
-            if (strategyStat.LongPosition == 0 && LongExitAction.Contains(orderAction))
+            if (strategyStat.LongPosition == 0 && LongExitAction.Contains(orderAction) &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
             {
                 /*
                 strategyStat.OrderInfos[OrderAction.APSLong].Clear();
@@ -244,13 +346,16 @@ namespace AmiBroker.Controllers
                 scriptStat.LongStrategies.Remove(strategy.Name);
 
                 strategyStat.AccountStatus &= ~AccountStatus.Long;
+                strategyStat.AccountStatus &= ~AccountStatus.BuyPending;
                 strategy.ForceExitOrderForLong.Reset();
                 strategy.AdaptiveProfitStopforLong.Reset();
+                strategy.ResetLongActionAfterParam();
 
                 msg = "Long cleared, OrderAction:" + orderAction.ToString();
             }
 
-            if (strategyStat.ShortPosition == 0 && ShortExitAction.Contains(orderAction))
+            if (strategyStat.ShortPosition == 0 && ShortExitAction.Contains(orderAction) &&
+                OrderManager.BatchPosSize[strategyStat.Account.Name + batchNo].Remaining == 0)
             {
                 /*
                 strategyStat.OrderInfos[OrderAction.APSShort].Clear();
@@ -262,8 +367,10 @@ namespace AmiBroker.Controllers
                 scriptStat.ShortStrategies.Remove(strategy.Name);
 
                 strategyStat.AccountStatus &= ~AccountStatus.Short;
+                strategyStat.AccountStatus &= ~AccountStatus.ShortPending;
                 strategy.ForceExitOrderForShort.Reset();
                 strategy.AdaptiveProfitStopforShort.Reset();
+                strategy.ResetShortActionAfterParam();
 
                 msg = "Short cleared, OrderAction:" + orderAction.ToString();
             }
@@ -421,9 +528,14 @@ namespace AmiBroker.Controllers
         BitmapImage Image { get; }
         Size ImageSize { get; }
         bool Dummy { get; set; }    // used in listview in account selecting section
+        bool ModifyOrder(OrderInfo oi);  // Modify order as Market Order
         bool ModifyOrder(AccountInfo accountInfo, Strategy strategy, OrderAction orderAction, BaseOrderType orderType);
-        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, OrderAction orderAction, int batchNo, OrderInfo oi = null, double? posSize = null, Contract security = null, bool errorSuppress = false, bool addToInfoList = true);
+        Task<List<OrderLog>> PlaceOrder(AccountInfo accountInfo, Strategy strategy, BaseOrderType orderType, 
+            OrderAction orderAction, int batchNo, double? posSize = null, Contract security = null, 
+            bool errorSuppress = false, bool addToInfoList = true);
         void CancelOrder(int orderId);
+        bool CancelOrders(OrderInfo orderInfo);
         Task<bool> CancelOrderAsync(int orderId);
+        Task<bool> CancelOrdersAsync(OrderInfo orderInfo);
     }
 }

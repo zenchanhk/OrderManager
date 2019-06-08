@@ -78,6 +78,9 @@ namespace AmiBroker.Controllers
         public ObservableCollection<Log> LogList { set; get; }
         public ObservableCollection<Log> MinorLogList { set; private get; } = new ObservableCollection<Log>();
         public ObservableCollectionEx<DisplayedOrder> Orders { set; get; }
+
+        // store updated order to prevent duplicating
+        public ObservableCollection<DisplayedOrder> UpdatedOrders { set; get; } = new ObservableCollection<DisplayedOrder>();
         public ObservableCollection<SymbolInMkt> Portfolio { set; get; } = new ObservableCollection<SymbolInMkt>();
         public SymbolInMkt SelectedPortfolio { get; set; }
         public ObservableCollection<SymbolInAction> SymbolInActions { get; set; }

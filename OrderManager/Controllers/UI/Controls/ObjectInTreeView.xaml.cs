@@ -373,9 +373,17 @@ namespace ControlLib
                     {
                         if (value.GetType().Name.Contains("Dictionary"))
                         {
-                            Dictionary<string, Object> dict = (Dictionary<string, Object>)value;
                             TreeNode arrayItem = new TreeNode();
-                            arrayItem.Name = dict.ContainsKey("Name") ? $"[{dict["Name"]}]" : $"[{index}]";
+                            Type[] args = value.GetType().GetGenericArguments();
+                            if (args[0] == typeof(string))
+                            {
+                                Dictionary<string, Object> dict = (Dictionary<string, Object>)value;
+                                arrayItem.Name = dict.ContainsKey("Name") ? $"[{dict["Name"]}]" : $"[{index}]";
+                            }
+                            else if (args[0].IsEnum)
+                            {
+                                arrayItem.Name = ((dynamic)value).Key.ToString();
+                            }
                             arrayItem.Type = arrayItem.GetType();
                             arrayItem.Value = "";
                             node.Children.Add(arrayItem);

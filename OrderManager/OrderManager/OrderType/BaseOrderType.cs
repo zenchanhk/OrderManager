@@ -46,7 +46,7 @@ namespace AmiBroker.OrderManager
             set { _UpdateField(ref _pPosSize, value); }
         }
     }
-
+    
     /**
      * BaseLine must be reached to activate  
      * Only if price is closing threshold, order will be placed
@@ -129,10 +129,17 @@ namespace AmiBroker.OrderManager
         }
 
         private int _pThreshold;
-        public int Threshold
+        public int SubmitThreshold
         {
             get { return _pThreshold; }
             set { _UpdateField(ref _pThreshold, value); }
+        }
+
+        private int _pModifyThreshold;
+        public int ModifyThreshold
+        {
+            get { return _pModifyThreshold; }
+            set { _UpdateField(ref _pModifyThreshold, value); }
         }
 
         private int _pProfitClass;
@@ -175,21 +182,20 @@ namespace AmiBroker.OrderManager
         public AdaptiveProfitStop()
         {
         }
-
-        [JsonIgnore]
-        public BaseOrderType OT_stopProfit { get; private set; } = new IBStopLimitOrder();
-        [JsonIgnore]
-        public BaseOrderType OT_stopLoss { get; private set; } = new IBStopLimitOrder();
+                
+        public BaseOrderType OT_stopProfit { get; set; }        
+        public BaseOrderType OT_stopLoss { get; set; }
         
         public AdaptiveProfitStop(SSBase strategy, ActionType actionType, BaseOrderType stpLmtOrder = null)
         {
             Strategy = strategy.GetType() == typeof(Strategy) ? (Strategy)strategy : null;
-            OT_stopProfit = stpLmtOrder == null ? OT_stopProfit : stpLmtOrder;            
-            OT_stopLoss = stpLmtOrder == null ? OT_stopLoss : stpLmtOrder.CloneObject();
+            OT_stopProfit = stpLmtOrder == null ? new IBStopLimitOrder() : stpLmtOrder;            
+            OT_stopLoss = stpLmtOrder == null ? new IBStopLimitOrder() : stpLmtOrder.CloneObject();
+            /*
             OT_stopProfit.Slippages = new ObservableCollection<CSlippage>();
             OT_stopProfit.Slippages.Add(new CSlippage { Slippage = 1, PosSize = 1 });
             OT_stopLoss.Slippages = new ObservableCollection<CSlippage>();
-            OT_stopLoss.Slippages.Add(new CSlippage { Slippage = 1, PosSize = 1 });
+            OT_stopLoss.Slippages.Add(new CSlippage { Slippage = 1, PosSize = 1 });*/
             ActionType = actionType;
         }
         
@@ -222,7 +228,7 @@ namespace AmiBroker.OrderManager
                         HighestProfit = Math.Max(HighestProfit, EntryPrice - curPrice);
 
                     // ignore the duplicated signal processing
-                    if (HighestProfit != _highestProfitSinceLastSent)
+                    if (HighestProfit - _highestProfitSinceLastSent >= (double)(ModifyThreshold * Strategy.Symbol.MinTick))
                     {
                         int profit_class = HighestProfit / EntryPrice < ProfitTarget / 100 ? 0 :
                         1 + (int)((HighestProfit / EntryPrice - ProfitTarget / 100) / (ProfitTarget / 100 * TargetIncrement));
@@ -235,23 +241,25 @@ namespace AmiBroker.OrderManager
                             if (ActionType == ActionType.Long)
                             {
                                 StopPrice = EntryPrice + HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
-                                if (curPrice <= StopPrice + (float)(Threshold * Strategy.Symbol.MinTick))
+                                if (curPrice <= StopPrice + (float)(SubmitThreshold * Strategy.Symbol.MinTick))
                                 {
                                     accessor[OT_stopProfit, "LmtPrice"] = StopPrice.ToString();
                                     accessor[OT_stopProfit, "AuxPrice"] = StopPrice.ToString();
                                     bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSLong, DateTime.Now, OT_stopProfit);
-                                    if (r) _highestProfitSinceLastSent = HighestProfit;
+                                    //if (r) 
+                                        _highestProfitSinceLastSent = HighestProfit;
                                 }
                             }
                             else if (ActionType == ActionType.Short)
                             {
                                 StopPrice = EntryPrice - HighestProfit * (BaseLine / 100 + DropIncrement / 100 * (ProfitClass - 1));
-                                if (curPrice >= StopPrice - (float)(Threshold * Strategy.Symbol.MinTick))
+                                if (curPrice >= StopPrice - (float)(SubmitThreshold * Strategy.Symbol.MinTick))
                                 {
                                     accessor[OT_stopProfit, "LmtPrice"] = StopPrice.ToString();
                                     accessor[OT_stopProfit, "AuxPrice"] = StopPrice.ToString();
                                     bool r = Controllers.OrderManager.ProcessSignal(Strategy.Script, Strategy, OrderAction.APSShort, DateTime.Now, OT_stopProfit);
-                                    if (r) _highestProfitSinceLastSent = HighestProfit;
+                                    //if (r) 
+                                        _highestProfitSinceLastSent = HighestProfit;
                                 }
                             }
                         }
@@ -270,7 +278,7 @@ namespace AmiBroker.OrderManager
                         if (ActionType == ActionType.Long)
                         {
                             sp = EntryPrice - (float)(Stoploss * Strategy.Symbol.MinTick);
-                            if (curPrice <= sp + (float)(Threshold * Strategy.Symbol.MinTick))
+                            if (curPrice <= sp + (float)(SubmitThreshold * Strategy.Symbol.MinTick))
                             {
                                 accessor[OT_stopLoss, "LmtPrice"] = sp.ToString();
                                 accessor[OT_stopLoss, "AuxPrice"] = sp.ToString();
@@ -281,7 +289,7 @@ namespace AmiBroker.OrderManager
                         else if (ActionType == ActionType.Short)
                         {
                             sp = EntryPrice + (float)(Stoploss * Strategy.Symbol.MinTick);
-                            if (curPrice >= sp - (float)(Threshold * Strategy.Symbol.MinTick))
+                            if (curPrice >= sp - (float)(SubmitThreshold * Strategy.Symbol.MinTick))
                             {
                                 accessor[OT_stopLoss, "LmtPrice"] = sp.ToString();
                                 accessor[OT_stopLoss, "AuxPrice"] = sp.ToString();

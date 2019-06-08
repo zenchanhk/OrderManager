@@ -388,7 +388,7 @@
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisConverter}}">
                         <TextBlock Text="Execution Priority:" />
                         <controls:NumericUpDown Value="{Binding Priority}" Margin="5, 0" Width="70"
-                                                MaxValue="20" MinValue="1" Increment="1"/>
+                                                MaxValue="40" MinValue="1" Increment="1"/>
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Stretch" Margin="10,3,3,3" 
                                 Visibility="{Binding DataContext.SelectedItem, ElementName=scriptTabView, Converter={StaticResource TypeToVisRevConverter}}"
@@ -590,6 +590,42 @@
                                                 </DataTemplate>
                                             </ContentControl.ContentTemplate>
                                         </ContentControl>
+                                        
+                                        <!-- Partially filled order handling for long side -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="7,3,3,3" Background="LightGray">
+                                            <TextBlock Text="Partailly filled orders handling" Margin="3" FontWeight="Bold"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="10,3,3,3" HorizontalAlignment="Stretch">
+                                            <StackPanel Margin="3">
+                                                <TextBlock Text="Hint: 0 means disabled.&#x0a;Hold Duration is in seconds;&#x0a;Drop Point in ticks." Margin="0, 2"/>
+                                                <ListView Name="lv" ItemsSource="{Binding DataContext.SelectedItem.LongActionAfter, ElementName=scriptTabView}">
+                                                    <ListView.View>
+                                                        <GridView>
+                                                            <GridViewColumn Header="Action" DisplayMemberBinding="{Binding Key}"/>
+                                                            <GridViewColumn Header="Hold Duration" Width="80">
+                                                                <GridViewColumn.CellTemplate>
+                                                                    <DataTemplate>
+                                                                        <controls:NumericUpDown Value="{Binding Value.HoldDuration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                        MinValue="0" MaxValue="1800" Increment="1"
+                                                            Width="60" />
+                                                                    </DataTemplate>
+                                                                </GridViewColumn.CellTemplate>
+                                                            </GridViewColumn>
+                                                            <GridViewColumn Header="Drop Points" Width="80">
+                                                                <GridViewColumn.CellTemplate>
+                                                                    <DataTemplate>
+                                                                        <controls:NumericUpDown Value="{Binding Value.DropTick, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                        MinValue="0" MaxValue="100" Increment="1"
+                                                         Width="60" />
+                                                                    </DataTemplate>
+                                                                </GridViewColumn.CellTemplate>
+                                                            </GridViewColumn>
+                                                        </GridView>
+                                                    </ListView.View>
+                                                </ListView>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <!-- END of Partially filled order handling -->
 
                                         <!--Adaptive Profit Stop Settings-->
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="7,3,3,3" Background="LightGray">
@@ -600,9 +636,15 @@
                                         <StackPanel Margin="10,3,3,3" HorizontalAlignment="Stretch">
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Order Submit Trigger Threshold</TextBlock>
-                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.Threshold, ElementName=scriptTabView}"
+                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.SubmitThreshold, ElementName=scriptTabView}"
                                                                         MaxValue="200" MinValue="0" Increment="1" Width="80"
                                                                         ToolTip="Define how close to target price (in price)"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="3, 1, 3, 3" Orientation="Horizontal">
+                                            <TextBlock Margin="0, 0, 3, 0">Order Modify Trigger Threshold</TextBlock>
+                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforLong.ModifyThreshold, ElementName=scriptTabView}"
+                                                                        MaxValue="200" MinValue="0" Increment="1" Width="80"
+                                                                        ToolTip="Define how many ticks to trigger order modifying"/>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
                                                 <Separator Width="10" />
@@ -853,6 +895,42 @@
                                             </ContentControl.ContentTemplate>
                                         </ContentControl>
 
+                                        <!-- Partially filled order handling for short side -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="7,3,3,3" Background="LightGray">
+                                            <TextBlock Text="Partailly filled orders handling" Margin="3" FontWeight="Bold"/>
+                                        </StackPanel>
+                                        <StackPanel Margin="10,3,3,3" HorizontalAlignment="Stretch">
+                                            <StackPanel Margin="3">
+                                                <TextBlock Text="Hint: 0 means disabled.&#x0a;Hold Duration is in seconds;&#x0a;Drop Point in ticks." Margin="0, 2"/>
+                                                <ListView Name="lv" ItemsSource="{Binding DataContext.SelectedItem.ShortActionAfter, ElementName=scriptTabView}">
+                                                    <ListView.View>
+                                                        <GridView>
+                                                            <GridViewColumn Header="Action" DisplayMemberBinding="{Binding Key}"/>
+                                                            <GridViewColumn Header="Hold Duration" Width="80">
+                                                                <GridViewColumn.CellTemplate>
+                                                                    <DataTemplate>
+                                                                        <controls:NumericUpDown Value="{Binding Value.HoldDuration, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                        MinValue="0" MaxValue="1800" Increment="1"
+                                                            Width="60" />
+                                                                    </DataTemplate>
+                                                                </GridViewColumn.CellTemplate>
+                                                            </GridViewColumn>
+                                                            <GridViewColumn Header="Drop Points" Width="80">
+                                                                <GridViewColumn.CellTemplate>
+                                                                    <DataTemplate>
+                                                                        <controls:NumericUpDown Value="{Binding Value.DropTick, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                                        MinValue="0" MaxValue="100" Increment="1"
+                                                         Width="60" />
+                                                                    </DataTemplate>
+                                                                </GridViewColumn.CellTemplate>
+                                                            </GridViewColumn>
+                                                        </GridView>
+                                                    </ListView.View>
+                                                </ListView>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <!-- END of Partially filled order handling -->
+
                                         <!--Adaptive Profit Stop Settings-->
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch" Margin="7,3,3,3" Background="LightGray">
                                             <CheckBox IsChecked="{Binding DataContext.SelectedItem.IsAPSAppliedforShort, ElementName=scriptTabView}"
@@ -862,9 +940,15 @@
                                         <StackPanel Margin="10,3,3,3" HorizontalAlignment="Stretch">
                                             <StackPanel Margin="3" Orientation="Horizontal">
                                                 <TextBlock Margin="0, 0, 3, 0">Order Submit Trigger Threshold</TextBlock>
-                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.Threshold, ElementName=scriptTabView}"
+                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.SubmitThreshold, ElementName=scriptTabView}"
                                                                         MaxValue="200" MinValue="0" Increment="1" Width="80"
                                                                         ToolTip="Define how close to target price (in price)"/>
+                                            </StackPanel>
+                                            <StackPanel Margin="3, 1, 3, 3" Orientation="Horizontal">
+                                                <TextBlock Margin="0, 0, 3, 0">Order Modify Trigger Threshold</TextBlock>
+                                                <controls:NumericUpDown Value="{Binding DataContext.SelectedItem.AdaptiveProfitStopforShort.ModifyThreshold, ElementName=scriptTabView}"
+                                                                        MaxValue="200" MinValue="0" Increment="1" Width="80"
+                                                                        ToolTip="Define how many ticks to trigger order modifying"/>
                                             </StackPanel>
                                             <DockPanel LastChildFill="True">
                                                 <Separator Width="10" />
@@ -1308,7 +1392,7 @@
                                 <Image Source="{StaticResource enterDrawingImage}"     
                                    ToolTip="Buy/Short order is pending"
                                    Visibility="{Binding AccountStatus, Converter={StaticResource AccountStatusToVisConverter}, ConverterParameter=inpending}" 
-                                   Width="21" Margin="0, 0, 2, 0" />
+                                   Width="19" Height="19" Margin="0, 0, 2, 0" />
                                 <Border CornerRadius="2"
                                         BorderBrush="GreenYellow"
                                         BorderThickness="1"

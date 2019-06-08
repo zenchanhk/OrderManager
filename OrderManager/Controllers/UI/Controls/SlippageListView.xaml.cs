@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AmiBroker.Controllers;
 using AmiBroker.OrderManager;
 
@@ -17,6 +18,7 @@ namespace ControlLib
     public partial class SlippageListView : UserControl
     {
         public Image ImageDel { get; private set; } = Util.MaterialIconToImage(MaterialIcons.Minus, Util.Color.Red);
+        
         public SlippageListView()
         {
             InitializeComponent();
@@ -49,6 +51,11 @@ namespace ControlLib
             object item = ((ListView)FindName("lv")).SelectedItem;
             if (item != null)
                 ((ObservableCollection<CSlippage>)ItemsSource).Remove((CSlippage)item);
+        }
+
+        private void BtnDelAll_Click(object sender, RoutedEventArgs e)
+        {
+            ItemsSource.Clear();
         }
     }
 }

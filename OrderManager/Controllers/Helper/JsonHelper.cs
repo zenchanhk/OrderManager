@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using AmiBroker.OrderManager;
 using System.Reflection;
+using System.Collections.Concurrent;
 
 namespace AmiBroker.Controllers
 {   
@@ -52,6 +53,8 @@ namespace AmiBroker.Controllers
                 prop.PropertyType != typeof(ForceExitOrder) &&
                 prop.PropertyType != typeof(AdaptiveProfitStop) &&
                 prop.PropertyType != typeof(Entry) &&
+                prop.PropertyType != typeof(ActionAfterParam) &&
+                prop.PropertyType != typeof(BaseOrderType) &&
                 prop.PropertyType.IsClass &&
                 !prop.PropertyType.FullName.StartsWith("System")))
             {
@@ -77,7 +80,7 @@ namespace AmiBroker.Controllers
             typeof(SymbolInAction), typeof(Strategy), typeof(SymbolDefinition), typeof(ConnectionParam),
             typeof(AccountInfo), typeof(BaseOrderType), typeof(GoodTime), typeof(TimeZone),
             typeof(BaseStat), typeof(CSlippage), typeof(WeekDay), typeof(ForceExitOrder), typeof(AdaptiveProfitStop),
-            typeof(Entry)}
+            typeof(Entry), typeof(ActionAfterParam)}
         };
 
         public static JsonSerializerSettings saveSerializerSettings = new JsonSerializerSettings
